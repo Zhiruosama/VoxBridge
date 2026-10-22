@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AudioLines, RefreshCw, Square, Volume2 } from 'lucide-react';
 import { desktop, listOutputs, stopTone, testTone } from '../bridge';
 import type { OutputDevice, RuntimeInfo } from '../core/types';
+import Select from './Select';
 
 export default function Diagnostics({
   runtime,
@@ -108,18 +109,18 @@ export default function Diagnostics({
         </div>
         <label>
           测试目的地
-          <select
+          <Select
+            label="测试目的地"
             value={deviceId}
-            onChange={(e) => setDeviceId(e.target.value)}
+            onChange={setDeviceId}
             disabled={!desktop || loading || busy}
-          >
-            <option value="">请选择设备，不自动跟随系统默认值</option>
-            {devices.map((d, i) => (
-              <option key={`${d.id}-${i}`} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+            placeholder="请选择设备，不自动跟随系统默认值"
+            options={[
+              ...new Map(
+                devices.map((device) => [device.id, { value: device.id, label: device.name }]),
+              ).values(),
+            ]}
+          />
         </label>
         {!desktop && <p className="muted">浏览器预览不访问原生音频设备。</p>}
         <div className="test-actions">

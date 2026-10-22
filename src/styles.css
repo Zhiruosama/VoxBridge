@@ -1,5 +1,17 @@
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-family:
+    'Noto Sans SC Variable',
+    'Segoe UI Variable Text',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-size: 14px;
+  font-weight: 450;
+  line-height: 1.6;
+  --radius-control: 10px;
+  --radius-panel: 18px;
+  --menu: #2b2b2b;
+  --menu-hover: #3a3a3a;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -20,6 +32,8 @@
   --focus: #a7c4ed;
 }
 :root[data-theme='light'] {
+  --menu: #fff;
+  --menu-hover: #ededeb;
   --bg: #fafaf9;
   --side: #f0f0ee;
   --raised: #fff;
@@ -59,7 +73,7 @@ select {
 }
 button {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text);
   min-height: 32px;
@@ -68,9 +82,10 @@ button {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
   transition: background 150ms;
+  font-weight: 500;
 }
 button:hover:not(:disabled) {
   background: var(--hover);
@@ -115,7 +130,7 @@ textarea {
   color: var(--text);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 9px 10px;
   min-width: 0;
 }
@@ -126,20 +141,17 @@ input::placeholder,
 textarea::placeholder {
   color: var(--faint);
 }
-select option {
-  background: var(--raised);
-  color: var(--text);
-}
 label {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
+  font-weight: 500;
 }
 small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
 }
 h1,
@@ -149,12 +161,12 @@ p {
 }
 h1 {
   font-size: 25px;
-  font-weight: 500;
+  font-weight: 650;
   letter-spacing: -0.7px;
 }
 h2 {
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -197,25 +209,28 @@ h2 {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 184px minmax(0, 1fr);
+  grid-template-columns: 196px minmax(0, 1fr);
   height: 100dvh;
   min-height: 480px;
+  padding: 8px;
+  gap: 6px;
+  background: var(--side);
 }
 .sidebar {
   background: var(--side);
-  border-right: 1px solid var(--border);
+  border-right: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 10px 12px;
+  padding: 0 6px 8px;
 }
 .brand {
-  height: 56px;
+  height: 54px;
   padding: 0 10px;
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 13px;
-  font-weight: 550;
+  font-size: 15px;
+  font-weight: 650;
 }
 nav {
   display: flex;
@@ -226,8 +241,11 @@ nav button {
   border: 0;
   justify-content: flex-start;
   padding: 8px 10px;
-  min-height: 32px;
+  min-height: 38px;
   color: var(--muted);
+  font-size: 14px;
+  font-weight: 550;
+  border-radius: 11px;
 }
 nav button[aria-current='page'] {
   color: var(--text);
@@ -241,9 +259,13 @@ nav button[aria-current='page'] {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
 }
 .titlebar {
-  height: 48px;
+  height: 52px;
   padding: 0 18px;
   flex-shrink: 0;
   display: flex;
@@ -256,8 +278,8 @@ nav button[aria-current='page'] {
   gap: 8px;
 }
 .titlebar strong {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
 }
 .notice {
   display: flex;
@@ -288,19 +310,13 @@ nav button[aria-current='page'] {
 .source-button {
   border: 0;
   padding: 4px 0;
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 500;
 }
 .language-pair {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: var(--muted);
-}
-.language-pair select {
-  border: 0;
-  background: transparent;
-  padding: 4px;
-  font-size: 11px;
   color: var(--muted);
 }
 .demo-label {
@@ -322,8 +338,9 @@ nav button[aria-current='page'] {
   place-items: center;
 }
 .empty-state p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--faint);
+  font-weight: 500;
 }
 .transcript-content {
   max-width: 820px;
@@ -343,15 +360,16 @@ nav button[aria-current='page'] {
 }
 .source-text {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
 .translation-text {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.8;
   margin-top: 5px;
   overflow-wrap: anywhere;
+  font-weight: 500;
 }
 .jump-latest {
   position: absolute;
@@ -370,7 +388,7 @@ nav button[aria-current='page'] {
 .composer-box {
   background: var(--raised);
   border: 1px solid #414141;
-  border-radius: 8px;
+  border-radius: 20px;
   overflow: hidden;
 }
 .composer-box:focus-within {
@@ -382,11 +400,11 @@ nav button[aria-current='page'] {
   min-height: 76px;
   max-height: 160px;
   resize: vertical;
-  padding: 13px 14px 4px;
+  padding: 16px 16px 6px;
   background: transparent;
   border: 0;
-  border-radius: 0;
-  font-size: 13px;
+  border-radius: 18px 18px 0 0;
+  font-size: 14px;
   line-height: 1.7;
 }
 .composer-box textarea:focus-visible {
@@ -397,17 +415,18 @@ nav button[aria-current='page'] {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 9px 8px;
+  padding: 6px 12px 12px;
 }
 .model-button {
   border: 0;
   color: var(--muted);
-  padding: 5px;
+  padding: 6px 8px;
   min-height: 28px;
   max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
 }
 .composer-actions {
   display: flex;
@@ -419,8 +438,10 @@ nav button[aria-current='page'] {
   min-height: 28px;
 }
 .send-button {
-  width: 28px;
+  width: 32px;
   padding: 5px;
+  height: 32px;
+  border-radius: 50%;
 }
 .input-count {
   font-size: 10px;
@@ -640,5 +661,113 @@ nav button[aria-current='page'] {
   *::after {
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+.select-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+.select-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.select-trigger[data-state='open'] {
+  background: var(--hover);
+}
+.select-compact {
+  min-height: 34px;
+  width: auto;
+  padding: 5px 9px;
+  gap: 10px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 13px;
+  color: var(--muted);
+}
+.select-menu {
+  z-index: 100;
+  min-width: max(var(--radix-select-trigger-width), 160px);
+  max-width: min(400px, calc(100vw - 24px));
+  max-height: min(var(--radix-select-content-available-height), 320px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--menu);
+  color: var(--text);
+  padding: 5px;
+  box-shadow:
+    0 12px 36px #0004,
+    0 2px 6px #0002;
+  overflow: hidden;
+  transform-origin: var(--radix-select-content-transform-origin);
+  animation: select-appear 120ms ease-out;
+}
+.select-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 36px 7px 11px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+}
+.select-option > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-option[data-highlighted] {
+  background: var(--menu-hover);
+}
+.select-option[data-state='checked'] {
+  font-weight: 600;
+}
+.select-check {
+  position: absolute;
+  right: 11px;
+  display: flex;
+  align-items: center;
+}
+.select-scroll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  color: var(--muted);
+}
+@keyframes select-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .select-menu {
+    animation: none;
   }
 }

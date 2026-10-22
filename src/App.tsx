@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import SettingsPanel from './components/SettingsPanel';
 import Diagnostics from './components/Diagnostics';
+import Select from './components/Select';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
 import { applyTranscript, applyTranslation } from './core/session';
 import type { RuntimeInfo, Session, Settings, TranscriptEvent } from './core/types';
@@ -287,25 +288,21 @@ export default function App() {
                   <ChevronDown size={12} />
                 </button>
                 <div className="language-pair">
-                  <select
-                    aria-label="源语言"
+                  <Select
+                    label="源语言"
                     value={settings.sourceLanguage}
-                    onChange={(e) => persist({ ...settings, sourceLanguage: e.target.value }, true)}
-                  >
-                    {languages.map((l) => (
-                      <option key={l}>{l}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => persist({ ...settings, sourceLanguage: value }, true)}
+                    options={languages.map((language) => ({ value: language, label: language }))}
+                    compact
+                  />
                   <ArrowRight size={12} />
-                  <select
-                    aria-label="目标语言"
+                  <Select
+                    label="目标语言"
                     value={settings.targetLanguage}
-                    onChange={(e) => persist({ ...settings, targetLanguage: e.target.value }, true)}
-                  >
-                    {languages.map((l) => (
-                      <option key={l}>{l}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
+                    options={languages.map((language) => ({ value: language, label: language }))}
+                    compact
+                  />
                 </div>
                 {(demo || session.segments.length > 0) && <span className="demo-label">演示</span>}
               </div>

@@ -3,6 +3,7 @@ import { Check, KeyRound, Plus, Save, Trash2 } from 'lucide-react';
 import type { ProviderProfile, Settings, Stage } from '../core/types';
 import { profileFor } from '../core/settings';
 import { credentialStatus, desktop, removeCredential, setCredential } from '../bridge';
+import Select from './Select';
 
 const stages: { id: Stage; name: string }[] = [
   { id: 'translation', name: '文字翻译' },
@@ -124,21 +125,17 @@ export default function SettingsPanel({
         <div className="form-grid">
           <label>
             当前配置
-            <select
+            <Select
+              label="当前配置"
               disabled={busy}
               value={profile.id}
-              onChange={(e) =>
-                setDraft({ ...draft, active: { ...draft.active, [stage]: e.target.value } })
+              onChange={(value) =>
+                setDraft({ ...draft, active: { ...draft.active, [stage]: value } })
               }
-            >
-              {draft.profiles
+              options={draft.profiles
                 .filter((p) => p.stage === stage)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-            </select>
+                .map((p) => ({ value: p.id, label: p.name }))}
+            />
           </label>
           <label>
             配置名称
@@ -256,14 +253,16 @@ export default function SettingsPanel({
         </div>
         <label className="theme-select">
           主题
-          <select
+          <Select
+            label="主题"
             value={draft.theme}
-            onChange={(e) => setDraft({ ...draft, theme: e.target.value as Settings['theme'] })}
-          >
-            <option value="dark">深色</option>
-            <option value="light">浅色</option>
-            <option value="system">跟随系统</option>
-          </select>
+            onChange={(value) => setDraft({ ...draft, theme: value as Settings['theme'] })}
+            options={[
+              { value: 'dark', label: '深色' },
+              { value: 'light', label: '浅色' },
+              { value: 'system', label: '跟随系统' },
+            ]}
+          />
         </label>
       </section>
       <p className="footnote">
