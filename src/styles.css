@@ -29,7 +29,7 @@
   --accent-text: #202020;
   --good: #98c5a8;
   --danger: #f3a6a6;
-  --focus: #a7c4ed;
+  --focus: #88888d;
 }
 :root[data-theme='light'] {
   --menu: #fff;
@@ -46,7 +46,7 @@
   --accent-text: #fff;
   --good: #386648;
   --danger: #a52a2a;
-  --focus: #265aa5;
+  --focus: #73737a;
 }
 * {
   box-sizing: border-box;
@@ -392,14 +392,15 @@ nav button[aria-current='page'] {
   overflow: hidden;
 }
 .composer-box:focus-within {
-  border-color: var(--muted);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
 }
 .composer-box textarea {
   display: block;
   width: 100%;
   min-height: 76px;
   max-height: 160px;
-  resize: vertical;
+  resize: none;
   padding: 16px 16px 6px;
   background: transparent;
   border: 0;
@@ -408,8 +409,8 @@ nav button[aria-current='page'] {
   line-height: 1.7;
 }
 .composer-box textarea:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -3px;
+  outline: none;
+  box-shadow: none;
 }
 .composer-controls {
   display: flex;
@@ -804,7 +805,7 @@ nav button[aria-current='page'] {
   align-items: center;
   gap: 24px;
   padding: 18px 0;
-  min-height: 78px;
+  min-height: 68px;
 }
 .preference-copy {
   min-width: 0;
@@ -814,13 +815,6 @@ nav button[aria-current='page'] {
   font-weight: 550;
   line-height: 1.6;
   margin: 0;
-}
-.preference-copy p {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 450;
-  line-height: 1.7;
-  margin-top: 3px;
 }
 .preference-control {
   display: flex;
@@ -885,17 +879,6 @@ nav button[aria-current='page'] {
   min-height: 36px;
   font-size: 12px;
 }
-.preference-hint {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.7;
-  margin: 10px 3px 0;
-}
-.integration-note {
-  color: var(--muted);
-  font-size: 12px;
-  margin: -16px 0 30px;
-}
 @container preferences (max-width:580px) {
   .preference-row {
     grid-template-columns: minmax(0, 1fr);
@@ -935,4 +918,44 @@ nav button[aria-current='page'] {
   .preference-card {
     padding-inline: 16px;
   }
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+.composer-box textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+.preferences-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profile-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.profile-picker > .select-trigger,
+.profile-picker > input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
+.profile-picker > .select-trigger {
+  background: var(--bg);
+  font-size: 13px;
+  min-height: 38px;
+}
+.profile-picker > input {
+  font-size: 13px;
+  min-height: 38px;
+}
+.profile-picker > .icon-button {
+  flex-shrink: 0;
+  color: var(--muted);
 }

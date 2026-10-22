@@ -56,17 +56,17 @@ export default function Diagnostics({
       <div className="page-heading">
         <div>
           <h1>音频与诊断</h1>
-          <p>逐步检查输出设备，再进行 Mac 原生采集联调。</p>
+          <p>管理音频设备并检查声音输出。</p>
         </div>
         <AudioLines size={28} strokeWidth={1} />
       </div>
       <section className="settings-section">
         <div className="section-heading">
           <div>
-            <h2>字幕演示</h2>
-            <p>固定样例，不录音、不调用模型服务。</p>
+            <h2>字幕预览</h2>
+            <p>使用示例对话预览字幕，不采集或上传声音。</p>
           </div>
-          <button onClick={onDemo}>{demo ? '暂停演示' : '播放演示'}</button>
+          <button onClick={onDemo}>{demo ? '暂停' : '播放示例'}</button>
         </div>
       </section>
       <section className="settings-section">
@@ -144,15 +144,6 @@ export default function Diagnostics({
         <small>
           诊断版暂按设备名称匹配，同名设备会拒绝播放。正式路由的稳定 UID、断连恢复仍待实现。
         </small>
-      </section>
-      <section className="settings-section">
-        <h2>明日 Mac 联调顺序</h2>
-        <ol className="steps">
-          <li>构建并运行桌面应用，检查 Keychain 保存。</li>
-          <li>使用原生探针确认目标应用声音与权限。</li>
-          <li>安装 BlackHole，测试本地回录和 Discord 输入。</li>
-          <li>同时收发，检查自身声音是否形成回环。</li>
-        </ol>
       </section>
     </div>
   );

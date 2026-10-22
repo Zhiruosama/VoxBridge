@@ -25,13 +25,10 @@ import type { RuntimeInfo, Session, Settings, TranscriptEvent } from './core/typ
 import { cancelTranslation, desktop, runtimeInfo, translate } from './bridge';
 
 const samples = [
-  ['Hey, can you hear me? Let’s get started.', '嘿，能听到吗？我们开始吧。'],
-  ['I think we should keep the first version simple.', '我觉得第一版应该保持简单。'],
-  [
-    'Let’s test the audio on the Mac before adding more features.',
-    '先在 Mac 上测试音频，再添加更多功能。',
-  ],
-  ['Sounds good. We can take it one step at a time.', '可以，我们一步一步来。'],
+  ["Thanks for joining. Let's review the schedule.", '感谢参加，我们先确认一下日程。'],
+  ['The meeting starts at ten tomorrow morning.', '会议将于明天上午十点开始。'],
+  ['Could you send me the updated document?', '可以把更新后的文档发给我吗？'],
+  ["I'll review it and get back to you this afternoon.", '我会查看文档，并在今天下午回复你。'],
 ];
 const languages = ['英语', '简体中文', '日语', '韩语', '西班牙语'];
 type Page = 'workspace' | 'settings' | 'diagnostics';
