@@ -363,7 +363,11 @@ export default function App() {
             </button>
           </div>
         )}
-        <main id="main-content" className={page === 'workspace' ? 'workspace' : 'page-scroll'}>
+        <main
+          key={page}
+          id="main-content"
+          className={page === 'workspace' ? 'workspace' : 'page-scroll'}
+        >
           {page === 'settings' && (
             <SettingsPanel
               section={settingsSection}

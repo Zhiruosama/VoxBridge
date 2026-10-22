@@ -934,6 +934,59 @@ input:focus {
   align-items: center;
   gap: 12px;
 }
+
+.diagnostic-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.diagnostics-page .preferences-heading {
+  margin-bottom: 20px;
+}
+.diagnostics-page .preference-section {
+  margin-bottom: 24px;
+}
+.diagnostics-page .preference-row {
+  min-height: 60px;
+  padding-block: 14px;
+}
+.diagnostic-feedback {
+  margin: 12px 4px 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.diagnostic-feedback.error-text {
+  color: var(--danger);
+}
+.diagnostic-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 54px;
+  padding-block: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 550;
+}
+.diagnostic-details > summary::-webkit-details-marker {
+  display: none;
+}
+.diagnostic-details > summary svg {
+  color: var(--muted);
+}
+.diagnostic-details[open] > summary svg {
+  transform: rotate(180deg);
+}
+.diagnostic-details > summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.diagnostic-status-list .preference-row {
+  border-top: 1px solid var(--border);
+}
 .profile-picker {
   display: flex;
   align-items: center;

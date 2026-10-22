@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { AudioLines, RefreshCw, Square, Volume2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, Pause, Play, RefreshCw, Square, Volume2 } from 'lucide-react';
 import { desktop, listOutputs, stopTone, testTone } from '../bridge';
 import type { OutputDevice, RuntimeInfo } from '../core/types';
 import Select from './Select';
+import SettingRow from './SettingRow';
 
 export default function Diagnostics({
   runtime,
@@ -18,15 +19,18 @@ export default function Diagnostics({
   const [devices, setDevices] = useState<OutputDevice[]>([]);
   const [deviceId, setDeviceId] = useState('');
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const playingRef = useRef(false);
+  const stoppedRef = useRef(false);
   async function refresh() {
     setLoading(true);
     setError('');
     try {
       const next = await listOutputs();
       setDevices(next);
-      setDeviceId('');
+      setDeviceId((current) => (next.some((device) => device.id === current) ? current : ''));
     } catch (error) {
       setError(String(error));
     } finally {
@@ -36,114 +40,149 @@ export default function Diagnostics({
   useEffect(() => {
     void refresh();
     return () => {
+      stoppedRef.current = true;
       void stopTone();
     };
   }, []);
   async function play() {
+    if (playingRef.current) return;
+    playingRef.current = true;
+    stoppedRef.current = false;
     setBusy(true);
     setError('');
     try {
       await testTone(deviceId);
-      notify('测试结束，请根据实际听到或回录的声音判断路由。');
+      if (!stoppedRef.current) notify('测试音播放结束，请确认所选设备的声音。');
     } catch (error) {
       setError(String(error));
     } finally {
+      playingRef.current = false;
       setBusy(false);
+      setStopping(false);
     }
   }
+  async function stop() {
+    stoppedRef.current = true;
+    setStopping(true);
+    try {
+      await stopTone();
+    } catch (error) {
+      setError(String(error));
+      setStopping(false);
+    }
+  }
+  const platform = runtime
+    ? ({ windows: 'Windows', macos: 'macOS', linux: 'Linux', browser: '网页预览' }[
+        runtime.platform
+      ] ?? runtime.platform)
+    : '读取中…';
   return (
-    <div className="content-page diagnostics-page">
-      <div className="page-heading">
-        <div>
-          <h1>音频与诊断</h1>
-          <p>管理音频设备并检查声音输出。</p>
-        </div>
-        <AudioLines size={28} strokeWidth={1} />
-      </div>
-      <section className="settings-section">
-        <div className="section-heading">
-          <div>
-            <h2>字幕预览</h2>
-            <p>使用示例对话预览字幕，不采集或上传声音。</p>
-          </div>
-          <button onClick={onDemo}>{demo ? '暂停' : '播放示例'}</button>
-        </div>
-      </section>
-      <section className="settings-section">
-        <div className="section-heading">
-          <div>
-            <h2>运行环境</h2>
-            <p>{runtime?.message ?? '正在读取运行环境…'}</p>
-          </div>
-          <span className="tag">{runtime?.platform ?? '加载中'}</span>
-        </div>
-        <div className="checklist">
-          <p>
-            <span>工作台与演示字幕</span>
-            <strong>可使用</strong>
-          </p>
-          <p>
-            <span>真实文字翻译</span>
-            <strong>{desktop ? '配置密钥后测试' : '需桌面版'}</strong>
-          </p>
-          <p>
-            <span>系统应用声音采集</span>
-            <strong>待 Mac 实机接入</strong>
-          </p>
-          <p>
-            <span>语音合成与指定设备输出</span>
-            <strong>{desktop ? '配置服务和设备后测试' : '需桌面版'}</strong>
-          </p>
-        </div>
-      </section>
-      <section className="settings-section">
-        <div className="section-heading">
-          <div>
-            <h2>输出路由测试</h2>
-            <p>显式播放约 1 秒、低音量的 440 Hz 测试音。选择 BlackHole 时声音可能进入通话。</p>
-          </div>
-          <button onClick={() => void refresh()} disabled={!desktop || loading || busy}>
-            <RefreshCw size={14} />
-            刷新
-          </button>
-        </div>
-        <label>
-          测试目的地
-          <Select
-            label="测试目的地"
-            value={deviceId}
-            onChange={setDeviceId}
-            disabled={!desktop || loading || busy}
-            placeholder="请选择设备，不自动跟随系统默认值"
-            options={[
-              ...new Map(
-                devices.map((device) => [device.id, { value: device.id, label: device.name }]),
-              ).values(),
-            ]}
-          />
-        </label>
-        {!desktop && <p className="muted">浏览器预览不访问原生音频设备。</p>}
-        <div className="test-actions">
-          <button onClick={() => void play()} disabled={!deviceId || busy}>
-            <Volume2 size={15} />
-            {busy ? '正在测试…' : '向所选设备播放测试音'}
-          </button>
+    <div className="preferences-page diagnostics-page">
+      <header className="preferences-heading">
+        <h1>音频与诊断</h1>
+      </header>
+      <section className="preference-section" aria-labelledby="output-test-heading">
+        <div className="preference-section-title">
+          <h2 id="output-test-heading">声音输出</h2>
           <button
-            onClick={() => void stopTone().catch((error) => setError(String(error)))}
-            disabled={!busy}
+            className="subtle"
+            onClick={() => void refresh()}
+            disabled={!desktop || loading || busy}
           >
-            <Square size={13} />
-            停止
+            <RefreshCw size={14} />
+            {loading ? '刷新中…' : '刷新设备'}
           </button>
         </div>
-        {error && (
-          <p role="alert" className="error-text">
+        <div className="preference-card">
+          <SettingRow title="输出设备">
+            <Select
+              label="测试输出设备"
+              value={deviceId}
+              onChange={setDeviceId}
+              disabled={!desktop || loading || busy}
+              placeholder={loading ? '正在读取设备…' : '选择输出设备'}
+              options={[
+                ...new Map(
+                  devices.map((device) => [device.id, { value: device.id, label: device.name }]),
+                ).values(),
+              ]}
+            />
+          </SettingRow>
+          <SettingRow title="测试音">
+            <div className="diagnostic-actions">
+              {busy ? (
+                <button onClick={() => void stop()} disabled={stopping}>
+                  <Square size={14} />
+                  {stopping ? '正在停止…' : '停止播放'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => void play()}
+                  disabled={!desktop || !deviceId || loading}
+                  title="播放约 1 秒的低音量 440 Hz 测试音"
+                >
+                  <Volume2 size={15} />
+                  播放测试音
+                </button>
+              )}
+            </div>
+          </SettingRow>
+        </div>
+        {error ? (
+          <p role="alert" className="diagnostic-feedback error-text">
             {error}
           </p>
+        ) : (
+          <p className="diagnostic-feedback" role="status">
+            {!desktop
+              ? '请在桌面应用中测试音频。'
+              : stopping
+                ? '正在停止测试音…'
+                : busy
+                  ? '测试音正在播放到所选设备。'
+                  : !loading && !devices.length
+                    ? '未发现输出设备，请连接设备后刷新。'
+                    : '测试音约 1 秒；选择虚拟音频设备时，声音可能进入通话。'}
+          </p>
         )}
-        <small>
-          诊断版暂按设备名称匹配，同名设备会拒绝播放。正式路由的稳定 UID、断连恢复仍待实现。
-        </small>
+      </section>
+      <section className="preference-section" aria-labelledby="subtitle-preview-heading">
+        <h2 id="subtitle-preview-heading">字幕预览</h2>
+        <div className="preference-card">
+          <SettingRow title="示例对话">
+            <button onClick={onDemo}>
+              {demo ? <Pause size={14} /> : <Play size={14} />}
+              {demo ? '暂停示例' : '播放示例'}
+            </button>
+          </SettingRow>
+        </div>
+      </section>
+      <section className="preference-section" aria-labelledby="runtime-heading">
+        <h2 id="runtime-heading">运行状态</h2>
+        <div className="preference-card">
+          <SettingRow title="当前系统">
+            <span className="preference-value">{platform}</span>
+          </SettingRow>
+          <details className="diagnostic-details">
+            <summary>
+              功能状态
+              <ChevronDown size={15} />
+            </summary>
+            <div className="diagnostic-status-list">
+              <SettingRow title="文字翻译">
+                <span className="preference-value">{desktop ? '待服务验证' : '需桌面应用'}</span>
+              </SettingRow>
+              <SettingRow title="语音合成">
+                <span className="preference-value">{desktop ? '待服务验证' : '需桌面应用'}</span>
+              </SettingRow>
+              <SettingRow title="应用声音采集">
+                <span className="preference-value">
+                  {!runtime ? '读取中…' : runtime.nativeCapture ? '已接入，待实测' : '尚未接入'}
+                </span>
+              </SettingRow>
+            </div>
+          </details>
+        </div>
       </section>
     </div>
   );

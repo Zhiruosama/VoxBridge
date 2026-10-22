@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowUpRight, Check, Pencil, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { profileFor } from '../core/settings';
 import { credentialStatus, desktop, listOutputs, removeCredential, setCredential } from '../bridge';
 import Select from './Select';
+import SettingRow from './SettingRow';
 
 export type SettingsSection = 'general' | Stage;
 const sectionTitles: Record<SettingsSection, string> = {
@@ -13,16 +14,6 @@ const sectionTitles: Record<SettingsSection, string> = {
   asr: '语音识别',
   tts: '语音合成',
 };
-function SettingRow({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="preference-row">
-      <div className="preference-copy">
-        <h3>{title}</h3>
-      </div>
-      <div className="preference-control">{children}</div>
-    </div>
-  );
-}
 
 export default function SettingsPanel({
   settings,
