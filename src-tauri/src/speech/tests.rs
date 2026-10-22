@@ -1,0 +1,256 @@
+use super::*;
+use std::io::{Read, Write};
+
+const MP3: &[u8] = include_bytes!("fixtures/tone.mp3");
+fn profile(adapter: &str, base_url: String) -> SpeechProfile {
+    SpeechProfile {
+        id: "test-profile".into(),
+        stage: "tts".into(),
+        adapter: adapter.into(),
+        base_url,
+        model_id: "test-model".into(),
+        voice: "test-voice".into(),
+    }
+}
+
+#[test]
+fn endpoint_and_routing_reject_unsafe_configuration() {
+    let mut p = profile("openai_audio_speech", "https://example.com/v1/".into());
+    assert_eq!(
+        endpoint(&p).unwrap().as_str(),
+        "https://example.com/v1/audio/speech"
+    );
+    for address in [
+        "http://example.com/v1",
+        "https://secret@example.com/v1",
+        "https://example.com/v1?key=secret",
+        "https://example.com/v1/audio/speech",
+    ] {
+        p.base_url = address.into();
+        assert!(endpoint(&p).is_err());
+    }
+    p.base_url = "http://[::1]:9000/v1".into();
+    assert!(endpoint(&p).is_ok());
+    p.voice.clear();
+    assert!(endpoint(&p).is_err());
+    let routing = Routing {
+        preview_device_id: "speakers".into(),
+        send_device_id: "virtual".into(),
+    };
+    assert_eq!(routing.destination(&Route::Preview).unwrap(), "speakers");
+    assert_eq!(routing.destination(&Route::Send).unwrap(), "virtual");
+    assert!(Routing {
+        send_device_id: "speakers".into(),
+        ..routing
+    }
+    .destination(&Route::Send)
+    .is_err());
+}
+
+#[test]
+fn registry_handles_early_cancel_busy_and_stale_stop() {
+    let state = SpeechState::default();
+    state.cancel("early".into()).unwrap();
+    assert!(state.begin("early").is_err());
+    let old = state.begin("old").unwrap();
+    assert!(state.begin("new").is_err());
+    state.cancel("old".into()).unwrap();
+    assert!(old.token.is_cancelled());
+    drop(old);
+    let new = state.begin("new").unwrap();
+    state.cancel("old".into()).unwrap();
+    assert!(!new.token.is_cancelled());
+    drop(new);
+    for n in 0..100 {
+        state.cancel(format!("missing-{n}")).unwrap();
+    }
+    assert_eq!(state.0.lock().unwrap().cancelled.len(), 64);
+    assert!(state.begin("after").is_ok());
+}
+
+#[test]
+fn decode_generated_mp3_and_reject_invalid_audio_and_cancel() {
+    let token = CancellationToken::new();
+    let source = decode(MP3.to_vec(), &token).unwrap();
+    assert_eq!(source.channels(), 1);
+    assert_eq!(source.sample_rate(), 32_000);
+    let samples: Vec<f32> = source.collect();
+    assert!(samples.len() >= 3200 && samples.len() < 10000);
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+    assert!(decode(b"not audio".to_vec(), &token).is_err());
+    token.cancel();
+    assert!(decode(MP3.to_vec(), &token).is_err());
+    let mut bytes = vec![0; MAX_AUDIO - 1];
+    assert!(append_audio(&mut bytes, &[1, 2]).is_err());
+    assert_eq!(bytes.len(), MAX_AUDIO - 1);
+}
+
+fn http_server(status: &str, body: Vec<u8>) -> (String, std::thread::JoinHandle<String>) {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = format!("http://{}/v1", listener.local_addr().unwrap());
+    let status = status.to_string();
+    let task = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let mut received = Vec::new();
+        let mut chunk = [0; 4096];
+        loop {
+            let size = stream.read(&mut chunk).unwrap();
+            assert!(size > 0);
+            received.extend_from_slice(&chunk[..size]);
+            if let Some(end) = received.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&received[..end]);
+                let length = headers
+                    .lines()
+                    .find_map(|line| {
+                        line.to_lowercase()
+                            .strip_prefix("content-length: ")
+                            .and_then(|s| s.parse::<usize>().ok())
+                    })
+                    .unwrap();
+                if received.len() >= end + 4 + length {
+                    break;
+                }
+            }
+        }
+        write!(stream, "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: audio/mpeg\r\nConnection: close\r\n\r\n", body.len()).unwrap();
+        stream.write_all(&body).unwrap();
+        String::from_utf8(received).unwrap()
+    });
+    (address, task)
+}
+
+#[tokio::test]
+async fn openai_http_sends_exact_profile_and_returns_decodable_audio() {
+    let (address, server) = http_server("200 OK", MP3.to_vec());
+    let p = profile("openai_audio_speech", address);
+    let audio = synthesize(&p, endpoint(&p).unwrap(), "你好", "mock-key")
+        .await
+        .unwrap();
+    assert_eq!(audio, MP3);
+    assert!(decode(audio, &CancellationToken::new()).is_ok());
+    let request = server.join().unwrap();
+    assert!(request.starts_with("POST /v1/audio/speech "));
+    assert!(request
+        .to_lowercase()
+        .contains("authorization: bearer mock-key"));
+    let payload: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+    assert_eq!(
+        payload,
+        json!({"model":"test-model","voice":"test-voice","input":"你好","response_format":"mp3"})
+    );
+}
+
+#[tokio::test]
+async fn authentication_error_does_not_echo_provider_body_or_secret() {
+    let (address, server) = http_server(
+        "401 Unauthorized",
+        b"mock-key private provider error".to_vec(),
+    );
+    let p = profile("openai_audio_speech", address);
+    let error = synthesize(&p, endpoint(&p).unwrap(), "hello", "mock-key")
+        .await
+        .unwrap_err();
+    assert!(error.contains("认证"));
+    assert!(!error.contains("mock-key"));
+    assert!(!error.contains("private"));
+    server.join().unwrap();
+}
+
+#[tokio::test]
+async fn cancellation_drops_a_waiting_connection() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let p = profile(
+        "openai_audio_speech",
+        format!("http://{}", listener.local_addr().unwrap()),
+    );
+    let token = CancellationToken::new();
+    let cancel = token.clone();
+    let stop = async {
+        let (_socket, _) = listener.accept().await.unwrap();
+        cancel.cancel();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    };
+    let call = synthesize_cancellable(&p, endpoint(&p).unwrap(), "hello", "mock-key", &token);
+    let (result, _) = tokio::join!(call, stop);
+    assert_eq!(result.unwrap_err(), STOPPED);
+}
+
+#[tokio::test]
+async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let p = profile(
+        "minimax_tts_ws",
+        format!("ws://{}", listener.local_addr().unwrap()),
+    );
+    let server = async {
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
+        ws.send(Message::Text(
+            json!({"event":"connected_success","base_resp":{"status_code":0}})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .unwrap();
+        let start: Value =
+            serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
+        assert_eq!(start["event"], "task_start");
+        assert_eq!(start["voice_setting"]["voice_id"], "test-voice");
+        assert_eq!(start["audio_setting"]["format"], "mp3");
+        ws.send(Message::Text(
+            json!({"event":"task_started"}).to_string().into(),
+        ))
+        .await
+        .unwrap();
+        let text: Value =
+            serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
+        assert_eq!(text["text"], "hello");
+        for (index, chunk) in MP3.chunks(MP3.len().div_ceil(2)).enumerate() {
+            ws.send(Message::Text(
+                json!({"data":{"audio":hex::encode(chunk)},"is_final":index==1})
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        }
+        let finish: Value =
+            serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
+        assert_eq!(finish["event"], "task_finish");
+        let _ = ws.close(None).await;
+    };
+    let (audio, _) = tokio::join!(
+        synthesize(&p, endpoint(&p).unwrap(), "hello", "mock-key"),
+        server
+    );
+    assert_eq!(audio.unwrap(), MP3);
+}
+
+#[tokio::test]
+async fn minimax_rejects_failed_handshake_without_echoing_message() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let p = profile(
+        "minimax_tts_ws",
+        format!("ws://{}", listener.local_addr().unwrap()),
+    );
+    let server = async {
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
+        ws.send(Message::Text(
+            json!({"event":"task_failed","base_resp":{"status_code":1004,"status_msg":"mock-key"}})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .unwrap();
+    };
+    let (result, _) = tokio::join!(
+        synthesize(&p, endpoint(&p).unwrap(), "hello", "mock-key"),
+        server
+    );
+    let error = result.unwrap_err();
+    assert!(!error.contains("mock-key"));
+}

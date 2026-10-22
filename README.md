@@ -4,7 +4,7 @@
 
 **最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
 
-> 当前阶段：**工作台开发版**。首轮设计已获认可，已开始实现。当前可运行界面、字幕演示、服务配置、文字翻译和输出诊断；系统声音识别、TTS 与 macOS 原生采集集成尚未完成。下表为完整首版计划，不代表全部已实现。
+> 当前阶段：**工作台开发版**。可运行界面、字幕演示、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。TTS 先完整接收再播放，协议使用本机模拟服务验证；真实供应商、实际声音和 Mac 路由尚未验收。系统声音识别与 macOS 原生采集集成仍待完成。下表为完整首版计划。
 
 ![工作台开发版预览](docs/assets/workspace-preview.png)
 
@@ -83,7 +83,7 @@ npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-本轮 Windows 验证：前端 5 项测试、Rust 6 项测试及编译检查通过。Rust HTTP 测试使用本机模拟服务，不代表云端服务或 Mac 音频通过。Mac 原生探针见 [native/macos](native/macos/README.md)。
+本轮 Windows 验证：前端 7 项测试、Rust 14 项测试及编译检查通过。Rust HTTP / WebSocket 测试使用本机模拟服务，不代表云端服务或真实播放通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
 
 开发清单：[TODO.md](TODO.md)。详细启动、验证与限制：[开发指南](docs/09-development.md)。暂无可分发安装包。
 
@@ -93,4 +93,4 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked
 
 前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流和底部输入区；无宣传口号、中央引导海报、平台标识或常驻开发状态栏。诊断与演示收纳在设置中。具体设计见[界面与交互](docs/05-product-interaction.md)。
 
-阶段性提交与推送由开发过程自行执行。后续优先在 Mac 验证原生音频探针及 BlackHole 路由，再接入真实 ASR / TTS。
+阶段性提交与推送由开发过程自行执行。下一步使用用户提供的服务配置验证翻译 / TTS，并在 Mac 验证原生采集及 BlackHole 路由；ASR 协议选定后接入音频流水线。

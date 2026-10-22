@@ -1,5 +1,17 @@
 export type Stage = 'asr' | 'translation' | 'tts';
-export type Adapter = 'openai_chat_completions' | 'minimax_tts_ws' | 'pending_asr';
+export type Adapter =
+  | 'openai_chat_completions'
+  | 'minimax_tts_ws'
+  | 'openai_audio_speech'
+  | 'pending_asr';
+export interface AudioRouting {
+  previewDeviceId: string;
+  sendDeviceId: string;
+}
+export interface SpeechProgress {
+  requestId: string;
+  phase: 'synthesizing' | 'decoding' | 'playing' | 'completed' | 'stopped' | 'failed';
+}
 export interface ProviderProfile {
   id: string;
   name: string;
@@ -16,6 +28,7 @@ export interface Settings {
   sourceLanguage: string;
   targetLanguage: string;
   theme: 'dark' | 'light' | 'system';
+  audio: AudioRouting;
 }
 export interface Segment {
   id: string;

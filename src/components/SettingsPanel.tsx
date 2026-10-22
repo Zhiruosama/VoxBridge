@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ArrowUpRight, Check, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Check, Pencil, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
-import type { ProviderProfile, Settings, Stage } from '../core/types';
+import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { profileFor } from '../core/settings';
-import { credentialStatus, desktop, removeCredential, setCredential } from '../bridge';
+import { credentialStatus, desktop, listOutputs, removeCredential, setCredential } from '../bridge';
 import Select from './Select';
 
 export type SettingsSection = 'general' | Stage;
@@ -48,6 +48,42 @@ export default function SettingsPanel({
   const [keyError, setKeyError] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [previousName, setPreviousName] = useState('');
+  const [devices, setDevices] = useState<OutputDevice[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  async function refreshDevices() {
+    setRefreshing(true);
+    try {
+      setDevices(await listOutputs());
+    } catch (error) {
+      notify(String(error));
+    } finally {
+      setRefreshing(false);
+    }
+  }
+  useEffect(() => {
+    if (section !== 'general') return;
+    let active = true;
+    listOutputs()
+      .then((next) => {
+        if (active) setDevices(next);
+      })
+      .catch((error) => {
+        if (active) notify(String(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [section]);
+  function deviceOptions(value: string) {
+    const options = [
+      ...new Map(
+        devices.map((device) => [device.id, { value: device.id, label: device.name }]),
+      ).values(),
+    ];
+    if (value && !devices.some((device) => device.id === value))
+      options.push({ value, label: `${value}（不可用）` });
+    return options;
+  }
   useEffect(() => {
     setDraft(settings);
   }, [settings]);
@@ -118,7 +154,7 @@ export default function SettingsPanel({
       <header className="preferences-heading">
         <div className="preferences-title">
           <h1>{sectionTitles[section]}</h1>
-          {section !== 'general' && stage !== 'translation' && <span className="tag">接入中</span>}
+          {section === 'asr' && <span className="tag">接入中</span>}
         </div>
         <div className="preferences-save">
           {dirty && <span role="status">未保存</span>}
@@ -151,8 +187,42 @@ export default function SettingsPanel({
             </div>
           </section>
           <section className="preference-section" aria-labelledby="audio-heading">
-            <h2 id="audio-heading">音频</h2>
+            <div className="preference-section-title">
+              <h2 id="audio-heading">音频</h2>
+              <button
+                className="subtle"
+                disabled={!desktop || refreshing}
+                onClick={() => void refreshDevices()}
+              >
+                <RefreshCw size={14} />
+                刷新设备
+              </button>
+            </div>
             <div className="preference-card">
+              <SettingRow title="试听设备">
+                <Select
+                  label="试听设备"
+                  value={draft.audio.previewDeviceId}
+                  disabled={!desktop || refreshing}
+                  placeholder="选择试听设备"
+                  options={deviceOptions(draft.audio.previewDeviceId)}
+                  onChange={(value) =>
+                    setDraft({ ...draft, audio: { ...draft.audio, previewDeviceId: value } })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title="发送设备">
+                <Select
+                  label="发送设备"
+                  value={draft.audio.sendDeviceId}
+                  disabled={!desktop || refreshing}
+                  placeholder="选择虚拟音频设备"
+                  options={deviceOptions(draft.audio.sendDeviceId)}
+                  onChange={(value) =>
+                    setDraft({ ...draft, audio: { ...draft.audio, sendDeviceId: value } })
+                  }
+                />
+              </SettingRow>
               <SettingRow title="音频设备与诊断">
                 <button onClick={onDiagnostics}>
                   打开
@@ -250,7 +320,9 @@ export default function SettingsPanel({
                   aria-label="API 地址"
                   value={profile.baseUrl}
                   placeholder={
-                    stage === 'tts' ? 'wss://api.example.com/audio' : 'https://api.example.com/v1'
+                    profile.adapter === 'minimax_tts_ws'
+                      ? 'wss://api.minimax.io/ws/v1/t2a_v2'
+                      : 'https://api.example.com/v1'
                   }
                   onChange={(e) => update({ baseUrl: e.target.value })}
                   spellCheck={false}
@@ -266,13 +338,27 @@ export default function SettingsPanel({
                 />
               </SettingRow>
               <SettingRow title="接口协议">
-                <span className="preference-value protocol-value">
-                  {profile.adapter === 'openai_chat_completions'
-                    ? 'OpenAI 兼容'
-                    : profile.adapter === 'minimax_tts_ws'
-                      ? 'MiniMax WebSocket'
-                      : '待选型'}
-                </span>
+                {stage === 'tts' ? (
+                  <Select
+                    label="语音合成协议"
+                    value={profile.adapter}
+                    onChange={(value) =>
+                      update({ adapter: value as ProviderProfile['adapter'], baseUrl: '' })
+                    }
+                    options={[
+                      { value: 'minimax_tts_ws', label: 'MiniMax WebSocket' },
+                      { value: 'openai_audio_speech', label: 'OpenAI 兼容语音' },
+                    ]}
+                  />
+                ) : (
+                  <span className="preference-value protocol-value">
+                    {profile.adapter === 'openai_chat_completions'
+                      ? 'OpenAI 兼容'
+                      : profile.adapter === 'minimax_tts_ws'
+                        ? 'MiniMax WebSocket'
+                        : '待选型'}
+                  </span>
+                )}
               </SettingRow>
               {stage === 'tts' && (
                 <SettingRow title="音色 ID">

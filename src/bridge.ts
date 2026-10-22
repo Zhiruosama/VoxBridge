@@ -1,5 +1,11 @@
-import { invoke, isTauri } from '@tauri-apps/api/core';
-import type { OutputDevice, ProviderProfile, RuntimeInfo } from './core/types';
+import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
+import type {
+  AudioRouting,
+  OutputDevice,
+  ProviderProfile,
+  RuntimeInfo,
+  SpeechProgress,
+} from './core/types';
 
 export const desktop = isTauri();
 export async function runtimeInfo(): Promise<RuntimeInfo> {
@@ -43,4 +49,20 @@ export async function testTone(deviceId: string) {
 }
 export async function stopTone() {
   if (desktop) await invoke('stop_tone');
+}
+export async function speak(
+  profile: ProviderProfile,
+  text: string,
+  routing: AudioRouting,
+  route: 'preview' | 'send',
+  requestId: string,
+  onProgress: (event: SpeechProgress) => void,
+): Promise<void> {
+  if (!desktop) throw new Error('语音合成与设备输出需要桌面版。');
+  const channel = new Channel<SpeechProgress>();
+  channel.onmessage = onProgress;
+  return invoke('speak', { profile, text, routing, route, requestId, onProgress: channel });
+}
+export async function stopSpeech(requestId: string) {
+  if (desktop) await invoke('stop_speech', { requestId });
 }

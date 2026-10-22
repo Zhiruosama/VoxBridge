@@ -5,6 +5,7 @@ import {
   AudioLines,
   Check,
   ChevronDown,
+  Headphones,
   Languages,
   MessageSquare,
   Mic,
@@ -22,7 +23,7 @@ import Select from './components/Select';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
 import { applyTranscript, applyTranslation } from './core/session';
 import type { RuntimeInfo, Session, Settings, TranscriptEvent } from './core/types';
-import { cancelTranslation, desktop, runtimeInfo, translate } from './bridge';
+import { cancelTranslation, desktop, runtimeInfo, speak, stopSpeech, translate } from './bridge';
 
 const samples = [
   ["Thanks for joining. Let's review the schedule.", '感谢参加，我们先确认一下日程。'],
@@ -64,6 +65,11 @@ export default function App() {
   const stoppingRef = useRef(false);
   const [stopping, setStopping] = useState(false);
   const translationProfile = profileFor(settings, 'translation');
+  const speechProfile = profileFor(settings, 'tts');
+  const speechRef = useRef<string | null>(null);
+  const speechStoppingRef = useRef(false);
+  const [speechPhase, setSpeechPhase] = useState('');
+  const [speechStopping, setSpeechStopping] = useState(false);
 
   useEffect(() => {
     runtimeInfo()
@@ -121,6 +127,7 @@ export default function App() {
   useEffect(
     () => () => {
       if (requestRef.current) void cancelTranslation(requestRef.current);
+      if (speechRef.current) void stopSpeech(speechRef.current);
     },
     [],
   );
@@ -141,7 +148,7 @@ export default function App() {
     }
   }
   async function runTranslation() {
-    if (pendingRef.current) return;
+    if (pendingRef.current || speechRef.current) return;
     const invalid = validateProfile(translationProfile);
     if (invalid) {
       setError(`${invalid} 请到设置页完善文字翻译服务。`);
@@ -172,6 +179,56 @@ export default function App() {
         setBusy(false);
         setStopping(false);
       }
+    }
+  }
+
+  async function runSpeech(route: 'preview' | 'send', content = text) {
+    if (speechRef.current || pendingRef.current) return;
+    const invalid = validateProfile(speechProfile);
+    if (invalid) {
+      setError(`${invalid} 请到设置页完善语音合成服务。`);
+      return;
+    }
+    if (!(route === 'preview' ? settings.audio.previewDeviceId : settings.audio.sendDeviceId)) {
+      setError('请先在常规设置中选择对应的音频输出设备。');
+      return;
+    }
+    const id = crypto.randomUUID();
+    speechRef.current = id;
+    speechStoppingRef.current = false;
+    setSpeechStopping(false);
+    setSpeechPhase('正在准备…');
+    setError('');
+    try {
+      await speak(speechProfile, content, settings.audio, route, id, (event) => {
+        if (speechRef.current !== event.requestId || speechStoppingRef.current) return;
+        const labels: Record<string, string> = {
+          synthesizing: '正在合成…',
+          decoding: '正在准备播放…',
+          playing: route === 'preview' ? '正在试听…' : '正在发送…',
+        };
+        if (labels[event.phase]) setSpeechPhase(labels[event.phase]);
+      });
+    } catch (error) {
+      if (speechRef.current === id && !speechStoppingRef.current) setError(String(error));
+    } finally {
+      if (speechRef.current === id) {
+        speechRef.current = null;
+        setSpeechPhase('');
+        setSpeechStopping(false);
+      }
+    }
+  }
+  async function cancelSpeech() {
+    const id = speechRef.current;
+    if (!id) return;
+    speechStoppingRef.current = true;
+    setSpeechStopping(true);
+    setSpeechPhase('正在停止…');
+    try {
+      await stopSpeech(id);
+    } catch (error) {
+      setError(String(error));
     }
   }
   async function stopTranslation() {
@@ -420,7 +477,21 @@ export default function App() {
                     </button>
                     {text.length > 450 && <span className="input-count">{text.length}/500</span>}
                     <div className="composer-actions">
-                      {busy ? (
+                      {speechPhase ? (
+                        <>
+                          <span role="status" className="input-count">
+                            {speechPhase}
+                          </span>
+                          <button
+                            className="icon-button"
+                            aria-label="停止语音"
+                            disabled={speechStopping}
+                            onClick={() => void cancelSpeech()}
+                          >
+                            <Square size={13} />
+                          </button>
+                        </>
+                      ) : busy ? (
                         <button
                           className="icon-button"
                           aria-label="停止翻译"
@@ -440,10 +511,20 @@ export default function App() {
                         </button>
                       )}
                       <button
-                        disabled
-                        title="语音合成尚未接入"
+                        className="icon-button"
+                        aria-label="试听输入文字"
+                        title="试听输入文字"
+                        disabled={!desktop || !text.trim() || busy || !!speechPhase}
+                        onClick={() => void runSpeech('preview')}
+                      >
+                        <Headphones size={16} />
+                      </button>
+                      <button
+                        disabled={!desktop || !text.trim() || busy || !!speechPhase}
+                        title="将输入文字合成为语音并发送到所选设备"
                         aria-label="发送合成语音"
                         className="send-button"
+                        onClick={() => void runSpeech('send')}
                       >
                         <ArrowRight size={16} />
                       </button>
@@ -458,6 +539,22 @@ export default function App() {
                 {result && (
                   <div className="translation-result">
                     <p>{result}</p>
+                    <div className="composer-actions">
+                      <button
+                        className="subtle"
+                        disabled={!desktop || busy || !!speechPhase || result.length > 500}
+                        onClick={() => void runSpeech('preview', result)}
+                      >
+                        试听译文
+                      </button>
+                      <button
+                        className="subtle"
+                        disabled={!desktop || busy || !!speechPhase || result.length > 500}
+                        onClick={() => void runSpeech('send', result)}
+                      >
+                        发送译文
+                      </button>
+                    </div>
                   </div>
                 )}
               </section>

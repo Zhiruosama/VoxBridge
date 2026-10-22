@@ -5,6 +5,7 @@ export const defaults: Settings = {
   sourceLanguage: '英语',
   targetLanguage: '简体中文',
   theme: 'dark',
+  audio: { previewDeviceId: '', sendDeviceId: '' },
   active: { asr: 'asr-default', translation: 'translation-default', tts: 'tts-default' },
   profiles: [
     {
@@ -54,6 +55,7 @@ export function validateProfile(profile: ProviderProfile): string | null {
     return '请输入完整、有效的 API 地址。';
   }
   if (!profile.modelId.trim()) return '请输入模型 ID。';
+  if (profile.stage === 'tts' && !profile.voice.trim()) return '请输入音色 ID。';
   return null;
 }
 
@@ -74,13 +76,14 @@ export function parseSettings(value: unknown): Settings {
     if (!item || typeof item !== 'object') throw new Error('服务配置无效。');
     const p = item as Record<string, unknown>;
     const stage = p.stage as Stage;
-    const adapter =
+    const adapter = p.adapter as ProviderProfile['adapter'];
+    const adapters =
       stage === 'translation'
-        ? 'openai_chat_completions'
+        ? ['openai_chat_completions']
         : stage === 'tts'
-          ? 'minimax_tts_ws'
-          : 'pending_asr';
-    if (!['asr', 'translation', 'tts'].includes(stage) || p.adapter !== adapter)
+          ? ['minimax_tts_ws', 'openai_audio_speech']
+          : ['pending_asr'];
+    if (!['asr', 'translation', 'tts'].includes(stage) || !adapters.includes(adapter))
       throw new Error('不支持的服务协议。');
     for (const key of ['id', 'name', 'baseUrl', 'modelId', 'voice']) {
       if (typeof p[key] !== 'string') throw new Error('服务配置字段不完整。');
@@ -107,6 +110,16 @@ export function parseSettings(value: unknown): Settings {
     throw new Error('活动服务配置缺失。');
   return {
     schemaVersion: 1,
+    audio: {
+      previewDeviceId:
+        typeof (input.audio as Record<string, unknown> | undefined)?.previewDeviceId === 'string'
+          ? (input.audio as Record<string, string>).previewDeviceId
+          : '',
+      sendDeviceId:
+        typeof (input.audio as Record<string, unknown> | undefined)?.sendDeviceId === 'string'
+          ? (input.audio as Record<string, string>).sendDeviceId
+          : '',
+    },
     profiles,
     active: {
       asr: active.asr as string,

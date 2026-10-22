@@ -91,8 +91,8 @@ export default function Diagnostics({
             <strong>待 Mac 实机接入</strong>
           </p>
           <p>
-            <span>语音合成与虚拟麦克风发送</span>
-            <strong>接入中</strong>
+            <span>语音合成与指定设备输出</span>
+            <strong>{desktop ? '配置服务和设备后测试' : '需桌面版'}</strong>
           </p>
         </div>
       </section>

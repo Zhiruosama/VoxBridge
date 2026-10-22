@@ -2,6 +2,36 @@ import { describe, expect, it } from 'vitest';
 import { defaults, parseSettings, validateProfile } from './settings';
 
 describe('provider profiles', () => {
+  it('migrates old settings without routing and strips unknown audio fields', () => {
+    const input = { ...structuredClone(defaults), audio: undefined };
+    expect(parseSettings(input).audio).toEqual({ previewDeviceId: '', sendDeviceId: '' });
+    const withAudio = {
+      ...input,
+      audio: { previewDeviceId: 'headphones', sendDeviceId: 'virtual', apiKey: 'never-save' },
+    };
+    expect(parseSettings(withAudio).audio).toEqual({
+      previewDeviceId: 'headphones',
+      sendDeviceId: 'virtual',
+    });
+  });
+  it('allows both TTS adapters but requires a voice and matching URL scheme', () => {
+    const input = structuredClone(defaults);
+    input.profiles[2] = {
+      ...input.profiles[2],
+      adapter: 'openai_audio_speech',
+      baseUrl: 'https://example.com/v1',
+      modelId: 'custom',
+      voice: 'custom-voice',
+    };
+    expect(parseSettings(input).profiles[2].adapter).toBe('openai_audio_speech');
+    expect(validateProfile(input.profiles[2])).toBeNull();
+    expect(validateProfile({ ...input.profiles[2], voice: '' })).toBeTruthy();
+    expect(
+      validateProfile({ ...input.profiles[2], baseUrl: 'wss://example.com/audio' }),
+    ).toBeTruthy();
+    input.profiles[1].adapter = 'openai_audio_speech';
+    expect(() => parseSettings(input)).toThrow();
+  });
   it('strips credentials from imported data and rejects mismatched active profiles', () => {
     const input = structuredClone(defaults);
     Object.assign(input.profiles[1], { apiKey: 'never-save-me' });

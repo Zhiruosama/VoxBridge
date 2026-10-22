@@ -12,7 +12,7 @@ API Key 是凭据，不是兼容协议。不能通过是否以 `sk-` 开头判�
 | --- | --- | --- | --- |
 | 翻译 | OpenAI-compatible Chat Completions | 请求与响应兼容，模型可接受文本对话，认证受支持 | 仅支持其他文本协议，或私有流式结构 |
 | ASR | 供应商原生流式识别 | 同一协议、音频格式、事件和认证约定 | 新的 WebSocket 协议、签名方式或定稿机制 |
-| TTS | MiniMax 原生流式候选 | 同一协议下模型、音色与格式受支持 | 不同音频分片、编码、认证或任务协议 |
+| TTS | MiniMax WebSocket / OpenAI-compatible Audio Speech（已实现本机模拟验证） | 同一协议下模型、音色与 MP3 格式受支持 | 不同音频分片、编码、认证或任务协议 |
 | 其他音频兼容接口 | 后续按需求添加 | 经对应音频端点测试通过 | 不能由“文本接口兼容”推断 |
 
 第一版翻译不同时实现所有文本协议；若服务仅提供 Responses 等其他协议，需要另行适配，不能把它当成 Chat Completions 使用。支持文件上传转录也不等于支持低延迟流式识别。
@@ -25,7 +25,7 @@ MiniMax 的文本接口提供 OpenAI SDK 兼容方式，而其 WebSocket TTS 有
 | --- | --- |
 | profile_id / display_name | 稳定标识与用户可读名称 |
 | stage | asr / translation / tts |
-| adapter_type | openai_chat_completions / minimax_tts_ws / 具体 ASR 适配器 |
+| adapter_type | openai_chat_completions / minimax_tts_ws / openai_audio_speech / 具体 ASR 适配器 |
 | base_url | HTTP API 根地址，路径规则由适配器定义 |
 | websocket_url | 原生流式协议使用的地址，与 HTTP 地址分开 |
 | auth_type / credential_ref | 认证类型与安全存储引用；不在普通配置存密钥 |

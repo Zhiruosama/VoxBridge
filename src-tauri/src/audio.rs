@@ -148,7 +148,13 @@ fn build_stream<T: cpal::SizedSample + cpal::FromSample<f32>>(
 pub async fn test_tone(
     device_id: String,
     state: tauri::State<'_, ToneState>,
+    gate: tauri::State<'_, crate::speech::AudioGate>,
 ) -> Result<(), String> {
+    let _permit = gate
+        .0
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "音频输出正忙，请先停止当前任务。")?;
     let token = state.0.clone();
     let generation = token.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || play_tone(device_id, token, generation))
