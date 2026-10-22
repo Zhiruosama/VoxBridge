@@ -96,6 +96,9 @@ export function parseSettings(value: unknown): Settings {
       baseUrl: p.baseUrl as string,
       modelId: p.modelId as string,
       voice: p.voice as string,
+      ...(stage === 'translation' && ['enabled', 'disabled'].includes(p.thinking as string)
+        ? { thinking: p.thinking as 'enabled' | 'disabled' }
+        : {}),
     };
   });
   if (profiles.length > 30 || new Set(profiles.map((p) => p.id)).size !== profiles.length)

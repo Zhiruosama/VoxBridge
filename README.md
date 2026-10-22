@@ -4,7 +4,7 @@
 
 **最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
 
-> 当前阶段：**工作台开发版**。可运行界面、字幕演示、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。TTS 先完整接收再播放，协议使用本机模拟服务验证；真实供应商、实际声音和 Mac 路由尚未验收。系统声音识别与 macOS 原生采集集成仍待完成。下表为完整首版计划。
+> 当前阶段：**工作台开发版**。可运行界面、字幕演示、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。已通过真实 DeepSeek V4.1 Flash 翻译与 MiniMax Speech 2.8 Turbo 合成 / 解码测试。TTS 先完整接收再播放；实际设备播放、听感和 Mac 路由尚未验收。系统声音识别与 macOS 原生采集集成仍待完成。下表为完整首版计划。
 
 ![工作台开发版预览](docs/assets/workspace-preview.png)
 
@@ -75,7 +75,7 @@ npm run desktop:build:mac
 
 输出位于 `src-tauri/target/release/bundle/`。Mac 构建、签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
 
-浏览器预览可以体验布局、演示字幕和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。演示字幕使用固定样例，不录音、不调用付费服务。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；尚未使用真实供应商凭据验收。
+浏览器预览可以体验布局、演示字幕和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。演示字幕使用固定样例，不录音、不调用付费服务。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；设置中的“新增配置”提供 DeepSeek V4.1 Flash 和 MiniMax Speech 2.8 国内服务预设，模型与音色均可编辑。
 
 ```sh
 npm test
@@ -83,7 +83,7 @@ npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-本轮 Windows 验证：前端 7 项测试、Rust 14 项测试及编译检查通过。Rust HTTP / WebSocket 测试使用本机模拟服务，不代表云端服务或真实播放通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
+本轮 Windows 验证：前端 9 项测试、Rust 17 项自动测试通过；真实服务测试单独手动运行，不进入默认 CI。真实联调结果见 [2026-10-23 服务验证](docs/validation/2026-10-23-live-providers.md)，不代表实际播放或 Mac 路由通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
 
 开发清单：[TODO.md](TODO.md)。详细启动、验证与限制：[开发指南](docs/09-development.md)。暂无可分发安装包。
 
@@ -93,4 +93,4 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked
 
 前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流和底部输入区；无宣传口号、中央引导海报、平台标识或常驻开发状态栏。诊断与演示收纳在设置中。具体设计见[界面与交互](docs/05-product-interaction.md)。
 
-阶段性提交与推送由开发过程自行执行。下一步使用用户提供的服务配置验证翻译 / TTS，并在 Mac 验证原生采集及 BlackHole 路由；ASR 协议选定后接入音频流水线。
+阶段性提交与推送由开发过程自行执行。下一步验证实际声音与停止行为、优化流式播放，并在 Mac 验证原生采集及 BlackHole 路由；ASR 协议选定后接入音频流水线。

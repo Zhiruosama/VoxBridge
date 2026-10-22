@@ -2,6 +2,22 @@ use super::*;
 use std::io::{Read, Write};
 
 const MP3: &[u8] = include_bytes!("fixtures/tone.mp3");
+#[test]
+fn minimax_errors_distinguish_balance_auth_and_voice_without_echoing_provider_text() {
+    for (code, expected) in [
+        (1004, "认证"),
+        (1008, "余额"),
+        (2054, "音色"),
+        (2022, "模型"),
+    ] {
+        let error = minimax_failure(
+            &json!({"base_resp":{"status_code":code,"status_msg":"private-secret"}}),
+        );
+        assert!(error.contains(expected));
+        assert!(error.contains(&code.to_string()));
+        assert!(!error.contains("private-secret"));
+    }
+}
 fn profile(adapter: &str, base_url: String) -> SpeechProfile {
     SpeechProfile {
         id: "test-profile".into(),
@@ -83,6 +99,20 @@ fn decode_generated_mp3_and_reject_invalid_audio_and_cancel() {
     let mut bytes = vec![0; MAX_AUDIO - 1];
     assert!(append_audio(&mut bytes, &[1, 2]).is_err());
     assert_eq!(bytes.len(), MAX_AUDIO - 1);
+}
+
+#[test]
+fn streaming_mp3_with_unfinalized_frame_count_decodes_without_gapless_underflow() {
+    let mut audio = MP3.to_vec();
+    let info = audio
+        .windows(4)
+        .position(|bytes| bytes == b"Info" || bytes == b"Xing")
+        .unwrap();
+    // Reproduce a live TTS stream header: unknown final frame count, valid encoder padding.
+    audio[info + 8..info + 12].copy_from_slice(&0_u32.to_be_bytes());
+    let samples: Vec<f32> = decode(audio, &CancellationToken::new()).unwrap().collect();
+    assert!(samples.len() > 3200);
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
 }
 
 fn http_server(status: &str, body: Vec<u8>) -> (String, std::thread::JoinHandle<String>) {

@@ -77,7 +77,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked
 ## 当前限制
 
 - 输出诊断暂以设备名匹配，同名设备拒绝播放；不是正式稳定 UID 实现。
-- 已通过本机模拟 HTTP 测试，但尚未通过真实供应商或第二家兼容服务验证。
+- 已通过真实 DeepSeek V4.1 Flash 翻译和 MiniMax Speech 2.8 Turbo 合成 / 解码；第二家兼容翻译服务及真实播放仍未验证。详见[真实服务记录](validation/2026-10-23-live-providers.md)。
 - Keychain、Core Audio taps、Mac WebView、全屏窗口行为均未实机验证。
 - 设置页修改内容后需保存；离开设置页会放弃未保存配置，密钥操作是独立即时保存。
 - 尚无可分发的签名 / 公证安装包。

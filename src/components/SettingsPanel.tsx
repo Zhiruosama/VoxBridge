@@ -6,6 +6,7 @@ import { profileFor } from '../core/settings';
 import { credentialStatus, desktop, listOutputs, removeCredential, setCredential } from '../bridge';
 import Select from './Select';
 import SettingRow from './SettingRow';
+import { applyProviderPreset, providerPresets } from '../core/provider-presets';
 
 export type SettingsSection = 'general' | Stage;
 const sectionTitles: Record<SettingsSection, string> = {
@@ -236,14 +237,40 @@ export default function SettingsPanel({
           <section className="preference-section" aria-labelledby="connection-heading">
             <div className="preference-section-title">
               <h2 id="connection-heading">服务连接</h2>
-              <button
-                className="subtle"
-                onClick={addProfile}
-                disabled={draft.profiles.length >= 30 || busy}
-              >
-                <Plus size={14} />
-                新增配置
-              </button>
+              {stage === 'asr' ? (
+                <button
+                  className="subtle"
+                  onClick={addProfile}
+                  disabled={draft.profiles.length >= 30 || busy}
+                >
+                  <Plus size={14} />
+                  新增配置
+                </button>
+              ) : (
+                <Select
+                  label="新增服务配置"
+                  compact
+                  value=""
+                  placeholder="新增配置"
+                  disabled={draft.profiles.length >= 30 || busy}
+                  options={[
+                    { value: 'custom', label: '空白配置' },
+                    ...providerPresets
+                      .filter((preset) => preset.stage === stage)
+                      .map((preset) => ({ value: preset.id, label: preset.name })),
+                  ]}
+                  onChange={(value) => {
+                    if (value === 'custom') addProfile();
+                    else {
+                      try {
+                        setDraft(applyProviderPreset(draft, value));
+                      } catch (error) {
+                        notify(String(error));
+                      }
+                    }
+                  }}
+                />
+              )}
             </div>
             <div className="preference-card">
               <SettingRow title="当前配置">
@@ -351,6 +378,25 @@ export default function SettingsPanel({
                   </span>
                 )}
               </SettingRow>
+              {stage === 'translation' && (
+                <SettingRow title="思考模式">
+                  <Select
+                    label="翻译思考模式"
+                    value={profile.thinking ?? 'default'}
+                    options={[
+                      { value: 'default', label: '服务默认' },
+                      { value: 'disabled', label: '关闭' },
+                      { value: 'enabled', label: '开启' },
+                    ]}
+                    onChange={(value) =>
+                      update({
+                        thinking:
+                          value === 'default' ? undefined : (value as 'enabled' | 'disabled'),
+                      })
+                    }
+                  />
+                </SettingRow>
+              )}
               {stage === 'tts' && (
                 <SettingRow title="音色 ID">
                   <input

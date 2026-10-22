@@ -148,7 +148,7 @@ fn progress(channel: &tauri::ipc::Channel<SpeechProgress>, id: &str, phase: &'st
     });
 }
 
-fn endpoint(profile: &SpeechProfile) -> Result<url::Url, String> {
+pub(crate) fn endpoint(profile: &SpeechProfile) -> Result<url::Url, String> {
     if profile.stage != "tts"
         || !matches!(
             profile.adapter.as_str(),
@@ -204,6 +204,25 @@ fn provider_status(status: u16) -> String {
         _ => "语音服务请求失败，请检查服务配置或稍后重试。",
     }
     .into()
+}
+fn minimax_failure(value: &Value) -> String {
+    let code = value
+        .pointer("/base_resp/status_code")
+        .and_then(Value::as_i64);
+    let message = match code {
+        Some(1004 | 2049) => "MiniMax 认证失败，请检查密钥及所属区域。",
+        Some(1008 | 2053) => "MiniMax 余额或积分不足，请检查账户。",
+        Some(1002 | 1045 | 2062) => "MiniMax 请求受限，请稍后重试并检查额度。",
+        Some(2013) => "MiniMax 参数无效，请检查模型和音色。",
+        Some(2022 | 2061 | 2068 | 2069) => "MiniMax 模型不存在、已下线或当前账户无权使用。",
+        Some(2042 | 2043 | 2054 | 20132) => "MiniMax 音色不存在、无权访问或与模型不兼容。",
+        _ => "MiniMax 语音任务失败，请检查服务配置或稍后重试。",
+    };
+    // Only a numeric status and our own text are exposed; never echo status_msg.
+    match code {
+        Some(code) => format!("{message}（错误码 {code}）"),
+        None => message.into(),
+    }
 }
 async fn synthesize(
     profile: &SpeechProfile,
@@ -274,7 +293,7 @@ async fn synthesize(
                         .is_some_and(|code| code != 0)
                         || value["event"] == "task_failed"
                     {
-                        return Err("语音任务失败，请检查模型、音色、密钥和额度。".into());
+                        return Err(minimax_failure(&value));
                     }
                     return Ok(value);
                 }
@@ -327,7 +346,7 @@ async fn synthesize(
     Ok(audio)
 }
 
-async fn synthesize_cancellable(
+pub(crate) async fn synthesize_cancellable(
     profile: &SpeechProfile,
     url: url::Url,
     text: &str,
@@ -341,8 +360,15 @@ async fn synthesize_cancellable(
     }
 }
 
-fn decode(audio: Vec<u8>, token: &CancellationToken) -> Result<SamplesBuffer, String> {
-    let mut decoder = Decoder::try_from(Cursor::new(audio))
+pub(crate) fn decode(audio: Vec<u8>, token: &CancellationToken) -> Result<SamplesBuffer, String> {
+    let byte_len = audio.len() as u64;
+    // Streaming encoders may leave Xing's frame count at zero while LAME padding is nonzero.
+    // Gapless trimming in Symphonia 0.5 underflows on that header. Decode actual frames instead.
+    let mut decoder = Decoder::builder()
+        .with_data(Cursor::new(audio))
+        .with_byte_len(byte_len)
+        .with_gapless(false)
+        .build()
         .map_err(|_| "无法解码语音，服务必须返回 MP3 或 WAV。")?;
     let channels = decoder.channels();
     let rate = decoder.sample_rate();

@@ -6,6 +6,8 @@
 
 实现状态：已开始工作台开发；进度以 [TODO](../TODO.md) 和[开发指南](09-development.md) 为准，其余专项文档描述目标设计。
 
+最新联调：[DeepSeek / MiniMax 真实服务记录](validation/2026-10-23-live-providers.md)。
+
 ## 文档地图
 
 | 文档 | 主要内容 | 评审重点 |

@@ -45,7 +45,9 @@
 
 测试夹具 `src-tauri/src/speech/fixtures/tone.mp3` 为自行生成的 440 Hz 正弦波（32 kHz、单声道、约 120 ms），没有第三方录音内容。自动测试不会实际打开音频设备或使用真实 Key。
 
-尚未验证：真实供应商请求、模型 / 音色权限、音质、实际输出、停止尾音、Mac Keychain / 音频设备、BlackHole 回录、Discord 对端、长时间稳定性。收到服务配置后分别记录，不能把模拟测试当作真实验收。
+2026-10-23：已用真实 MiniMax 国内服务、`speech-2.8-turbo`、`male-qn-qingse` 验证合成、MP3 解码和非静音样本，见[真实服务记录](validation/2026-10-23-live-providers.md)。音质、实际输出、停止尾音、Mac Keychain / 音频设备、BlackHole 回录、Discord 对端和长时间稳定性仍未测试。
+
+真实流式 MP3 的 Xing 头可能声明 0 帧，结合编码器 padding 会触发 Symphonia 0.5 的 gapless 长度减法溢出。解码器已关闭 gapless 裁剪，按实际帧解码并由采样数量计算时长，补充了零帧头回归测试。这可能保留短暂编码器首尾填充；首音和尾音仍须实测。
 
 ## 下一步
 

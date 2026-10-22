@@ -57,3 +57,18 @@ MiniMax 的文本接口提供 OpenAI SDK 兼容方式，而其 WebSocket TTS 有
 翻译至少用两个独立 OpenAI-compatible 服务验证只改配置可切换；无第二组凭据时标为未验证。分别覆盖普通返回、流式返回（若启用）、无模型列表、认证失败、模型不存在与取消。ASR / TTS 的替换只有对应协议实现并验证后才标为支持。
 
 最终对用户的承诺应是“可配置与可扩展”，而不是“任意 API Key 均可直接使用”。
+
+## 7. 已实现的服务预设（2026-10-23）
+
+设置 → 对应模型服务 → 新增配置，可选择 DeepSeek V4.1 Flash 或 MiniMax Speech 2.8。预设只包含公开地址、模型与音色，没有密钥；再次选择会复用原配置并保留用户编辑。
+
+| 服务 | 地址 | 模型 / 参数 |
+| --- | --- | --- |
+| DeepSeek V4.1 Flash | `https://api.deepseek.com` | 模型 `deepseek-flash`；翻译预设 `thinking.type=disabled` |
+| MiniMax 国内语音 | `wss://api.minimax.cn/ws/v1/t2a_v2` | `speech-2.8-turbo`；示例音色 `male-qn-qingse` |
+
+DeepSeek 官方要求使用 `deepseek-flash` 调用当前 V4.1 Flash，预设不使用展示名作为模型 ID。[官方首次调用说明](https://api-docs.deepseek.com/zh-cn/)
+
+思考模式可选“服务默认 / 关闭 / 开启”。服务默认时不携带 `thinking` 字段；关闭 / 开启时才发送供应商扩展。该字段不是通用兼容保证，不支持它的服务应保持“服务默认”。[DeepSeek 思考模式](https://api-docs.deepseek.com/zh-cn/guides/thinking_mode/)
+
+MiniMax 模型与音色可手动修改；`speech-2.8-hd` 是另一选择，本轮未调用验收。国内与国际地址由用户显式选择，不因认证失败自动更换区域。[MiniMax 语音协议](https://platform.minimax.cn/docs/api-reference/speech-t2a-websocket)

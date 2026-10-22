@@ -20,6 +20,7 @@ export interface ProviderProfile {
   baseUrl: string;
   modelId: string;
   voice: string;
+  thinking?: 'enabled' | 'disabled';
 }
 export interface Settings {
   schemaVersion: 1;
