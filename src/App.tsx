@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowRight,
   AudioLines,
-  Check,
   ChevronDown,
   Headphones,
   Languages,
@@ -12,25 +11,17 @@ import {
   Volume2,
   Monitor,
   PanelLeftClose,
-  Pause,
   Settings2,
   Square,
-  X,
 } from 'lucide-react';
 import SettingsPanel, { type SettingsSection } from './components/SettingsPanel';
 import Diagnostics from './components/Diagnostics';
 import Select from './components/Select';
+import Toast from './components/Toast';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
-import { applyTranscript, applyTranslation } from './core/session';
-import type { RuntimeInfo, Session, Settings, TranscriptEvent } from './core/types';
+import type { RuntimeInfo, Session, Settings } from './core/types';
 import { cancelTranslation, desktop, runtimeInfo, speak, stopSpeech, translate } from './bridge';
 
-const samples = [
-  ["Thanks for joining. Let's review the schedule.", '感谢参加，我们先确认一下日程。'],
-  ['The meeting starts at ten tomorrow morning.', '会议将于明天上午十点开始。'],
-  ['Could you send me the updated document?', '可以把更新后的文档发给我吗？'],
-  ["I'll review it and get back to you this afternoon.", '我会查看文档，并在今天下午回复你。'],
-];
 const languages = ['英语', '简体中文', '日语', '韩语', '西班牙语'];
 type Page = 'workspace' | 'settings' | 'diagnostics';
 
@@ -50,9 +41,14 @@ export default function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
-  const [notice, setNotice] = useState(initial.error);
-  const [session, setSession] = useState<Session>({ id: null, segments: [] });
-  const [demo, setDemo] = useState(false);
+  const [notice, setNotice] = useState({ message: initial.error, id: 0 });
+  const notify = useCallback((message: string) => {
+    setNotice((current) => ({ message, id: current.id + 1 }));
+  }, []);
+  const dismissNotice = useCallback(() => {
+    setNotice((current) => ({ ...current, message: '' }));
+  }, []);
+  const [session] = useState<Session>({ id: null, segments: [] });
   const [text, setText] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
@@ -74,8 +70,8 @@ export default function App() {
   useEffect(() => {
     runtimeInfo()
       .then(setRuntime)
-      .catch((e) => setNotice(String(e)));
-  }, []);
+      .catch((e) => notify(String(e)));
+  }, [notify]);
   useEffect(() => {
     const media = matchMedia('(prefers-color-scheme: light)');
     function apply() {
@@ -90,40 +86,6 @@ export default function App() {
     if (follow)
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'instant' });
   }, [session.segments, follow]);
-  useEffect(() => {
-    if (!demo) return;
-    const id = crypto.randomUUID();
-    setSession({ id, segments: [] });
-    setFollow(true);
-    let step = 0;
-    const interval = window.setInterval(() => {
-      const index = Math.floor(step / 3);
-      if (index >= samples.length) {
-        setDemo(false);
-        return;
-      }
-      const phase = step % 3;
-      const [source, target] = samples[index];
-      const event: TranscriptEvent = {
-        sessionId: id,
-        segmentId: `demo-${index}`,
-        revision: phase + 1,
-        text: phase === 0 ? source.slice(0, Math.floor(source.length / 2)) : source,
-        final: phase === 2,
-      };
-      setSession((current) => {
-        const next = applyTranscript(current, event);
-        return phase === 2
-          ? applyTranslation(next, id, event.segmentId, event.revision, target)
-          : next;
-      });
-      step++;
-    }, 950);
-    return () => {
-      clearInterval(interval);
-      setSession((current) => ({ ...current, id: null }));
-    };
-  }, [demo]);
   useEffect(
     () => () => {
       if (requestRef.current) void cancelTranslation(requestRef.current);
@@ -132,19 +94,13 @@ export default function App() {
     [],
   );
 
-  useEffect(() => {
-    if (notice !== '已保存') return;
-    const timer = window.setTimeout(() => setNotice(''), 1800);
-    return () => clearTimeout(timer);
-  }, [notice]);
-
   function persist(next: Settings, silent = false) {
     try {
       saveSettings(next);
       setSettings(next);
-      if (!silent) setNotice('已保存');
+      if (!silent) notify('已保存');
     } catch (e) {
-      setNotice(`保存失败：${String(e)}`);
+      notify(`保存失败：${String(e)}`);
     }
   }
   async function runTranslation() {
@@ -336,16 +292,9 @@ export default function App() {
           </div>
           {page === 'workspace' && (
             <div className="toolbar-actions">
-              {demo ? (
-                <button className="subtle" onClick={() => setDemo(false)}>
-                  <Pause size={13} />
-                  暂停演示
-                </button>
-              ) : (
-                <button disabled title="应用声音采集尚未接入，完成后可在这里开始监听">
-                  开始监听
-                </button>
-              )}
+              <button disabled title="应用声音采集尚未接入，完成后可在这里开始监听">
+                开始监听
+              </button>
             </div>
           )}
           {page === 'diagnostics' && (
@@ -354,14 +303,8 @@ export default function App() {
             </button>
           )}
         </header>
-        {notice && (
-          <div className="notice" role="status">
-            <Check size={14} />
-            <span>{notice}</span>
-            <button className="icon-button" aria-label="关闭提示" onClick={() => setNotice('')}>
-              <X size={14} />
-            </button>
-          </div>
+        {notice.message && (
+          <Toast key={notice.id} message={notice.message} onClose={dismissNotice} />
         )}
         <main
           key={page}
@@ -374,20 +317,12 @@ export default function App() {
               onBusyChange={setSettingsBusy}
               settings={settings}
               onSave={persist}
-              notify={setNotice}
+              notify={notify}
               onDiagnostics={() => setPage('diagnostics')}
             />
           )}
           {page === 'diagnostics' && (
-            <Diagnostics
-              runtime={runtime}
-              notify={setNotice}
-              demo={demo}
-              onDemo={() => {
-                setDemo(!demo);
-                setPage('workspace');
-              }}
-            />
+            <Diagnostics runtime={runtime} notify={notify} settings={settings} onSave={persist} />
           )}
           {page === 'workspace' && (
             <>
@@ -414,7 +349,6 @@ export default function App() {
                     compact
                   />
                 </div>
-                {(demo || session.segments.length > 0) && <span className="demo-label">演示</span>}
               </div>
               <div
                 className="transcript-scroll"

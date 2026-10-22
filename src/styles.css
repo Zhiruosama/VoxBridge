@@ -255,6 +255,7 @@ nav button[aria-current='page'] {
   margin-top: auto;
 }
 .main-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -281,17 +282,38 @@ nav button[aria-current='page'] {
   font-size: 14px;
   font-weight: 600;
 }
-.notice {
+.toast-positioner {
+  position: absolute;
+  z-index: 100;
+  top: 64px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.toast {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 3px 22px;
-  color: var(--muted);
+  gap: 10px;
+  max-width: min(480px, 100%);
+  padding: 9px 10px 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 18%);
+  color: var(--text);
   background: var(--raised);
-  font-size: 12px;
+  font-size: 13px;
+  pointer-events: auto;
 }
-.notice > span {
+.toast > span {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast > svg,
+.toast > button {
+  flex-shrink: 0;
 }
 .workspace {
   display: flex;

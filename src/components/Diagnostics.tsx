@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Pause, Play, RefreshCw, Square, Volume2 } from 'lucide-react';
+import { ChevronDown, RefreshCw, Save, Square, Volume2 } from 'lucide-react';
 import { desktop, listOutputs, stopTone, testTone } from '../bridge';
-import type { OutputDevice, RuntimeInfo } from '../core/types';
+import type { OutputDevice, RuntimeInfo, Settings } from '../core/types';
 import Select from './Select';
 import SettingRow from './SettingRow';
 
 export default function Diagnostics({
   runtime,
   notify,
-  demo,
-  onDemo,
+  settings,
+  onSave,
 }: {
   runtime: RuntimeInfo | null;
   notify: (message: string) => void;
-  demo: boolean;
-  onDemo: () => void;
+  settings: Settings;
+  onSave: (settings: Settings) => void;
 }) {
   const [devices, setDevices] = useState<OutputDevice[]>([]);
-  const [deviceId, setDeviceId] = useState('');
+  const [deviceId, setDeviceId] = useState(settings.audio.previewDeviceId);
   const [busy, setBusy] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,6 @@ export default function Diagnostics({
     try {
       const next = await listOutputs();
       setDevices(next);
-      setDeviceId((current) => (next.some((device) => device.id === current) ? current : ''));
     } catch (error) {
       setError(String(error));
     } finally {
@@ -44,6 +43,18 @@ export default function Diagnostics({
       void stopTone();
     };
   }, []);
+  useEffect(() => {
+    setDeviceId(settings.audio.previewDeviceId);
+  }, [settings.audio.previewDeviceId]);
+  const available = devices.some((device) => device.id === deviceId);
+  const dirty = deviceId !== settings.audio.previewDeviceId;
+  const deviceOptions = [
+    ...new Map(
+      devices.map((device) => [device.id, { value: device.id, label: device.name }]),
+    ).values(),
+  ];
+  if (deviceId && !available)
+    deviceOptions.push({ value: deviceId, label: `${deviceId}（不可用）` });
   async function play() {
     if (playingRef.current) return;
     playingRef.current = true;
@@ -80,6 +91,18 @@ export default function Diagnostics({
     <div className="preferences-page diagnostics-page">
       <header className="preferences-heading">
         <h1>音频与诊断</h1>
+        <div className="preferences-save">
+          {dirty && <span role="status">未保存</span>}
+          <button
+            disabled={!desktop || loading || busy || !dirty || !available}
+            onClick={() =>
+              onSave({ ...settings, audio: { ...settings.audio, previewDeviceId: deviceId } })
+            }
+          >
+            <Save size={14} />
+            保存更改
+          </button>
+        </div>
       </header>
       <section className="preference-section" aria-labelledby="output-test-heading">
         <div className="preference-section-title">
@@ -94,18 +117,14 @@ export default function Diagnostics({
           </button>
         </div>
         <div className="preference-card">
-          <SettingRow title="输出设备">
+          <SettingRow title="试听输出设备">
             <Select
               label="测试输出设备"
               value={deviceId}
               onChange={setDeviceId}
               disabled={!desktop || loading || busy}
               placeholder={loading ? '正在读取设备…' : '选择输出设备'}
-              options={[
-                ...new Map(
-                  devices.map((device) => [device.id, { value: device.id, label: device.name }]),
-                ).values(),
-              ]}
+              options={deviceOptions}
             />
           </SettingRow>
           <SettingRow title="测试音">
@@ -118,7 +137,7 @@ export default function Diagnostics({
               ) : (
                 <button
                   onClick={() => void play()}
-                  disabled={!desktop || !deviceId || loading}
+                  disabled={!desktop || !available || loading}
                   title="播放约 1 秒的低音量 440 Hz 测试音"
                 >
                   <Volume2 size={15} />
@@ -145,17 +164,6 @@ export default function Diagnostics({
                     : '测试音约 1 秒；选择虚拟音频设备时，声音可能进入通话。'}
           </p>
         )}
-      </section>
-      <section className="preference-section" aria-labelledby="subtitle-preview-heading">
-        <h2 id="subtitle-preview-heading">字幕预览</h2>
-        <div className="preference-card">
-          <SettingRow title="示例对话">
-            <button onClick={onDemo}>
-              {demo ? <Pause size={14} /> : <Play size={14} />}
-              {demo ? '暂停示例' : '播放示例'}
-            </button>
-          </SettingRow>
-        </div>
       </section>
       <section className="preference-section" aria-labelledby="runtime-heading">
         <h2 id="runtime-heading">运行状态</h2>

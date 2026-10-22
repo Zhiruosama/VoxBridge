@@ -14,7 +14,7 @@ export async function runtimeInfo(): Promise<RuntimeInfo> {
     : {
         platform: 'browser',
         nativeCapture: false,
-        message: '浏览器预览 · 可体验界面与演示字幕。密钥、真实翻译和音频设备测试请使用桌面版。',
+        message: '浏览器预览 · 可检查界面与非敏感配置。密钥、真实翻译和音频设备测试请使用桌面版。',
       };
 }
 export async function credentialStatus(id: string): Promise<boolean> {

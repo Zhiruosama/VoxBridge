@@ -4,7 +4,7 @@
 
 **最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
 
-> 当前阶段：**工作台开发版**。可运行界面、字幕演示、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。已通过真实 DeepSeek V4.1 Flash 翻译与 MiniMax Speech 2.8 Turbo 合成 / 解码测试。TTS 先完整接收再播放；实际设备播放、听感和 Mac 路由尚未验收。系统声音识别与 macOS 原生采集集成仍待完成。下表为完整首版计划。
+> 当前阶段：**工作台开发版**。可运行界面、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。已通过真实 DeepSeek V4.1 Flash 翻译与 MiniMax Speech 2.8 Turbo 合成 / 解码测试。TTS 先完整接收再播放；实际设备播放、听感和 Mac 路由尚未验收。系统声音识别与 macOS 原生采集集成仍待完成。下表为完整首版计划。
 
 ![工作台开发版预览](docs/assets/workspace-preview.png)
 
@@ -75,7 +75,7 @@ npm run desktop:build:mac
 
 输出位于 `src-tauri/target/release/bundle/`。Mac 构建、签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
 
-浏览器预览可以体验布局、演示字幕和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。演示字幕使用固定样例，不录音、不调用付费服务。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；设置中的“新增配置”提供 DeepSeek V4.1 Flash 和 MiniMax Speech 2.8 国内服务预设，模型与音色均可编辑。
+浏览器预览可以体验布局和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；设置中的“新增配置”提供 DeepSeek V4.1 Flash 和 MiniMax Speech 2.8 国内服务预设，模型与音色均可编辑。
 
 ```sh
 npm test
@@ -91,6 +91,6 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked
 
 首轮方案已获用户认可，具体服务和实机表现仍待验证。ASR、翻译、TTS 分别配置服务、模型、地址及凭据；翻译优先支持 OpenAI-compatible Chat Completions。相同协议和能力的服务可通过配置更换；不同的流式音频协议仍需对应适配器，不能只凭 API Key 外形判断兼容。详见[模型服务配置与兼容边界](docs/08-provider-configuration.md)。
 
-前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流和底部输入区；无宣传口号、中央引导海报、平台标识或常驻开发状态栏。诊断与演示收纳在设置中。具体设计见[界面与交互](docs/05-product-interaction.md)。
+前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流和底部输入区；无宣传口号、中央引导海报、平台标识或常驻开发状态栏。诊断收纳在设置中；固定字幕示例已移除，保存反馈使用独立圆角浮层。具体设计见[界面与交互](docs/05-product-interaction.md)。
 
 阶段性提交与推送由开发过程自行执行。下一步验证实际声音与停止行为、优化流式播放，并在 Mac 验证原生采集及 BlackHole 路由；ASR 协议选定后接入音频流水线。
