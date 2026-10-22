@@ -55,6 +55,8 @@ flowchart TD
 
 平台接口：`list_sources`、`list_devices`、`start_capture`、`stop_capture`、`start_output`、`write_output`、`stop_output`。设备用稳定 UID 绑定；运行时 ID 变化需重新解析，进程 ID 不跨启动持久化。
 
+服务配置采用 ProviderProfile，由阶段绑定 profile_id；协议适配器与模型名称分离。翻译的 OpenAI-compatible Chat Completions、MiniMax 原生 TTS 和各家流式 ASR 分别实现适配器。统一能力描述及配置生效规则见[服务配置设计](08-provider-configuration.md)。
+
 前端命令：`start_listening`、`stop_listening`、`submit_speech`、`stop_speech`、`update_settings`、`set_overlay`。事件包括会话状态、识别更新、翻译更新、电平、发送状态与错误。命令返回“已受理”不等于播放完成；完成以状态事件为准。
 
 ## 5. 状态、并发和背压
