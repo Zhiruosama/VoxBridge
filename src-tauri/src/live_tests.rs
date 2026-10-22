@@ -9,6 +9,96 @@ use std::{
 };
 use tokio_util::sync::CancellationToken;
 
+#[tokio::test]
+#[ignore = "manual MiniMax handshake diagnosis; no text or synthesis submitted"]
+async fn live_minimax_handshake_probe() {
+    use futures_util::StreamExt;
+    use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Error, Message};
+    let key = credentials::read("tts-default").expect("current speech profile credential");
+    let known = credentials::read("provider-minimax-cn").expect("previously verified credential");
+    println!("CURRENT_CREDENTIAL_MATCHES_VERIFIED: {}", key == known);
+    for host in ["api.minimax.io", "api.minimax.cn"] {
+        let probe = async {
+            let url = format!("wss://{host}/ws/v1/t2a_v2");
+            let mut request = url.into_client_request().unwrap();
+            request
+                .headers_mut()
+                .insert("Authorization", format!("Bearer {key}").parse().unwrap());
+            match tokio_tungstenite::connect_async(request).await {
+                Ok((mut socket, _)) => {
+                    if let Some(Ok(Message::Text(message))) = socket.next().await {
+                        let data: serde_json::Value = serde_json::from_str(&message).unwrap();
+                        println!(
+                            "{host}: HTTP 101 | event={} | code={}",
+                            data["event"]
+                                .as_str()
+                                .filter(|event| matches!(
+                                    *event,
+                                    "connected_success" | "task_failed"
+                                ))
+                                .unwrap_or("other"),
+                            data.pointer("/base_resp/status_code")
+                                .and_then(serde_json::Value::as_i64)
+                                .unwrap_or(-1)
+                        );
+                    }
+                    let _ = socket.close(None).await;
+                }
+                Err(Error::Http(response)) => {
+                    let code = response
+                        .body()
+                        .as_deref()
+                        .filter(|body| body.len() < 16_384)
+                        .and_then(|body| serde_json::from_slice::<serde_json::Value>(body).ok())
+                        .and_then(|body| {
+                            body.pointer("/base_resp/status_code")
+                                .and_then(serde_json::Value::as_i64)
+                        });
+                    println!(
+                        "{host}: HTTP {} | code={code:?}",
+                        response.status().as_u16()
+                    );
+                }
+                Err(_) => println!("{host}: network or TLS error"),
+            }
+        };
+        if tokio::time::timeout(Duration::from_secs(15), probe)
+            .await
+            .is_err()
+        {
+            println!("{host}: timeout");
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "manual paid TTS test using current credential at the explicitly selected CN endpoint"]
+async fn live_minimax_current_credential_cn_smoke() {
+    let profile: speech::SpeechProfile = serde_json::from_value(serde_json::json!({
+        "id":"tts-default", "stage":"tts", "adapter":"minimax_tts_ws",
+        "baseUrl":"wss://api.minimax.cn/ws/v1/t2a_v2", "modelId":"speech-2.8-turbo", "voice":"male-qn-qingse"
+    })).unwrap();
+    let token = CancellationToken::new();
+    let started = Instant::now();
+    let bytes = speech::synthesize_cancellable(
+        &profile,
+        speech::endpoint(&profile).unwrap(),
+        "你好，语音连接测试。",
+        &credentials::read("tts-default").unwrap(),
+        &token,
+    )
+    .await
+    .expect("CN synthesis with current credential");
+    let len = bytes.len();
+    let source = speech::decode(bytes, &token).expect("decode actual TTS");
+    assert!(source.into_iter().any(|sample| sample.abs() > 0.001));
+    println!(
+        "CURRENT_CREDENTIAL_CN: success | {} ms | {} bytes | decodable and non-silent",
+        started.elapsed().as_millis(),
+        len
+    );
+}
+
 #[derive(Deserialize)]
 struct Keys {
     deepseek: String,

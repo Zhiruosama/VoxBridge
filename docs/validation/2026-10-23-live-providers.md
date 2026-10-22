@@ -45,3 +45,22 @@ cargo test --manifest-path src-tauri/Cargo.toml live_provider_smoke -- --ignored
 如等待标准输入，直接回车使用系统凭据。不要把真实 Key 写进命令行、脚本文件或报告。
 
 仍待验证：实际设备播放、音质听评、停止尾音、BlackHole / Discord、Mac Keychain、应用采集、ASR、长时间稳定性和第二家兼容翻译服务。
+
+## 用户报错排查：MiniMax 区域不匹配
+
+用户遇到“语音服务请求失败，请检查服务配置或稍后重试”。检查应用保存的非敏感配置后，当前活动项是早期 `tts-default`，地址仍为 `wss://api.minimax.io/ws/v1/t2a_v2`，模型与音色已填写正确。
+
+用当前系统存储的同一把密钥进行明确的双地址握手检查（未提交合成文本）：
+
+| 地址 | 实测结果 |
+| --- | --- |
+| `api.minimax.io` | HTTP 200，JSON `base_resp.status_code=2049`，WebSocket 未建立 |
+| `api.minimax.cn` | HTTP 101，`connected_success`，状态码 0 |
+
+再用当前 `tts-default` 密钥在国内地址提交一句短测试：745 ms 返回 35757 字节 MP3，可解码且非静音。说明当前凭据在国内站可用，区域不匹配是本次失败原因。[MiniMax 官方区域匹配说明](https://github.com/MiniMax-AI/MiniMax-MCP/blob/main/README-CN.md)
+
+修复：新配置与占位示例默认国内地址；握手失败保留 HTTP 状态，对有限大小 JSON 提取数字错误码，显示认证 / 余额等分类和当前区域，不回显供应商原始文本。新增 HTTP 200 + 错误码 2049 的回归检查，避免再次显示不明确的通用失败。
+
+已保存的自定义配置不自动跨区修改。当前用户需在“设置 → 语音合成”将地址改为 `wss://api.minimax.cn/ws/v1/t2a_v2` 后保存；模型、音色与密钥可保留。
+
+排查后：前端 9 项测试、Rust 18 项自动测试通过；3 个真实服务手动测试默认忽略。本轮运行了区域握手与当前凭据的国内合成测试，未测试实际输出设备。

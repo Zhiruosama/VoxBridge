@@ -339,7 +339,7 @@ export default function SettingsPanel({
                   value={profile.baseUrl}
                   placeholder={
                     profile.adapter === 'minimax_tts_ws'
-                      ? 'wss://api.minimax.io/ws/v1/t2a_v2'
+                      ? 'wss://api.minimax.cn/ws/v1/t2a_v2'
                       : 'https://api.example.com/v1'
                   }
                   onChange={(e) => update({ baseUrl: e.target.value })}

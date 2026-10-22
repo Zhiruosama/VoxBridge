@@ -31,7 +31,7 @@ export const defaults: Settings = {
       name: 'MiniMax',
       stage: 'tts',
       adapter: 'minimax_tts_ws',
-      baseUrl: 'wss://api.minimax.io/ws/v1/t2a_v2',
+      baseUrl: 'wss://api.minimax.cn/ws/v1/t2a_v2',
       modelId: '',
       voice: '',
     },

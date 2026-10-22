@@ -3,6 +3,25 @@ use std::io::{Read, Write};
 
 const MP3: &[u8] = include_bytes!("fixtures/tone.mp3");
 #[test]
+fn websocket_http_200_explains_region_and_does_not_echo_response_text() {
+    let url = url::Url::parse("wss://api.minimax.io/ws/v1/t2a_v2").unwrap();
+    let missing_upgrade = websocket_handshake_failure(&url, 200, None);
+    assert!(missing_upgrade.contains("HTTP 200"));
+    assert!(missing_upgrade.contains("未建立 WebSocket"));
+    assert!(missing_upgrade.contains("api.minimax.cn"));
+    let auth = websocket_handshake_failure(
+        &url,
+        200,
+        Some(br#"{"base_resp":{"status_code":2049,"status_msg":"private-key-do-not-display"}}"#),
+    );
+    assert!(auth.contains("认证"));
+    assert!(auth.contains("2049"));
+    assert!(!auth.contains("private-key"));
+    let upstream = provider_status(503);
+    assert!(upstream.contains("HTTP 503"));
+    assert!(upstream.contains("暂时不可用"));
+}
+#[test]
 fn minimax_errors_distinguish_balance_auth_and_voice_without_echoing_provider_text() {
     for (code, expected) in [
         (1004, "认证"),

@@ -15,7 +15,7 @@
 
 | 适配器 | 地址填写 | 请求与响应 |
 | --- | --- | --- |
-| `minimax_tts_ws` | 完整 WSS 地址，例如 `wss://api.minimax.io/ws/v1/t2a_v2` | Bearer 认证；connected_success → task_start → task_started → task_continue → 十六进制 MP3 分片 → is_final / task_finished → task_finish |
+| `minimax_tts_ws` | 完整 WSS 地址，例如 `wss://api.minimax.cn/ws/v1/t2a_v2` | Bearer 认证；connected_success → task_start → task_started → task_continue → 十六进制 MP3 分片 → is_final / task_finished → task_finish |
 | `openai_audio_speech` | API 根地址，例如 `https://api.example.com/v1` | 自动追加 `/audio/speech`；Bearer 认证；model、voice、input、response_format=mp3；接收音频字节 |
 
 远程只接受 HTTPS / WSS；回环地址可使用 HTTP / WS。地址不能包含用户凭据、查询参数或片段。HTTP 不跟随重定向，WebSocket 不追随重定向；TLS 证书验证保持开启。模型和音色手动配置，不硬编码供应商套餐或模型列表；不同阶段的凭据互不自动复用。

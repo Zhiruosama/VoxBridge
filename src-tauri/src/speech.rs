@@ -197,13 +197,41 @@ fn append_audio(audio: &mut Vec<u8>, bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 fn provider_status(status: u16) -> String {
-    match status {
+    let message = match status {
+        400 => "语音请求参数无效，请检查接口协议、模型和音色。",
         401 | 403 => "语音服务认证失败，请检查密钥和权限。",
         429 => "语音服务限流或额度不足。",
         404 => "语音接口或模型不存在，请检查地址和模型。",
+        405 => "语音接口与请求协议不匹配，请检查 API 地址。",
+        500..=599 => "语音服务暂时不可用，请稍后重试。",
         _ => "语音服务请求失败，请检查服务配置或稍后重试。",
+    };
+    format!("{message}（HTTP {status}）")
+}
+
+fn websocket_handshake_failure(url: &url::Url, status: u16, body: Option<&[u8]>) -> String {
+    let value = body
+        .filter(|bytes| bytes.len() <= 16_384)
+        .and_then(|bytes| serde_json::from_slice::<Value>(bytes).ok());
+    let code = value
+        .as_ref()
+        .and_then(|value| value.pointer("/base_resp/status_code"))
+        .and_then(Value::as_i64);
+    let message = if code.is_some_and(|code| code != 0) {
+        format!(
+            "{}（HTTP {status}）",
+            minimax_failure(value.as_ref().unwrap())
+        )
+    } else if status == 200 {
+        "服务返回 HTTP 200，但未建立 WebSocket 连接。请检查接口地址与密钥所属区域。".into()
+    } else {
+        provider_status(status)
+    };
+    match url.host_str() {
+        Some("api.minimax.io") => format!("{message} 当前连接 MiniMax 国际站；国内站地址为 wss://api.minimax.cn/ws/v1/t2a_v2，请使用与密钥匹配的地址。"),
+        Some("api.minimax.cn") => format!("{message} 当前连接 MiniMax 国内站，请确认密钥来自国内平台。"),
+        _ => message,
     }
-    .into()
 }
 fn minimax_failure(value: &Value) -> String {
     let code = value
@@ -272,9 +300,11 @@ async fn synthesize(
     let (mut socket, _) = tokio_tungstenite::connect_async_with_config(request, Some(config), true)
         .await
         .map_err(|error| match error {
-            tokio_tungstenite::tungstenite::Error::Http(response) => {
-                provider_status(response.status().as_u16())
-            }
+            tokio_tungstenite::tungstenite::Error::Http(response) => websocket_handshake_failure(
+                &url,
+                response.status().as_u16(),
+                response.body().as_deref(),
+            ),
             _ => "语音 WebSocket 连接失败。".into(),
         })?;
     async fn receive(
