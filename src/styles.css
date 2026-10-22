@@ -471,14 +471,11 @@ nav button[aria-current='page'] {
 .tag.positive {
   color: var(--good);
 }
-.diagnostics-link {
-  margin-top: 18px;
-  padding-left: 0;
-  color: var(--muted);
-}
 .page-scroll {
   overflow: auto;
   flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 .content-page {
   padding: 24px 36px;
@@ -501,23 +498,6 @@ nav button[aria-current='page'] {
   margin-top: 11px;
   line-height: 1.7;
 }
-.settings-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 28px;
-  gap: 15px;
-}
-.settings-tabs button {
-  border: 0;
-  border-radius: 0;
-  color: var(--muted);
-  padding: 11px 5px;
-  border-bottom: 2px solid transparent;
-}
-.settings-tabs button[aria-selected='true'] {
-  color: var(--text);
-  border-bottom-color: var(--text);
-}
 .settings-section {
   padding-bottom: 27px;
   margin-bottom: 27px;
@@ -535,27 +515,6 @@ nav button[aria-current='page'] {
   color: var(--muted);
   line-height: 1.8;
   margin-top: 7px;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 21px 20px;
-}
-.wide {
-  grid-column: 1 / -1;
-}
-.key-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.theme-select {
-  max-width: 230px;
-}
-.footnote {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.8;
 }
 .checklist p {
   display: flex;
@@ -605,12 +564,6 @@ nav button[aria-current='page'] {
   .content-page {
     padding: 24px 20px;
   }
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .wide {
-    grid-column: auto;
-  }
 }
 @media (max-width: 540px) {
   .app-shell {
@@ -644,12 +597,6 @@ nav button[aria-current='page'] {
   }
   .section-heading {
     flex-wrap: wrap;
-  }
-  .key-row {
-    flex-wrap: wrap;
-  }
-  .key-row .grow {
-    flex-basis: 100%;
   }
   .model-button {
     max-width: 160px;
@@ -769,5 +716,223 @@ nav button[aria-current='page'] {
 @media (prefers-reduced-motion: reduce) {
   .select-menu {
     animation: none;
+  }
+}
+
+.preferences-nav {
+  margin-top: 20px;
+}
+.sidebar {
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.nav-group-label {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 16px 10px 5px;
+  font-weight: 500;
+}
+.preferences-page {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 36px 38px 60px;
+  container-type: inline-size;
+  container-name: preferences;
+}
+.preferences-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding-block: 12px;
+  margin: -12px 0 28px;
+}
+.preferences-heading h1 {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.5px;
+}
+.preferences-save {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.preferences-save > span {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.preferences-save > button {
+  background: var(--raised);
+  font-size: 12px;
+}
+.preference-section {
+  margin-bottom: 36px;
+}
+.preference-section > h2 {
+  margin-bottom: 14px;
+}
+.preference-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.preference-section-title button {
+  font-size: 12px;
+}
+.preference-card {
+  padding: 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--raised);
+}
+.preference-card > * + * {
+  border-top: 1px solid var(--border);
+}
+.preference-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 330px);
+  align-items: center;
+  gap: 24px;
+  padding: 18px 0;
+  min-height: 78px;
+}
+.preference-copy {
+  min-width: 0;
+}
+.preference-copy h3 {
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.6;
+  margin: 0;
+}
+.preference-copy p {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 450;
+  line-height: 1.7;
+  margin-top: 3px;
+}
+.preference-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.preference-control > input {
+  width: 100%;
+  min-height: 38px;
+  font-size: 13px;
+  font-weight: 450;
+  background: var(--bg);
+}
+.preference-control > .select-trigger {
+  min-height: 36px;
+  font-size: 13px;
+  background: var(--bg);
+}
+.preference-value {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.protocol-value {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 12px;
+}
+.preference-section:has(#appearance-heading) .select-trigger {
+  width: 170px;
+}
+.credential-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.credential-status.positive {
+  color: var(--good);
+}
+.credential-editor {
+  padding: 18px 0;
+}
+.credential-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.credential-input-row input {
+  flex: 1;
+  width: 0;
+  min-height: 38px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.credential-input-row button {
+  min-height: 36px;
+  font-size: 12px;
+}
+.preference-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 10px 3px 0;
+}
+.integration-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin: -16px 0 30px;
+}
+@container preferences (max-width:580px) {
+  .preference-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding-block: 16px;
+  }
+  .preference-control {
+    justify-content: flex-start;
+  }
+  .preference-value {
+    text-align: left;
+  }
+  .preferences-save > span {
+    display: none;
+  }
+  .preference-section:has(#appearance-heading) .select-trigger {
+    width: 100%;
+  }
+  .credential-input-row {
+    flex-wrap: wrap;
+  }
+  .credential-input-row input {
+    flex-basis: 100%;
+    width: 100%;
+  }
+}
+@media (max-width: 760px) {
+  .preferences-page {
+    padding: 28px 22px 40px;
+  }
+  .preferences-heading {
+    margin-bottom: 28px;
+  }
+  .preferences-heading h1 {
+    font-size: 25px;
+  }
+  .preference-card {
+    padding-inline: 16px;
   }
 }

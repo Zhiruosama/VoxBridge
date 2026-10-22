@@ -7,6 +7,8 @@ import {
   ChevronDown,
   Languages,
   MessageSquare,
+  Mic,
+  Volume2,
   Monitor,
   PanelLeftClose,
   Pause,
@@ -14,7 +16,7 @@ import {
   Square,
   X,
 } from 'lucide-react';
-import SettingsPanel from './components/SettingsPanel';
+import SettingsPanel, { type SettingsSection } from './components/SettingsPanel';
 import Diagnostics from './components/Diagnostics';
 import Select from './components/Select';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
@@ -47,6 +49,8 @@ export default function App() {
   });
   const [settings, setSettings] = useState<Settings>(initial.settings);
   const [page, setPage] = useState<Page>('workspace');
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
+  const [settingsBusy, setSettingsBusy] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
   const [notice, setNotice] = useState(initial.error);
   const [session, setSession] = useState<Session>({ id: null, segments: [] });
@@ -185,6 +189,11 @@ export default function App() {
     }
   }
 
+  function openSettings(section: SettingsSection = 'general') {
+    setSettingsSection(section);
+    setPage('settings');
+  }
+
   return (
     <div className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}>
       <a className="skip-link" href="#main-content">
@@ -199,22 +208,63 @@ export default function App() {
           <button
             aria-current={page === 'workspace' ? 'page' : undefined}
             onClick={() => setPage('workspace')}
+            disabled={settingsBusy}
           >
             <MessageSquare size={15} />
             字幕
           </button>
         </nav>
-        <div className="sidebar-bottom">
-          <nav aria-label="设置导航">
+        {page === 'workspace' ? (
+          <div className="sidebar-bottom">
+            <nav aria-label="设置导航">
+              <button onClick={() => openSettings()}>
+                <Settings2 size={15} />
+                设置
+              </button>
+            </nav>
+          </div>
+        ) : (
+          <nav className="preferences-nav" aria-label="设置分类">
+            <span className="nav-group-label">偏好设置</span>
             <button
-              aria-current={page !== 'workspace' ? 'page' : undefined}
-              onClick={() => setPage('settings')}
+              disabled={settingsBusy}
+              aria-current={
+                page === 'settings' && settingsSection === 'general' ? 'page' : undefined
+              }
+              onClick={() => openSettings('general')}
             >
               <Settings2 size={15} />
-              设置
+              常规
+            </button>
+            <span className="nav-group-label">模型服务</span>
+            {(
+              [
+                { id: 'translation', label: '文字翻译', Icon: Languages },
+                { id: 'asr', label: '语音识别', Icon: Mic },
+                { id: 'tts', label: '语音合成', Icon: Volume2 },
+              ] as const
+            ).map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                disabled={settingsBusy}
+                aria-current={page === 'settings' && settingsSection === id ? 'page' : undefined}
+                onClick={() => openSettings(id)}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+            <span className="nav-group-label">工具</span>
+            <button
+              disabled={settingsBusy}
+              aria-current={page === 'diagnostics' ? 'page' : undefined}
+              onClick={() => setPage('diagnostics')}
+            >
+              <AudioLines size={15} />
+              音频与诊断
             </button>
           </nav>
-        </div>
+        )}
       </aside>
       <div className="main-shell">
         <header className="titlebar">
@@ -245,7 +295,7 @@ export default function App() {
             </div>
           )}
           {page === 'diagnostics' && (
-            <button className="subtle" onClick={() => setPage('settings')}>
+            <button className="subtle" onClick={() => openSettings()}>
               返回设置
             </button>
           )}
@@ -262,6 +312,8 @@ export default function App() {
         <main id="main-content" className={page === 'workspace' ? 'workspace' : 'page-scroll'}>
           {page === 'settings' && (
             <SettingsPanel
+              section={settingsSection}
+              onBusyChange={setSettingsBusy}
               settings={settings}
               onSave={persist}
               notify={setNotice}
@@ -362,7 +414,7 @@ export default function App() {
                   <div className="composer-controls">
                     <button
                       className="model-button"
-                      onClick={() => setPage('settings')}
+                      onClick={() => openSettings('translation')}
                       title="配置翻译模型"
                     >
                       <Languages size={13} />
