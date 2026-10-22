@@ -1,0 +1,17 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+native/macos/.build/
+*.tsbuildinfo
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/icons/Square*.png
+src-tauri/icons/StoreLogo.png

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Local workspace window only",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

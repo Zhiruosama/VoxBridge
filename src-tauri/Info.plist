@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>VoxBridge 需要读取您选择的应用声音以显示翻译字幕。</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>VoxBridge 需要在您启用语音表达时识别麦克风中的语音。</string>
+</dict></plist>
