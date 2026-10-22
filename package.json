@@ -14,7 +14,10 @@
     "format": "prettier --write src package.json tsconfig.json vite.config.ts",
     "format:check": "prettier --check src package.json tsconfig.json vite.config.ts",
     "tauri": "tauri",
-    "desktop": "tauri dev"
+    "start": "tauri dev",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:build:mac": "tauri build --bundles app,dmg"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.0",

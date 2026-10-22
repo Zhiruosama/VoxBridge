@@ -2,6 +2,8 @@
 
 面向 macOS 与 Windows 的桌面语音桥接工具：把应用声音转成双语字幕，把文字或自己的语音转成可供聊天软件使用的合成语音。
 
+**最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
+
 > 当前阶段：**工作台开发版**。首轮设计已获认可，已开始实现。当前可运行界面、字幕演示、服务配置、文字翻译和输出诊断；系统声音识别、TTS 与 macOS 原生采集集成尚未完成。下表为完整首版计划，不代表全部已实现。
 
 ![工作台开发版预览](docs/assets/workspace-preview.png)
@@ -62,9 +64,16 @@ macOS 原型的建议最低版本为 **14.2**，首测 Apple Silicon；Intel 支
 
 ```sh
 npm ci
-npm run dev       # 浏览器预览：http://127.0.0.1:1420
-npm run desktop   # 桌面版，按当前开发机平台运行
+npm start         # 启动桌面开发应用，按当前开发机平台运行
 ```
+
+在 Mac 上构建应用及安装镜像：
+
+```sh
+npm run desktop:build:mac
+```
+
+输出位于 `src-tauri/target/release/bundle/`。Mac 构建、签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
 
 浏览器预览可以体验布局、演示字幕和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。演示字幕使用固定样例，不录音、不调用付费服务。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；尚未使用真实供应商凭据验收。
 
@@ -82,6 +91,6 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked
 
 首轮方案已获用户认可，具体服务和实机表现仍待验证。ASR、翻译、TTS 分别配置服务、模型、地址及凭据；翻译优先支持 OpenAI-compatible Chat Completions。相同协议和能力的服务可通过配置更换；不同的流式音频协议仍需对应适配器，不能只凭 API Key 外形判断兼容。详见[模型服务配置与兼容边界](docs/08-provider-configuration.md)。
 
-前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流、底部输入区、克制配色与清晰状态。具体设计见[界面与交互](docs/05-product-interaction.md)。
+前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流和底部输入区；无宣传口号、中央引导海报、平台标识或常驻开发状态栏。诊断与演示收纳在设置中。具体设计见[界面与交互](docs/05-product-interaction.md)。
 
 阶段性提交与推送由开发过程自行执行。后续优先在 Mac 验证原生音频探针及 BlackHole 路由，再接入真实 ASR / TTS。

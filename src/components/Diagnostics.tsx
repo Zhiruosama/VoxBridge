@@ -6,9 +6,13 @@ import type { OutputDevice, RuntimeInfo } from '../core/types';
 export default function Diagnostics({
   runtime,
   notify,
+  demo,
+  onDemo,
 }: {
   runtime: RuntimeInfo | null;
   notify: (message: string) => void;
+  demo: boolean;
+  onDemo: () => void;
 }) {
   const [devices, setDevices] = useState<OutputDevice[]>([]);
   const [deviceId, setDeviceId] = useState('');
@@ -50,12 +54,20 @@ export default function Diagnostics({
     <div className="content-page diagnostics-page">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">DIAGNOSTICS</span>
-          <h1>先让声音连通。</h1>
+          <h1>音频与诊断</h1>
           <p>逐步检查输出设备，再进行 Mac 原生采集联调。</p>
         </div>
         <AudioLines size={28} strokeWidth={1} />
       </div>
+      <section className="settings-section">
+        <div className="section-heading">
+          <div>
+            <h2>字幕演示</h2>
+            <p>固定样例，不录音、不调用模型服务。</p>
+          </div>
+          <button onClick={onDemo}>{demo ? '暂停演示' : '播放演示'}</button>
+        </div>
+      </section>
       <section className="settings-section">
         <div className="section-heading">
           <div>

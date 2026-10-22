@@ -13,10 +13,12 @@ export default function SettingsPanel({
   settings,
   onSave,
   notify,
+  onDiagnostics,
 }: {
   settings: Settings;
   onSave: (settings: Settings) => void;
   notify: (message: string) => void;
+  onDiagnostics: () => void;
 }) {
   const [draft, setDraft] = useState(settings);
   const [stage, setStage] = useState<Stage>('translation');
@@ -80,9 +82,7 @@ export default function SettingsPanel({
     <div className="settings-page content-page">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">PREFERENCES</span>
-          <h1>按你的方式连接。</h1>
-          <p>服务可以更换，工作流保持熟悉。</p>
+          <h1>设置</h1>
         </div>
         <button className="primary" disabled={busy} onClick={() => onSave(draft)}>
           <Save size={15} />
@@ -252,7 +252,6 @@ export default function SettingsPanel({
         <div className="section-heading">
           <div>
             <h2>外观</h2>
-            <p>保持清晰，让内容成为中心。</p>
           </div>
         </div>
         <label className="theme-select">
@@ -273,6 +272,9 @@ export default function SettingsPanel({
           : '设置已保存。'}{' '}
         下次任务使用新配置。ASR / TTS 配置保存成功不代表语音功能已通过验证。
       </p>
+      <button className="diagnostics-link subtle" onClick={onDiagnostics}>
+        音频设备与诊断
+      </button>
     </div>
   );
 }

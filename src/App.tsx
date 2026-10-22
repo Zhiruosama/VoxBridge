@@ -1,21 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Activity,
   ArrowDown,
   ArrowRight,
   AudioLines,
   Check,
   ChevronDown,
-  Circle,
-  Headphones,
   Languages,
   MessageSquare,
   Monitor,
   PanelLeftClose,
   Pause,
-  Play,
-  Radio,
-  Send,
   Settings2,
   Square,
   X,
@@ -56,7 +50,6 @@ export default function App() {
   const [notice, setNotice] = useState(initial.error);
   const [session, setSession] = useState<Session>({ id: null, segments: [] });
   const [demo, setDemo] = useState(false);
-  const [overlayPreview, setOverlayPreview] = useState(false);
   const [text, setText] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
@@ -130,11 +123,17 @@ export default function App() {
     [],
   );
 
-  function persist(next: Settings) {
+  useEffect(() => {
+    if (notice !== '已保存') return;
+    const timer = window.setTimeout(() => setNotice(''), 1800);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  function persist(next: Settings, silent = false) {
     try {
       saveSettings(next);
       setSettings(next);
-      setNotice('设置已保存，下次任务使用新配置。');
+      if (!silent) setNotice('已保存');
     } catch (e) {
       setNotice(`保存失败：${String(e)}`);
     }
@@ -185,7 +184,6 @@ export default function App() {
     }
   }
 
-  const latest = session.segments.at(-1);
   return (
     <div className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}>
       <a className="skip-link" href="#main-content">
@@ -193,52 +191,28 @@ export default function App() {
       </a>
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">
-            <AudioLines size={21} strokeWidth={1.7} />
-          </span>
-          <span>
-            VoxBridge<span className="brand-caption">声音，自由抵达。</span>
-          </span>
+          <AudioLines size={19} strokeWidth={1.5} />
+          <span>VoxBridge</span>
         </div>
-        <div className="nav-label">工作空间</div>
         <nav aria-label="主导航">
           <button
             aria-current={page === 'workspace' ? 'page' : undefined}
             onClick={() => setPage('workspace')}
           >
-            <MessageSquare size={16} />
-            实时工作台<span className="nav-shortcut">01</span>
+            <MessageSquare size={15} />
+            字幕
           </button>
         </nav>
-        <div className="sidebar-session">
-          <span className="small-label">当前会话</span>
-          <p>
-            <span className={`status-dot ${demo ? 'active' : ''}`} />
-            {demo ? '演示字幕运行中' : '尚未开始监听'}
-          </p>
-          <small>原生音频待 Mac 联调</small>
-        </div>
         <div className="sidebar-bottom">
-          <nav aria-label="工具导航">
+          <nav aria-label="设置导航">
             <button
-              aria-current={page === 'settings' ? 'page' : undefined}
+              aria-current={page !== 'workspace' ? 'page' : undefined}
               onClick={() => setPage('settings')}
             >
-              <Settings2 size={16} />
+              <Settings2 size={15} />
               设置
             </button>
-            <button
-              aria-current={page === 'diagnostics' ? 'page' : undefined}
-              onClick={() => setPage('diagnostics')}
-            >
-              <Activity size={16} />
-              诊断
-            </button>
           </nav>
-          <div className="build-label">
-            <span className="status-dot" />
-            开发预览<span>v0.1</span>
-          </div>
         </div>
       </aside>
       <div className="main-shell">
@@ -251,16 +225,29 @@ export default function App() {
             >
               <PanelLeftClose size={16} />
             </button>
-            <span className="muted">工作空间</span>
-            <span className="slash">/</span>
             <strong>
-              {page === 'workspace' ? '实时工作台' : page === 'settings' ? '设置' : '诊断'}
+              {page === 'workspace' ? '字幕' : page === 'settings' ? '设置' : '音频与诊断'}
             </strong>
           </div>
-          <span className="titlebar-status">
-            <span className="status-dot" />
-            {desktop ? '桌面开发版' : '浏览器预览'}
-          </span>
+          {page === 'workspace' && (
+            <div className="toolbar-actions">
+              {demo ? (
+                <button className="subtle" onClick={() => setDemo(false)}>
+                  <Pause size={13} />
+                  暂停演示
+                </button>
+              ) : (
+                <button disabled title="应用声音采集尚未接入，完成后可在这里开始监听">
+                  开始监听
+                </button>
+              )}
+            </div>
+          )}
+          {page === 'diagnostics' && (
+            <button className="subtle" onClick={() => setPage('settings')}>
+              返回设置
+            </button>
+          )}
         </header>
         {notice && (
           <div className="notice" role="status">
@@ -273,69 +260,54 @@ export default function App() {
         )}
         <main id="main-content" className={page === 'workspace' ? 'workspace' : 'page-scroll'}>
           {page === 'settings' && (
-            <SettingsPanel settings={settings} onSave={persist} notify={setNotice} />
+            <SettingsPanel
+              settings={settings}
+              onSave={persist}
+              notify={setNotice}
+              onDiagnostics={() => setPage('diagnostics')}
+            />
           )}
-          {page === 'diagnostics' && <Diagnostics runtime={runtime} notify={setNotice} />}
+          {page === 'diagnostics' && (
+            <Diagnostics
+              runtime={runtime}
+              notify={setNotice}
+              demo={demo}
+              onDemo={() => {
+                setDemo(!demo);
+                setPage('workspace');
+              }}
+            />
+          )}
           {page === 'workspace' && (
             <>
               <div className="workspace-toolbar">
-                <div className="source-chip">
-                  <Monitor size={15} />
-                  <span>应用声音</span>
-                  <span className="tag">待接入</span>
-                </div>
+                <button className="source-button" disabled title="应用音频采集待接入">
+                  <Monitor size={14} />
+                  选择应用
+                  <ChevronDown size={12} />
+                </button>
                 <div className="language-pair">
-                  <label>
-                    <span className="sr-only">源语言</span>
-                    <select
-                      aria-label="源语言"
-                      value={settings.sourceLanguage}
-                      onChange={(e) => persist({ ...settings, sourceLanguage: e.target.value })}
-                    >
-                      {languages.map((l) => (
-                        <option key={l}>{l}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <ArrowRight size={13} />
-                  <label>
-                    <span className="sr-only">目标语言</span>
-                    <select
-                      aria-label="目标语言"
-                      value={settings.targetLanguage}
-                      onChange={(e) => persist({ ...settings, targetLanguage: e.target.value })}
-                    >
-                      {languages.map((l) => (
-                        <option key={l}>{l}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="toolbar-actions">
-                  <button
-                    title="预览字幕样式；独立置顶悬浮窗待实现"
-                    className={overlayPreview ? 'selected' : ''}
-                    onClick={() => setOverlayPreview(!overlayPreview)}
+                  <select
+                    aria-label="源语言"
+                    value={settings.sourceLanguage}
+                    onChange={(e) => persist({ ...settings, sourceLanguage: e.target.value }, true)}
                   >
-                    <Monitor size={14} />
-                    <span>字幕预览</span>
-                  </button>
-                  <button className={demo ? 'selected' : ''} onClick={() => setDemo(!demo)}>
-                    {demo ? <Pause size={14} /> : <Play size={14} />}
-                    <span>{demo ? '暂停演示' : '演示字幕'}</span>
-                  </button>
+                    {languages.map((l) => (
+                      <option key={l}>{l}</option>
+                    ))}
+                  </select>
+                  <ArrowRight size={12} />
+                  <select
+                    aria-label="目标语言"
+                    value={settings.targetLanguage}
+                    onChange={(e) => persist({ ...settings, targetLanguage: e.target.value }, true)}
+                  >
+                    {languages.map((l) => (
+                      <option key={l}>{l}</option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-              <div className="session-label">
-                <span>
-                  <span className={`status-dot ${demo ? 'active' : ''}`} />
-                  {demo
-                    ? '演示模式 · 固定样例，不采集声音'
-                    : session.segments.length
-                      ? '演示已暂停 · 内容仅保留在当前窗口'
-                      : '准备就绪'}
-                </span>
-                <span>原文 + 译文</span>
+                {(demo || session.segments.length > 0) && <span className="demo-label">演示</span>}
               </div>
               <div
                 className="transcript-scroll"
@@ -347,53 +319,22 @@ export default function App() {
               >
                 {!session.segments.length ? (
                   <div className="empty-state">
-                    <div className="empty-symbol">
-                      <AudioLines size={36} strokeWidth={1.2} />
-                    </div>
-                    <span className="eyebrow">LISTEN. UNDERSTAND. CONNECT.</span>
-                    <h1>让语言，不再成为距离。</h1>
-                    <p>
-                      听见对方，也让对方听懂你。
-                      <br />
-                      从一段双语字幕，开始更自然的交流。
-                    </p>
-                    <button onClick={() => setDemo(true)}>
-                      <Play size={14} />
-                      体验字幕演示
-                      <ArrowRight size={14} />
-                    </button>
-                    <div className="empty-hint">
-                      <Circle size={9} />
-                      演示不录音、不调用付费服务
-                    </div>
+                    <p>暂无字幕</p>
                   </div>
                 ) : (
                   <div className="transcript-content">
-                    <div className="timeline-start">
-                      <span />
-                      本次演示
-                      <span />
-                    </div>
                     {session.segments.map((segment) => (
                       <article className="segment" key={segment.id}>
                         <div className="segment-meta">
-                          <Radio size={12} />
-                          <span>演示音源</span>
                           <time>{segment.time}</time>
-                          {!segment.final && <span className="recognizing">识别样式演示…</span>}
+                          {!segment.final && <span>识别中…</span>}
                         </div>
                         <p className="source-text">{segment.source}</p>
-                        {segment.translation ? (
+                        {segment.translation && (
                           <p className="translation-text">{segment.translation}</p>
-                        ) : (
-                          <p className="translation-pending">等待定稿</p>
                         )}
                       </article>
                     ))}
-                    <div className="timeline-end">
-                      <span className={`status-dot ${demo ? 'active' : ''}`} />
-                      {demo ? '等待下一句…' : '演示结束'}
-                    </div>
                   </div>
                 )}
               </div>
@@ -406,33 +347,10 @@ export default function App() {
                   }}
                 >
                   <ArrowDown size={13} />
-                  回到最新
+                  最新
                 </button>
               )}
-              {overlayPreview && (
-                <div className="overlay-preview">
-                  <div>
-                    <span>字幕样式预览 · 非置顶窗口</span>
-                    <button
-                      className="icon-button"
-                      aria-label="关闭字幕预览"
-                      onClick={() => setOverlayPreview(false)}
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                  <small>{latest?.source || 'The next conversation starts here.'}</small>
-                  <p>{latest?.translation || '下一段对话，从这里开始。'}</p>
-                </div>
-              )}
               <section className="composer-area" aria-label="文字表达">
-                <div className="composer-caption">
-                  <span>
-                    <Languages size={14} />
-                    文字表达
-                  </span>
-                  <span>先翻译，再让声音抵达</span>
-                </div>
                 <div className="composer-box">
                   <label className="sr-only" htmlFor="speech-input">
                     输入要翻译或表达的内容
@@ -442,7 +360,7 @@ export default function App() {
                     maxLength={500}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    placeholder="输入你想说的话…"
+                    placeholder="输入要说的话…"
                   />
                   <div className="composer-controls">
                     <button
@@ -450,36 +368,40 @@ export default function App() {
                       onClick={() => setPage('settings')}
                       title="配置翻译模型"
                     >
-                      <span className="model-indicator" />
-                      {translationProfile.modelId || '选择翻译模型'}
-                      <ChevronDown size={12} />
+                      <Languages size={13} />
+                      {translationProfile.modelId || '选择模型'}
+                      <ChevronDown size={11} />
                     </button>
-                    <span className="input-count">{text.length}/500</span>
-                    <button
-                      className="subtle"
-                      disabled={!text.trim() || busy || !desktop}
-                      onClick={() => void runTranslation()}
-                      title={desktop ? '调用配置的翻译服务，可能计费' : '真实翻译需桌面版'}
-                    >
-                      <Languages size={14} />
-                      {busy ? '翻译中…' : '翻译'}
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label="停止翻译"
-                      disabled={!busy || stopping}
-                      onClick={() => void stopTranslation()}
-                    >
-                      <Square size={13} />
-                    </button>
-                    <button
-                      disabled
-                      title="语音合成正在接入，当前不能试听或发送"
-                      className="send-button"
-                    >
-                      <Send size={14} />
-                      发送
-                    </button>
+                    {text.length > 450 && <span className="input-count">{text.length}/500</span>}
+                    <div className="composer-actions">
+                      {busy ? (
+                        <button
+                          className="icon-button"
+                          aria-label="停止翻译"
+                          disabled={stopping}
+                          onClick={() => void stopTranslation()}
+                        >
+                          <Square size={13} />
+                        </button>
+                      ) : (
+                        <button
+                          className="subtle"
+                          disabled={!text.trim() || !desktop}
+                          onClick={() => void runTranslation()}
+                          title={desktop ? '翻译输入的文字' : '请通过桌面应用使用翻译'}
+                        >
+                          翻译
+                        </button>
+                      )}
+                      <button
+                        disabled
+                        title="语音合成尚未接入"
+                        aria-label="发送合成语音"
+                        className="send-button"
+                      >
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 {error && (
@@ -489,37 +411,13 @@ export default function App() {
                 )}
                 {result && (
                   <div className="translation-result">
-                    <span>{settings.targetLanguage}译文</span>
                     <p>{result}</p>
                   </div>
                 )}
-                <div className="composer-footnote">
-                  <span>
-                    <Headphones size={12} />
-                    TTS 试听与虚拟麦克风发送接入中
-                  </span>
-                  <button onClick={() => setPage('diagnostics')}>
-                    检查音频设备
-                    <ArrowRight size={11} />
-                  </button>
-                </div>
               </section>
             </>
           )}
         </main>
-        <footer className="statusbar">
-          <span>
-            <span className={`status-dot ${demo ? 'active' : ''}`} />
-            {demo ? '演示中' : '未监听'}
-            <span className="footer-divider" />
-            {session.segments.filter((s) => s.final).length} 条字幕
-          </span>
-          <span>
-            macOS 优先
-            <span className="footer-divider" />
-            声音与对话默认不落盘
-          </span>
-        </footer>
       </div>
     </div>
   );
