@@ -7,6 +7,7 @@ import type {
   ProviderProfile,
   RuntimeInfo,
   SpeechProgress,
+  Transcript,
 } from './core/types';
 
 export const desktop = isTauri();
@@ -83,4 +84,15 @@ export async function captureDiagnostic(
 }
 export async function stopCapture(sessionId: string) {
   if (desktop) await invoke('stop_capture', { sessionId });
+}
+export async function transcribeWav(
+  profile: ProviderProfile,
+  audio: Uint8Array,
+  requestId: string,
+): Promise<Transcript> {
+  if (!desktop) throw new Error('ASR 音频转写需要桌面版。');
+  return invoke('transcribe_wav', { profile, audio: Array.from(audio), requestId });
+}
+export async function stopAsr(requestId: string) {
+  if (desktop) await invoke('stop_asr', { requestId });
 }

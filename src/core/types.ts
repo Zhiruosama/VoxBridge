@@ -3,6 +3,7 @@ export type Adapter =
   | 'openai_chat_completions'
   | 'minimax_tts_ws'
   | 'openai_audio_speech'
+  | 'qwen_chat_asr'
   | 'pending_asr';
 export interface AudioRouting {
   previewDeviceId: string;
@@ -58,6 +59,10 @@ export interface RuntimeInfo {
 export interface OutputDevice {
   id: string;
   name: string;
+}
+export interface Transcript {
+  text: string;
+  audioSeconds: number;
 }
 export interface CaptureSource {
   pid: number;

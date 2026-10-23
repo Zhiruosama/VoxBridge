@@ -109,6 +109,23 @@ describe('provider profiles', () => {
     expect(loadSettings()).toEqual(defaults);
     expect([...stored.values()].join('')).not.toContain('never-save');
   });
+  it('accepts Qwen HTTP ASR profiles but rejects cross-stage or WebSocket schemes', () => {
+    const input = structuredClone(defaults);
+    input.profiles[0] = {
+      ...input.profiles[0],
+      adapter: 'qwen_chat_asr',
+      baseUrl: 'https://example.com/compatible-mode/v1',
+      modelId: 'qwen3-asr-flash',
+    };
+    expect(parseSettings(input)).toEqual(input);
+    expect(validateProfile(input.profiles[0])).toBeNull();
+    input.profiles[0].baseUrl = 'wss://example.com/asr';
+    expect(() => parseSettings(input)).toThrow();
+    input.profiles[0].baseUrl = '';
+    expect(parseSettings(input)).toEqual(input);
+    input.profiles[1].adapter = 'qwen_chat_asr';
+    expect(() => parseSettings(input)).toThrow();
+  });
   it('allows local endpoints but rejects unsafe or credential-bearing URLs', () => {
     const p = { ...defaults.profiles[1], modelId: 'custom', baseUrl: 'http://127.0.0.1:1234/v1' };
     expect(validateProfile(p)).toBeNull();

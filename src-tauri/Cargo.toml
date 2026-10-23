@@ -26,6 +26,7 @@ tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 futures-util = { version = "0.3", features = ["sink"] }
 rodio = { version = "0.22.2", default-features = false, features = ["playback", "mp3", "wav"] }
 hex = "0.4"
+base64 = "0.22.1"
 rtrb = "=0.3.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]

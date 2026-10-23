@@ -22,6 +22,18 @@ describe('provider presets', () => {
     });
     expect(profileFor(parseSettings(minimax), 'translation').thinking).toBe('disabled');
   });
+  it('uses the validated Qwen model with independent ASR credentials', () => {
+    const settings = applyProviderPreset(structuredClone(defaults), 'provider-qwen-asr');
+    expect(profileFor(parseSettings(settings), 'asr')).toMatchObject({
+      id: 'provider-qwen-asr',
+      adapter: 'qwen_chat_asr',
+      modelId: 'qwen3-asr-flash',
+      baseUrl: 'https://maas.qianwenaiapi.com/compatible-mode/v1',
+    });
+    expect(settings.active.translation).toBe(defaults.active.translation);
+    expect(settings.active.tts).toBe(defaults.active.tts);
+    expect(JSON.stringify(settings)).not.toContain('apiKey');
+  });
   it('does not import arbitrary thinking options or leak fields across stages', () => {
     const input = structuredClone(defaults);
     Object.assign(input.profiles[1], { thinking: 'unsafe', apiKey: 'never-save' });

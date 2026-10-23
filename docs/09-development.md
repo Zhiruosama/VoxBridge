@@ -5,16 +5,17 @@
 - React / TypeScript 工作台：深色 / 浅色 / 跟随系统、字幕流、底部输入、设置与诊断。
 - 字幕修订、定稿去重与会话隔离的核心逻辑及自动测试；按用户反馈已移除界面的固定字幕示例。
 - ASR / 翻译 / TTS 分阶段保存多个 profile，手动填写地址、模型与音色。非敏感配置位于当前 WebView 的 localStorage，不包含密钥和字幕历史。
-- Rust 后端通过系统凭据存储保存密钥：macOS Keychain / Windows Credential Store。已有密钥不会被读取回前端；Mac 行为尚未实测。
+- Rust 后端通过系统凭据存储保存密钥：macOS Keychain / Windows Credential Store。已有密钥不会被读取回前端；本批 Qwen ASR 手动验证已通过隐藏输入把凭据保存到 Mac Keychain，GUI 保存 / 读取、重启恢复和删除仍待验收。
 - OpenAI-compatible Chat Completions 文字翻译：本机后端调用、超时、响应大小限制、停止与取消、对常见错误分类。当前采用非流式完整译文，后续按需求扩展流式翻译。
 - 输出设备诊断：用户选择设备后，显式播放约 1 秒的低音量测试音并可停止。不执行任何自动系统默认设备切换。
 - TTS：MiniMax WebSocket 与 OpenAI-compatible `/audio/speech`；内存有界接收、解码后试听 / 指定设备发送、停止。两种协议通过本机模拟服务测试；MiniMax 真实合成 / 解码已有 Windows 验证记录，实际播放与 Mac 路由待验收，详见 [TTS 开发说明](10-speech-backend.md)。
 - 独立 Swift 原生采集探针已在 Apple Silicon Mac 完整构建并通过 ad-hoc 签名校验；权限 / 采集尚未验证。
-- Mac 桌面诊断已接入目标 PID / bundle 选择与 Core Audio tap，直接原生 IOProc 写入有界 stereo Float32 PCM 环形缓冲。只显示 RMS、帧数及丢帧，不保存或上传音频；未连接 ASR。
+- Mac 桌面诊断已接入目标 PID / bundle 选择与 Core Audio tap，直接原生 IOProc 写入有界 stereo Float32 PCM 环形缓冲。只显示 RMS、帧数及丢帧，不保存或上传音频；采集尚未连接 ASR。
+- 已接入 Qwen HTTP 短音频 ASR：语音识别设置可选择独立预设，诊断页显式上传 0.1–30 秒、16 kHz 单声道 PCM16 WAV，结果返回文本与输入时长。单任务互斥、提前 / 请求中取消、响应大小限制及错误脱敏均有回归；不是实时音频输入。
 
 ## 尚未实现
 
-ASR 服务、重采样 / 单声道转换 / 固定分帧、采集到识别与字幕的会话调度、TTS 边接收边播放、独立悬浮窗、Windows 稳定设备 UID、睡眠 / 断连恢复、用量估算、诊断导出、麦克风翻译。未接入能力的按钮明确禁用并提供原因；不放置伪造的监听状态。当前不等于 M1 音频闭环或 M2 端到端原型完成。
+实时 WebSocket ASR、重采样 / 单声道转换 / 固定分帧、采集到识别与字幕的会话调度、TTS 边接收边播放、独立悬浮窗、Windows 稳定设备 UID、睡眠 / 断连恢复、用量估算、诊断导出、麦克风翻译。未接入能力的按钮明确禁用并提供原因；不放置伪造的监听状态。当前不等于 M1 音频闭环或 M2 端到端原型完成。
 
 ## 开发准备
 
@@ -55,6 +56,18 @@ Windows 已额外验证内嵌资源的独立开发程序：关闭开发服务器
 4. 检查译文，测试停止和错误提示。没有 Key 时明确失败，不退回虚假译文。
 
 兼容协议是 Chat Completions，不是任意“OpenAI 格式 Key”；没有模型列表的服务也可使用。每次任务使用当前配置快照，运行中的任务不因设置变化改变地址。
+
+## Qwen ASR 接入与验证
+
+2026-10-23：用户授权在其提供的 `https://maas.qianwenaiapi.com/compatible-mode/v1` 使用少量合成语音测试，并允许试其他模型。核对[平台 Qwen-ASR 文档](https://platform.qianwenai.com/docs/api-reference/speech-recognition/qwen-asr/api-reference)后，使用 `POST /chat/completions`、`messages[].content[].input_audio.data` 的 `data:audio/wav;base64,...`、`stream:false`；返回文本位于 `choices[0].message.content`。此协议提交完整音频，文本结果流式返回不等于实时音频输入。
+
+- 同一网关的 `qwen-audio-3.0-asr-flash` 对本次兼容 HTTP 请求返回 HTTP 400；错误不回显上游正文。不能据此断言模型原生 DashScope 接口不可用。
+- 同一网关和凭据改用文档列出的 `qwen3-asr-flash`，5.09 秒合成英文语音成功转写，请求耗时 1368 ms，保留了 speech recognition test 和会议时间等内容。只验证这一短英文样例，不是中文准确率、p95 或真实音频端到端延迟。
+- 凭据通过系统隐藏输入管道传给手动测试标准输入，保存至 Keychain 的 `provider-qwen-asr`；未写入命令行参数、源码、普通配置或报告。没有自动转发到其他域名。测试音频由系统语音合成生成，位于 Git 忽略的 `native/macos/.build/asr-sample.wav`，不是用户录音。
+- `live_qwen_asr_short_audio` 默认忽略，最多尝试上述两个模型，仅在用户明确授权后运行。常规测试不访问真实凭据、不请求付费接口。
+- 本批前端 39 项、Mac Rust 38 项默认测试通过，默认忽略 6 项手动测试；格式、严格 Clippy、前端生产构建及 `.app` 构建通过。GUI 文件转写、中文、真实捕获到识别、实时 WebSocket 和 Windows 行为未验收。
+
+使用步骤：重启最新桌面应用，在设置 → 语音识别 → 新增配置选择“Qwen ASR · HTTP 短音频”，保存更改。此 Mac 已保存同 ID 的凭据；其他机器需独立保存密钥。进入音频与诊断 → ASR 短音频验证，选择 0.1–30 秒、16 kHz 单声道 PCM16 WAV，再显式点击“发送音频并识别”。动作将上传所选音频并可能计费；停止或离开页面取消当前请求，不自动切模型或重试。主窗口实时监听仍未启用。
 
 ## 验证命令
 

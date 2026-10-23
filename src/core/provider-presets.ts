@@ -3,6 +3,15 @@ import type { ProviderProfile, Settings } from './types';
 // Public connection settings only. Credentials are held separately by the OS.
 export const providerPresets: ProviderProfile[] = [
   {
+    id: 'provider-qwen-asr',
+    name: 'Qwen ASR · HTTP 短音频',
+    stage: 'asr',
+    adapter: 'qwen_chat_asr',
+    baseUrl: 'https://maas.qianwenaiapi.com/compatible-mode/v1',
+    modelId: 'qwen3-asr-flash',
+    voice: '',
+  },
+  {
     id: 'provider-deepseek-flash',
     name: 'DeepSeek V4.1 Flash',
     stage: 'translation',

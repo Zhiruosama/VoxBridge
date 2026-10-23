@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Check, Pencil, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { profileFor } from '../core/settings';
@@ -231,40 +231,29 @@ export default function SettingsPanel({
           <section className="preference-section" aria-labelledby="connection-heading">
             <div className="preference-section-title">
               <h2 id="connection-heading">服务连接</h2>
-              {stage === 'asr' ? (
-                <button
-                  className="subtle"
-                  onClick={addProfile}
-                  disabled={draft.profiles.length >= 30 || busy}
-                >
-                  <Plus size={14} />
-                  新增配置
-                </button>
-              ) : (
-                <Select
-                  label="新增服务配置"
-                  compact
-                  value=""
-                  placeholder="新增配置"
-                  disabled={draft.profiles.length >= 30 || busy}
-                  options={[
-                    { value: 'custom', label: '空白配置' },
-                    ...providerPresets
-                      .filter((preset) => preset.stage === stage)
-                      .map((preset) => ({ value: preset.id, label: preset.name })),
-                  ]}
-                  onChange={(value) => {
-                    if (value === 'custom') addProfile();
-                    else {
-                      try {
-                        setDraft(applyProviderPreset(draft, value));
-                      } catch (error) {
-                        notify(String(error));
-                      }
+              <Select
+                label="新增服务配置"
+                compact
+                value=""
+                placeholder="新增配置"
+                disabled={draft.profiles.length >= 30 || busy}
+                options={[
+                  { value: 'custom', label: '空白配置' },
+                  ...providerPresets
+                    .filter((preset) => preset.stage === stage)
+                    .map((preset) => ({ value: preset.id, label: preset.name })),
+                ]}
+                onChange={(value) => {
+                  if (value === 'custom') addProfile();
+                  else {
+                    try {
+                      setDraft(applyProviderPreset(draft, value));
+                    } catch (error) {
+                      notify(String(error));
                     }
-                  }}
-                />
-              )}
+                  }
+                }}
+              />
             </div>
             <div className="preference-card">
               <SettingRow title="当前配置">
@@ -360,6 +349,16 @@ export default function SettingsPanel({
                     options={[
                       { value: 'minimax_tts_ws', label: 'MiniMax WebSocket' },
                       { value: 'openai_audio_speech', label: 'OpenAI 兼容语音' },
+                    ]}
+                  />
+                ) : stage === 'asr' ? (
+                  <Select
+                    label="语音识别协议"
+                    value={profile.adapter}
+                    onChange={(value) => update({ adapter: value as ProviderProfile['adapter'] })}
+                    options={[
+                      { value: 'pending_asr', label: '未配置协议' },
+                      { value: 'qwen_chat_asr', label: 'Qwen HTTP 短音频' },
                     ]}
                   />
                 ) : (
