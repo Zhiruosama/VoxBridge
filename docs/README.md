@@ -48,6 +48,8 @@
 
 ## 最新实机记录
 
+- [设置页重复钥匙串提示修复](validation/2026-10-23-keychain-status.md)
+
 - [同时收发与自动恢复](validation/2026-10-23-duplex-recovery.md)
 
 - [千问实时 ASR 与定稿翻译](validation/2026-10-23-realtime-asr.md)

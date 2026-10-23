@@ -22,13 +22,44 @@ pub async fn read_async(id: &str) -> Result<String, String> {
         .map_err(|_| "读取系统凭据任务失败。".to_string())?
 }
 
-#[tauri::command]
-pub fn credential_status(id: String) -> Result<bool, String> {
-    match entry(&id)?.get_password() {
-        Ok(_) => Ok(true),
-        Err(keyring::Error::NoEntry) => Ok(false),
-        Err(_) => Err("无法读取凭据状态，请检查系统凭据存储。".into()),
+// This path must never read secret data, including through keyring::get_attributes(),
+// whose macOS default implementation internally calls get_secret().
+fn status(id: &str) -> Result<bool, String> {
+    let _ = entry(id)?;
+    #[cfg(target_os = "macos")]
+    {
+        use security_framework::item::{ItemClass, ItemSearchOptions, Limit};
+        let mut query = ItemSearchOptions::new();
+        query
+            .class(ItemClass::generic_password())
+            .service(SERVICE)
+            .account(id)
+            .limit(Limit::Max(1))
+            .load_attributes(true)
+            .load_data(false)
+            .load_refs(false)
+            .skip_authenticated_items(true);
+        match query.search() {
+            Ok(items) => Ok(!items.is_empty()),
+            Err(error) if error.code() == -25300 => Ok(false), // errSecItemNotFound
+            Err(_) => Err("无法检查密钥状态；可在使用服务时验证。".into()),
+        }
     }
+    #[cfg(not(target_os = "macos"))]
+    {
+        match entry(id)?.get_password() {
+            Ok(_) => Ok(true),
+            Err(keyring::Error::NoEntry) => Ok(false),
+            Err(_) => Err("无法检查密钥状态；可在使用服务时验证。".into()),
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn credential_status(id: String) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || status(&id))
+        .await
+        .map_err(|_| "检查密钥状态失败。".to_string())?
 }
 
 #[tauri::command]
@@ -46,5 +77,46 @@ pub fn remove_credential(id: String) -> Result<(), String> {
     match entry(&id)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(_) => Err("删除密钥失败。".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn invalid_identifiers_are_rejected_before_keychain_lookup() {
+        for id in ["", "invalid/id", "wild*card", "中文", &"a".repeat(129)] {
+            assert_eq!(
+                credential_status(id.into()).await.unwrap_err(),
+                "服务标识无效。"
+            );
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    #[ignore = "manual: read-only metadata queries for known user-provided test credentials; never reads passwords"]
+    async fn live_metadata_status_is_promptless_and_does_not_read_secrets() {
+        for _ in 0..5 {
+            for id in [
+                "provider-qwen-asr",
+                "provider-qwen-realtime",
+                "provider-deepseek-flash",
+                "provider-minimax-cn",
+            ] {
+                assert!(
+                    credential_status(id.into()).await.unwrap(),
+                    "expected existing metadata for {id}"
+                );
+            }
+            assert!(
+                !credential_status(format!("voxbridge-missing-status-{}", std::process::id()))
+                    .await
+                    .unwrap()
+            );
+        }
+        println!(
+            "METADATA_STATUS: 20 existing + 5 missing lookups passed; no secret data requested"
+        );
     }
 }

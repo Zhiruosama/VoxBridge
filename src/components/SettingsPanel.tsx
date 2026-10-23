@@ -36,7 +36,7 @@ export default function SettingsPanel({
   const stage: Stage = section === 'general' ? 'translation' : section;
   const profile = profileFor(draft, stage);
   const [secret, setSecret] = useState('');
-  const [hasKey, setHasKey] = useState(false);
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [keyError, setKeyError] = useState('');
   const [renaming, setRenaming] = useState(false);
@@ -76,7 +76,7 @@ export default function SettingsPanel({
   useEffect(() => {
     let active = true;
     setSecret('');
-    setHasKey(false);
+    setHasKey(null);
     setKeyError('');
     setRenaming(false);
     if (section === 'general') return;
@@ -518,7 +518,7 @@ export default function SettingsPanel({
               <SettingRow title="API Key">
                 <span className={`credential-status ${hasKey ? 'positive' : ''}`}>
                   {hasKey && <Check size={13} />}
-                  {hasKey ? '已配置' : '未配置'}
+                  {hasKey === null ? '尚未确认' : hasKey ? '已配置' : '未检测到密钥'}
                 </span>
               </SettingRow>
               <div className="credential-editor">

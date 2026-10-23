@@ -204,7 +204,10 @@ async fn live_qwen_realtime_generated_audio() {
         "final transcript missing expected fixture content"
     );
     // Explicit live setup only: independent profile ID, same user-provided gateway credential.
-    if !crate::credentials::credential_status("provider-qwen-realtime".into()).unwrap() {
+    if !crate::credentials::credential_status("provider-qwen-realtime".into())
+        .await
+        .unwrap()
+    {
         crate::credentials::set_credential("provider-qwen-realtime".into(), key).unwrap();
     }
     eprintln!(
