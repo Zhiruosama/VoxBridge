@@ -913,12 +913,11 @@ nav button[aria-current='page'] {
   display: flex;
   align-items: center;
 }
-.select-scroll {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  color: var(--muted);
+.select-options {
+  max-height: min(calc(var(--radix-select-content-available-height) - 12px), 308px);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 @keyframes select-appear {
   from {

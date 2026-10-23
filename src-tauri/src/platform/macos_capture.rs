@@ -161,7 +161,13 @@ unsafe extern "C" {
 // Use the outer application bundle: Chrome's audio service runs in a nested helper app.
 fn outer_app(path: &std::path::Path) -> Option<&std::path::Path> {
     path.ancestors()
-        .filter(|part| part.extension().is_some_and(|ext| ext == "app"))
+        .filter(|part| {
+            part.extension().is_some_and(|ext| ext == "app")
+                || part
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.ends_with(".app.bundle"))
+        })
         .last()
 }
 
@@ -207,7 +213,11 @@ pub fn sources() -> Result<Vec<CaptureSource>, String> {
                 continue;
             }
             let pid = app.processIdentifier();
-            let Some((bundle_id, fallback)) = application_for_pid(pid) else {
+            if pid <= 0 || pid as u32 == std::process::id() {
+                continue;
+            }
+            // LaunchServices knows the logical app even when macOS runs a signing clone.
+            let Some(bundle_id) = app.bundleIdentifier().map(|id| id.to_string()) else {
                 continue;
             };
             if own.as_ref() == Some(&bundle_id)
@@ -220,7 +230,8 @@ pub fn sources() -> Result<Vec<CaptureSource>, String> {
             let name = app
                 .localizedName()
                 .map(|name| name.to_string())
-                .unwrap_or(fallback);
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or_else(|| bundle_id.clone());
             sources.push(CaptureSource {
                 pid,
                 bundle_id,
@@ -620,6 +631,9 @@ mod tests {
         let mut unique = std::collections::HashSet::new();
         for source in &sources {
             assert!(unique.insert(&source.bundle_id));
+            if source.bundle_id == "com.google.Chrome" {
+                assert_eq!(application_for_pid(source.pid).unwrap().0, source.bundle_id);
+            }
             for object in matching_objects(source).unwrap() {
                 let pid = property::<i32>(object, kAudioProcessPropertyPID, 0).unwrap();
                 assert_eq!(application_for_pid(pid).unwrap().0, source.bundle_id);
@@ -645,6 +659,13 @@ mod tests {
         assert_eq!(
             outer_app(Path::new("/Applications/WeChat.app/Contents/MacOS/WeChat")),
             Some(Path::new("/Applications/WeChat.app"))
+        );
+        assert_eq!(outer_app(Path::new("/private/var/folders/X/com.google.Chrome.code_sign_clone/Google Chrome.app.bundle/Contents/MacOS/Google Chrome")), Some(Path::new("/private/var/folders/X/com.google.Chrome.code_sign_clone/Google Chrome.app.bundle")));
+        assert_eq!(
+            outer_app(Path::new(
+                "/tmp/Chrome.app.bundle/Contents/Helpers/Helper.app/Contents/MacOS/Helper"
+            )),
+            Some(Path::new("/tmp/Chrome.app.bundle"))
         );
         assert_eq!(outer_app(Path::new("/usr/bin/player")), None);
         assert_eq!(

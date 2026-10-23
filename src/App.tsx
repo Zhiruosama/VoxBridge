@@ -542,9 +542,7 @@ export default function App() {
                   label="监听应用"
                   value={captureSourceId}
                   onChange={setCaptureSourceId}
-                  disabled={
-                    listening || refreshingSources || !desktop || runtime?.platform !== 'macos'
-                  }
+                  disabled={listening || !desktop || runtime?.platform !== 'macos'}
                   placeholder="选择监听应用"
                   onOpenChange={(open) => {
                     if (open) void refreshCaptureSources();

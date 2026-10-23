@@ -1,5 +1,5 @@
 import * as Primitive from '@radix-ui/react-select';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 
 interface Option {
   value: string;
@@ -52,9 +52,6 @@ export default function Select({
           collisionPadding={12}
           align="start"
         >
-          <Primitive.ScrollUpButton className="select-scroll">
-            <ChevronUp size={14} />
-          </Primitive.ScrollUpButton>
           <Primitive.Viewport className="select-options">
             {!options.length && (
               <Primitive.Item className="select-option" value="__empty__" disabled>
@@ -70,9 +67,6 @@ export default function Select({
               </Primitive.Item>
             ))}
           </Primitive.Viewport>
-          <Primitive.ScrollDownButton className="select-scroll">
-            <ChevronDown size={14} />
-          </Primitive.ScrollDownButton>
         </Primitive.Content>
       </Primitive.Portal>
     </Primitive.Root>
