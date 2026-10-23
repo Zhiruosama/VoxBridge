@@ -3,8 +3,9 @@ import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-rea
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { blankProfile, profileFor } from '../core/settings';
-import { outputDeviceOptions } from '../core/audio-routing';
+import { outputDeviceOptions, voxBridgeOutputId } from '../core/audio-routing';
 import {
+  openVirtualMicInstaller,
   credentialStatus,
   desktop,
   listOutputs,
@@ -459,6 +460,55 @@ export default function SettingsPanel({
               </button>
             </div>
             <div className="preference-card">
+              <SettingRow title="Discord 麦克风">
+                <span className="preference-value">
+                  {devices.some((d) => d.id === voxBridgeOutputId)
+                    ? 'VoxBridge 已就绪'
+                    : '尚未安装'}
+                </span>
+                {devices.some((d) => d.id === voxBridgeOutputId) ? (
+                  <button
+                    className="subtle"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        audio: {
+                          ...draft.audio,
+                          sendDeviceId: voxBridgeOutputId,
+                        },
+                      })
+                    }
+                  >
+                    用作发送设备
+                  </button>
+                ) : (
+                  <button
+                    className="subtle"
+                    disabled={!desktop}
+                    onClick={() =>
+                      void openVirtualMicInstaller().catch((error) => notify(String(error)))
+                    }
+                  >
+                    安装虚拟麦克风
+                  </button>
+                )}
+              </SettingRow>
+              <SettingRow title="发送时试听">
+                <button
+                  role="switch"
+                  className="preference-toggle"
+                  aria-label="发送时试听"
+                  aria-checked={draft.audio.monitorEnabled === true}
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      audio: { ...draft.audio, monitorEnabled: !draft.audio.monitorEnabled },
+                    })
+                  }
+                >
+                  {draft.audio.monitorEnabled ? '开启' : '关闭'}
+                </button>
+              </SettingRow>
               <SettingRow title="试听设备">
                 <Select
                   label="试听设备"

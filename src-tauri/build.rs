@@ -22,6 +22,8 @@ fn main() {
             "start_listening",
             "speak",
             "stop_speech",
+            "set_speech_monitoring",
+            "open_virtual_mic_installer",
             "publish_overlay",
             "read_overlay",
             "show_overlay",

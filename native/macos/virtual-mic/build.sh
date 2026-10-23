@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+src="$(cd "$(dirname "$0")" && pwd)"
+out="$src/../.build/virtual-mic"
+mkdir -p "$out/stage/VoxBridge.driver/Contents/MacOS" "$out/stage/VoxBridge.driver/Contents/Resources"
+xcrun clang -std=c11 -Wall -Wextra -Werror "$src/test-loopback.c" -o "$out/test-loopback"
+"$out/test-loopback"
+xcrun clang -std=c11 -fblocks -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-missing-field-initializers "$src/test-driver.c" -framework CoreAudio -framework CoreFoundation -o "$out/test-driver"
+"$out/test-driver"
+xcrun clang -std=c11 -fblocks -bundle -mmacosx-version-min=14.2 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-missing-field-initializers "$src/VoxBridgeAudio.c" -framework CoreAudio -framework CoreFoundation -o "$out/stage/VoxBridge.driver/Contents/MacOS/VoxBridgeAudio"
+cp "$src/Info.plist" "$out/stage/VoxBridge.driver/Contents/Info.plist"
+cp "$src/LICENSE-Apple.txt" "$out/stage/VoxBridge.driver/Contents/Resources/LICENSE-Apple.txt"
+codesign --force --sign - "$out/stage/VoxBridge.driver"
+codesign --verify --deep --strict "$out/stage/VoxBridge.driver"
+pkgbuild --scripts "$src/installer" --root "$out/stage" --identifier com.voxbridge.audio.driver --version 0.1.0 --install-location /Library/Audio/Plug-Ins/HAL --ownership recommended "$src/../.build/VoxBridgeAudio.pkg"

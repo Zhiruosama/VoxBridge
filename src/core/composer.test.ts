@@ -4,7 +4,11 @@ import { defaults } from './settings';
 
 function fixture() {
   const settings = structuredClone(defaults);
-  settings.audio = { previewDeviceId: 'headphones', sendDeviceId: 'virtual' };
+  settings.audio = {
+    previewDeviceId: 'headphones',
+    sendDeviceId: 'virtual',
+    monitorEnabled: false,
+  };
   settings.profiles[1] = {
     ...settings.profiles[1],
     baseUrl: 'https://example.com/v1',
@@ -19,6 +23,7 @@ function fixture() {
   const dependencies = {
     translate: vi.fn<typeof import('../bridge').translate>(async () => 'Hello'),
     speak: vi.fn<typeof import('../bridge').speak>(async () => {}),
+    setMonitoring: vi.fn(async (_id: string, _enabled: boolean) => {}),
     cancelTranslation: vi.fn(async () => {}),
     stopSpeech: vi.fn(async () => {}),
   };
@@ -57,6 +62,39 @@ describe('composer operation', () => {
     ]);
     expect(callbacks.translation).toHaveBeenCalledWith('Hello');
     expect(controller.busy).toBe(false);
+  });
+  it('updates monitoring without synthesizing twice or changing the send route', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    const translation = deferred<string>();
+    const speech = deferred<void>();
+    dependencies.translate.mockReturnValue(translation.promise);
+    dependencies.speak.mockReturnValue(speech.promise);
+    const running = controller.run(input, callbacks);
+    await controller.setMonitoring(true);
+    expect(dependencies.setMonitoring).not.toHaveBeenCalled();
+    translation.resolve('Hello');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(dependencies.speak.mock.calls[0]?.[2].monitorEnabled).toBe(true);
+    expect(dependencies.speak.mock.calls[0]?.[3]).toBe('send');
+    await controller.setMonitoring(false);
+    expect(dependencies.setMonitoring).toHaveBeenCalledWith('request', false);
+    speech.resolve();
+    await running;
+    expect(dependencies.translate).toHaveBeenCalledOnce();
+    expect(dependencies.speak).toHaveBeenCalledOnce();
+  });
+  it('reports monitor failure without changing speech progress or cancelling the send', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    const notice = vi.fn();
+    dependencies.speak.mockImplementation(async (_profile, _text, _audio, _route, id, progress) => {
+      progress({ requestId: id, phase: 'playing' });
+      progress({ requestId: id, phase: 'monitorUnavailable' });
+    });
+    expect(await controller.run(input, { ...callbacks, notice })).toBe('completed');
+    expect(notice).toHaveBeenCalledOnce();
+    expect(dependencies.stopSpeech).not.toHaveBeenCalled();
+    expect(callbacks.phase.mock.calls.map(([phase]) => phase)).not.toContain('monitorUnavailable');
   });
   it('source mode bypasses translation even without a translation service', async () => {
     const { controller, input, callbacks, dependencies } = fixture();

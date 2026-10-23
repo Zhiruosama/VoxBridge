@@ -70,8 +70,11 @@ async fn synthesize_stream(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn play_stream(
     device: String,
+    monitor_device: Option<String>,
+    monitoring: Arc<AtomicBool>,
     token: CancellationToken,
     ready: tokio::sync::oneshot::Sender<Result<(), String>>,
     mut audio: mpsc::Receiver<Vec<u8>>,
@@ -90,6 +93,7 @@ fn play_stream(
         }
     };
     let sink = Player::connect_new(stream.mixer());
+    let mut monitor = super::monitor::LocalMonitor::new(monitor_device, monitoring);
     let mut decoder = PcmDecoder::default();
     let mut finished = false;
     let mut playing = false;
@@ -108,12 +112,14 @@ fn play_stream(
             sink.stop();
             return Err("语音播放超时。".into());
         }
+        monitor.tick(&channel, &request_id);
         // Keep at most three 100 ms sources in Rodio, independently of network chunk sizes.
         if !finished && sink.len() < 3 {
             match audio.try_recv() {
                 Ok(bytes) => {
                     let samples = decoder.push(&bytes)?;
                     if !samples.is_empty() {
+                        monitor.samples(&samples, RATE);
                         sink.append(SamplesBuffer::new(
                             std::num::NonZeroU16::new(1).unwrap(),
                             std::num::NonZeroU32::new(RATE).unwrap(),
@@ -132,7 +138,7 @@ fn play_stream(
                 Err(mpsc::error::TryRecvError::Empty) => {}
             }
         }
-        if finished && sink.empty() {
+        if finished && sink.empty() && monitor.drained() {
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(5));
@@ -145,6 +151,7 @@ pub(super) async fn speak_streaming(
     url: url::Url,
     text: String,
     device: String,
+    monitor_device: Option<String>,
     key: String,
     job: Job,
     permit: tokio::sync::OwnedSemaphorePermit,
@@ -153,12 +160,15 @@ pub(super) async fn speak_streaming(
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let (sender, receiver) = mpsc::channel(8);
     let worker_token = job.token.clone();
+    let monitoring = job.monitor.clone();
     let worker_channel = channel.clone();
     let id = job.id.clone();
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
         let result = play_stream(
             device,
+            monitor_device,
+            monitoring,
             worker_token.clone(),
             ready_tx,
             receiver,
@@ -192,3 +202,6 @@ pub(super) async fn speak_streaming(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(test, target_os = "macos"))]
+mod audition;

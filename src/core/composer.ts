@@ -50,11 +50,17 @@ type Dependencies = {
     id: string,
     onProgress: (event: SpeechProgress) => void,
   ) => Promise<void>;
+  setMonitoring?: (id: string, enabled: boolean) => Promise<unknown>;
   cancelTranslation: (id: string) => Promise<unknown>;
   stopSpeech: (id: string) => Promise<unknown>;
 };
 
-type Operation = { id: string; stage: 'translation' | 'speech'; cancelled: boolean };
+type Operation = {
+  id: string;
+  stage: 'translation' | 'speech';
+  cancelled: boolean;
+  monitorEnabled: boolean;
+};
 
 export class ComposerController {
   private operation: Operation | null = null;
@@ -78,6 +84,7 @@ export class ComposerController {
     callbacks: {
       phase: (phase: ComposerPhase) => void;
       translation: (text: string) => void;
+      notice?: (message: string) => void;
     },
   ): Promise<'completed' | 'stopped' | 'busy'> {
     if (this.operation) return 'busy';
@@ -100,10 +107,18 @@ export class ComposerController {
       if (!(route === 'preview' ? settings.audio.previewDeviceId : settings.audio.sendDeviceId))
         throw new Error(`请先在常规设置中选择${route === 'preview' ? '试听' : '发送'}设备。`);
     }
+    if (
+      input.action === 'speak' &&
+      route === 'send' &&
+      settings.audio.monitorEnabled &&
+      !settings.audio.previewDeviceId
+    )
+      throw new Error('请先选择试听设备，或关闭发送时试听。');
     const operation: Operation = {
       id: input.id,
       stage: needsTranslation ? 'translation' : 'speech',
       cancelled: false,
+      monitorEnabled: settings.audio.monitorEnabled === true,
     };
     this.operation = operation;
     try {
@@ -131,7 +146,7 @@ export class ComposerController {
         await this.dependencies.speak(
           speechProfile,
           content,
-          settings.audio,
+          { ...settings.audio, monitorEnabled: operation.monitorEnabled },
           route,
           operation.id,
           (event) => {
@@ -141,6 +156,10 @@ export class ComposerController {
               operation.cancelled
             )
               return;
+            if (event.phase === 'monitorUnavailable') {
+              callbacks.notice?.('本地试听不可用，语音发送继续。');
+              return;
+            }
             if (['waitingDevice', 'synthesizing', 'decoding', 'playing'].includes(event.phase))
               callbacks.phase(event.phase as ComposerPhase);
           },
@@ -156,6 +175,14 @@ export class ComposerController {
         callbacks.phase('idle');
       }
     }
+  }
+
+  async setMonitoring(enabled: boolean): Promise<void> {
+    const operation = this.operation;
+    if (!operation || operation.cancelled) return;
+    operation.monitorEnabled = enabled;
+    if (operation.stage === 'speech')
+      await this.dependencies.setMonitoring?.(operation.id, enabled);
   }
 
   async cancel(): Promise<void> {

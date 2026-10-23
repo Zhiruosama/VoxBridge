@@ -6,7 +6,11 @@ afterEach(() => vi.unstubAllGlobals());
 describe('provider profiles', () => {
   it('migrates old settings without routing and strips unknown audio fields', () => {
     const input = { ...structuredClone(defaults), audio: undefined };
-    expect(parseSettings(input).audio).toEqual({ previewDeviceId: '', sendDeviceId: '' });
+    expect(parseSettings(input).audio).toEqual({
+      previewDeviceId: '',
+      sendDeviceId: '',
+      monitorEnabled: false,
+    });
     const withAudio = {
       ...input,
       audio: { previewDeviceId: 'headphones', sendDeviceId: 'virtual', apiKey: 'never-save' },
@@ -14,7 +18,21 @@ describe('provider profiles', () => {
     expect(parseSettings(withAudio).audio).toEqual({
       previewDeviceId: 'headphones',
       sendDeviceId: 'virtual',
+      monitorEnabled: false,
     });
+  });
+  it('persists only a boolean monitoring preference without changing selected audio devices', () => {
+    const settings = structuredClone(defaults);
+    settings.audio = {
+      previewDeviceId: 'headphones',
+      sendDeviceId: 'virtual',
+      monitorEnabled: true,
+    };
+    expect(parseSettings(settings).audio).toEqual(settings.audio);
+    expect(
+      parseSettings({ ...settings, audio: { ...settings.audio, monitorEnabled: 'true' } }).audio
+        .monitorEnabled,
+    ).toBe(false);
   });
   it('allows both TTS adapters but requires a voice and matching URL scheme', () => {
     const input = structuredClone(defaults);

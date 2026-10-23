@@ -9,10 +9,12 @@ export type Adapter =
 export interface AudioRouting {
   previewDeviceId: string;
   sendDeviceId: string;
+  monitorEnabled?: boolean;
 }
 export interface SpeechProgress {
   requestId: string;
   phase:
+    | 'monitorUnavailable'
     | 'waitingDevice'
     | 'synthesizing'
     | 'decoding'

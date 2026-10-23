@@ -149,3 +149,11 @@ export async function focusMain(): Promise<void> {
 export async function stopOverlayListening(): Promise<void> {
   await invoke('stop_overlay_listening');
 }
+
+export async function setSpeechMonitoring(requestId: string, enabled: boolean) {
+  if (desktop) await invoke('set_speech_monitoring', { requestId, enabled });
+}
+export async function openVirtualMicInstaller() {
+  if (!desktop) throw new Error('安装虚拟麦克风需要 Mac 桌面版。');
+  await invoke('open_virtual_mic_installer');
+}

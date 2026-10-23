@@ -7,7 +7,7 @@ export const defaults: Settings = {
   targetLanguage: '英语',
   listening: { sourceLanguage: '自动识别', targetLanguage: '简体中文' },
   theme: 'dark',
-  audio: { previewDeviceId: '', sendDeviceId: '' },
+  audio: { previewDeviceId: '', sendDeviceId: '', monitorEnabled: false },
   subtitle: { ...subtitleDefaults },
   composer: { enterAction: 'speak', output: 'translation', route: 'send' },
   active: { asr: 'asr-default', translation: 'translation-default', tts: 'tts-default' },
@@ -198,6 +198,7 @@ export function parseSettings(value: unknown): Settings {
         : defaults.listening.targetLanguage,
     },
     audio: {
+      monitorEnabled: (input.audio as Record<string, unknown> | undefined)?.monitorEnabled === true,
       previewDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.previewDeviceId === 'string'
           ? (input.audio as Record<string, string>).previewDeviceId

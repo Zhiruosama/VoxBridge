@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+base=/Library/Audio/Plug-Ins/HAL/VoxBridge.driver
+if [[ -L "$base" ]]; then echo 'Refusing a symlink driver target.' >&2; exit 1; fi
+if [[ -e "$base" ]]; then
+  identity=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$base/Contents/Info.plist")
+  if [[ "$identity" != com.voxbridge.audio.driver ]]; then echo 'Existing driver has a different identity.' >&2; exit 1; fi
+  backup="/Library/Application Support/VoxBridge/DriverBackups/$(date +%Y%m%d-%H%M%S).driver"
+  mkdir -p "$(dirname "$backup")"
+  /usr/bin/ditto "$base" "$backup"
+fi

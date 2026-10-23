@@ -68,6 +68,8 @@ pub fn run() {
             capture::listening::start_listening,
             speech::speak,
             speech::stop_speech,
+            speech::set_speech_monitoring,
+            platform::open_virtual_mic_installer,
         ])
         .on_window_event(|window, event| {
             use tauri::Manager;

@@ -219,3 +219,41 @@ mod recovery_tests {
         assert_eq!(polls, 1);
     }
 }
+
+#[tauri::command]
+pub fn open_virtual_mic_installer(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("此操作仅限主窗口。".into());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        let packaged = window
+            .app_handle()
+            .path()
+            .resource_dir()
+            .map_err(|_| "无法定位安装包。")?
+            .join("VoxBridgeAudio.pkg");
+        #[cfg(debug_assertions)]
+        let packaged = if packaged.is_file() {
+            packaged
+        } else {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../native/macos/.build/VoxBridgeAudio.pkg")
+        };
+        if !packaged.is_file() {
+            return Err("虚拟麦克风安装包缺失，请重新打包应用。".into());
+        }
+        objc2::rc::autoreleasepool(|_| {
+            let path = objc2_foundation::NSString::from_str(&packaged.to_string_lossy());
+            let url = objc2_foundation::NSURL::fileURLWithPath(&path);
+            if objc2_app_kit::NSWorkspace::sharedWorkspace().openURL(&url) {
+                Ok(())
+            } else {
+                Err("无法打开系统安装器。".into())
+            }
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err("虚拟麦克风安装目前仅支持 Mac。".into())
+}

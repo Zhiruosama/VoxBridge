@@ -1,5 +1,8 @@
 import type { OutputDevice } from './types';
 
+export const voxBridgeOutputId =
+  'macos-output:636f6d2e766f786272696467652e617564696f2e646576696365';
+
 export function outputDeviceOptions(devices: OutputDevice[], value: string) {
   const unique = [...new Map(devices.map((device) => [device.id, device])).values()].sort((a, b) =>
     a.id.localeCompare(b.id),

@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+# Reload only after the installer has obtained administrator authorization.
+/usr/bin/killall -TERM coreaudiod || true
+exit 0

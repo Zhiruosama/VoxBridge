@@ -32,6 +32,8 @@ impl AudioGate {
 struct Registry {
     active: Option<(String, CancellationToken)>,
     cancelled: VecDeque<String>,
+    monitor: Option<Arc<AtomicBool>>,
+    monitor_overrides: VecDeque<(String, bool)>,
 }
 #[derive(Default)]
 pub struct SpeechState(Arc<Mutex<Registry>>);
@@ -39,6 +41,7 @@ pub struct SpeechState(Arc<Mutex<Registry>>);
 struct Job {
     id: String,
     token: CancellationToken,
+    monitor: Arc<AtomicBool>,
     registry: Arc<Mutex<Registry>>,
 }
 impl Drop for Job {
@@ -51,6 +54,7 @@ impl Drop for Job {
                 .is_some_and(|(id, _)| id == &self.id)
             {
                 registry.active = None;
+                registry.monitor = None;
             }
         }
     }
@@ -64,7 +68,11 @@ impl SpeechState {
         }
     }
 
+    #[cfg(test)]
     fn begin(&self, id: &str) -> Result<Job, String> {
+        self.begin_monitor(id, false)
+    }
+    fn begin_monitor(&self, id: &str, enabled: bool) -> Result<Job, String> {
         if id.is_empty() || id.len() > 128 {
             return Err("请求标识无效。".into());
         }
@@ -77,12 +85,48 @@ impl SpeechState {
             return Err("已有语音任务，请先停止或等待完成。".into());
         }
         let token = CancellationToken::new();
+        let enabled = if let Some(index) = registry
+            .monitor_overrides
+            .iter()
+            .position(|(pending, _)| pending == id)
+        {
+            registry.monitor_overrides.remove(index).unwrap().1
+        } else {
+            enabled
+        };
+        let monitor = Arc::new(AtomicBool::new(enabled));
+        registry.monitor = Some(monitor.clone());
         registry.active = Some((id.into(), token.clone()));
         Ok(Job {
             id: id.into(),
             token,
+            monitor,
             registry: self.0.clone(),
         })
+    }
+    fn set_monitoring(&self, id: &str, enabled: bool) -> Result<(), String> {
+        if id.is_empty() || id.len() > 128 {
+            return Err("请求标识无效。".into());
+        }
+        let mut registry = self.0.lock().map_err(|_| "任务状态不可用。")?;
+        if registry
+            .active
+            .as_ref()
+            .is_some_and(|(active, _)| active == id)
+        {
+            if let Some(monitor) = &registry.monitor {
+                monitor.store(enabled, Ordering::SeqCst);
+            }
+        } else {
+            registry
+                .monitor_overrides
+                .retain(|(pending, _)| pending != id);
+            registry.monitor_overrides.push_back((id.into(), enabled));
+            if registry.monitor_overrides.len() > 64 {
+                registry.monitor_overrides.pop_front();
+            }
+        }
+        Ok(())
     }
     fn cancel(&self, id: String) -> Result<(), String> {
         if id.is_empty() || id.len() > 128 {
@@ -120,6 +164,8 @@ pub struct SpeechProfile {
 pub struct Routing {
     preview_device_id: String,
     send_device_id: String,
+    #[serde(default)]
+    monitor_enabled: bool,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -138,6 +184,10 @@ impl Routing {
         }
         if matches!(route, Route::Send) && self.preview_device_id == self.send_device_id {
             return Err("试听与发送必须使用不同设备，请检查音频设置。".into());
+        }
+        if matches!(route, Route::Send) && self.monitor_enabled && self.preview_device_id.is_empty()
+        {
+            return Err("请先选择试听设备，或关闭发送时试听。".into());
         }
         Ok(id.clone())
     }
@@ -477,10 +527,14 @@ fn open_output(device_id: &str, failed: Arc<AtomicBool>) -> Result<rodio::MixerD
         .map_err(|_| "无法打开所选输出设备。".into())
 }
 
+mod monitor;
 mod streaming;
 
+#[allow(clippy::too_many_arguments)]
 fn playback(
     device_id: String,
+    monitor_device: Option<String>,
+    monitoring: Arc<AtomicBool>,
     token: CancellationToken,
     ready: tokio::sync::oneshot::Sender<Result<(), String>>,
     audio: std::sync::mpsc::Receiver<Vec<u8>>,
@@ -519,7 +573,11 @@ fn playback(
         return Err(STOPPED.into());
     }
     let sink = Player::connect_new(stream.mixer());
-    sink.append(source);
+    let mut monitor = monitor::LocalMonitor::new(monitor_device, monitoring);
+    if monitor.tick(&channel, &request_id) {
+        monitor.buffered(source.clone(), Duration::ZERO);
+    }
+    sink.append(source.clone());
     progress(&channel, &request_id, "playing");
     let started = Instant::now();
     loop {
@@ -532,7 +590,10 @@ fn playback(
             token.cancel();
             return Err("播放设备已断开或发生错误。".into());
         }
-        if sink.empty() {
+        if monitor.tick(&channel, &request_id) {
+            monitor.buffered(source.clone(), sink.get_pos());
+        }
+        if sink.empty() && monitor.drained() {
             return Ok(());
         }
         if started.elapsed() > Duration::from_secs(125) {
@@ -607,7 +668,15 @@ pub(crate) async fn execute(
         return Err("语音文字须为 1–500 字。".into());
     }
     let device = routing.destination(&route)?;
-    let job = state.begin(&request_id)?;
+    let job = state.begin_monitor(
+        &request_id,
+        routing.monitor_enabled && matches!(route, Route::Send),
+    )?;
+    let monitor_device = if matches!(route, Route::Send) && !routing.preview_device_id.is_empty() {
+        Some(routing.preview_device_id.clone())
+    } else {
+        None
+    };
     let permit = gate
         .0
         .clone()
@@ -639,6 +708,7 @@ pub(crate) async fn execute(
             url,
             text,
             device,
+            monitor_device,
             key,
             job,
             permit,
@@ -649,11 +719,21 @@ pub(crate) async fn execute(
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let (audio_tx, audio_rx) = std::sync::mpsc::sync_channel(1);
     let token = job.token.clone();
+    let monitoring = job.monitor.clone();
     let channel = on_progress.clone();
     let id = request_id.clone();
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
-        playback(device, token, ready_tx, audio_rx, channel, id)
+        playback(
+            device,
+            monitor_device,
+            monitoring,
+            token,
+            ready_tx,
+            audio_rx,
+            channel,
+            id,
+        )
     });
     let result = async {
         ready_rx
@@ -681,6 +761,15 @@ pub(crate) async fn execute(
     let (result, phase) = speech_outcome(result, played);
     progress(&on_progress, &request_id, phase);
     result
+}
+
+#[tauri::command]
+pub fn set_speech_monitoring(
+    request_id: String,
+    enabled: bool,
+    state: tauri::State<'_, SpeechState>,
+) -> Result<(), String> {
+    state.set_monitoring(&request_id, enabled)
 }
 
 #[cfg(test)]

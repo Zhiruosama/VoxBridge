@@ -71,6 +71,7 @@ fn endpoint_and_routing_reject_unsafe_configuration() {
     let routing = Routing {
         preview_device_id: "speakers".into(),
         send_device_id: "virtual".into(),
+        monitor_enabled: false,
     };
     assert_eq!(routing.destination(&Route::Preview).unwrap(), "speakers");
     assert_eq!(routing.destination(&Route::Send).unwrap(), "virtual");
@@ -365,4 +366,36 @@ async fn minimax_rejects_failed_handshake_without_echoing_message() {
     );
     let error = result.unwrap_err();
     assert!(!error.contains("mock-key"));
+}
+
+#[test]
+fn monitoring_is_live_request_scoped_and_early_overrides_are_bounded() {
+    let state = SpeechState::default();
+    state.set_monitoring("first", false).unwrap();
+    let first = state.begin_monitor("first", true).unwrap();
+    assert!(!first.monitor.load(Ordering::SeqCst));
+    state.set_monitoring("first", true).unwrap();
+    assert!(first.monitor.load(Ordering::SeqCst));
+    assert!(!first.token.is_cancelled());
+    drop(first);
+    let next = state.begin_monitor("next", false).unwrap();
+    state.set_monitoring("first", true).unwrap();
+    assert!(!next.monitor.load(Ordering::SeqCst));
+    for n in 0..100 {
+        state.set_monitoring(&format!("missing-{n}"), true).unwrap();
+    }
+    assert_eq!(state.0.lock().unwrap().monitor_overrides.len(), 64);
+    state.stop_all();
+    assert!(next.token.is_cancelled());
+}
+
+#[test]
+fn monitor_requires_a_separate_preview_device_only_for_send_route() {
+    let mut routing: Routing = serde_json::from_value(
+        json!({"previewDeviceId":"","sendDeviceId":"virtual","monitorEnabled":true}),
+    )
+    .unwrap();
+    assert!(routing.destination(&Route::Send).is_err());
+    routing.monitor_enabled = false;
+    assert_eq!(routing.destination(&Route::Send).unwrap(), "virtual");
 }

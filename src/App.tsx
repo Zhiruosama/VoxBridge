@@ -54,6 +54,7 @@ import {
   stopCapture,
   finishListening,
   stopSpeech,
+  setSpeechMonitoring,
   translate,
 } from './bridge';
 
@@ -115,7 +116,14 @@ export default function App() {
   const [composerPhase, setComposerPhase] = useState<ComposerPhase>('idle');
   const busy = composerPhase !== 'idle';
   const [composer] = useState(
-    () => new ComposerController({ translate, speak, cancelTranslation, stopSpeech }),
+    () =>
+      new ComposerController({
+        translate,
+        speak,
+        cancelTranslation,
+        stopSpeech,
+        setMonitoring: setSpeechMonitoring,
+      }),
   );
   const mountedRef = useRef(true);
   const composingRef = useRef(false);
@@ -370,6 +378,7 @@ export default function App() {
           listening: Boolean(listeningRef.current),
         },
         {
+          notice: notify,
           phase: (phase) => {
             if (mountedRef.current) setComposerPhase(phase);
           },
@@ -790,6 +799,34 @@ export default function App() {
                         <Languages size={12} />
                         {settings.composer.output === 'translation' ? '译文' : '原文'}
                       </button>
+                      <button
+                        className="icon-button monitor-toggle"
+                        aria-label="发送时试听"
+                        aria-pressed={settings.audio.monitorEnabled === true}
+                        title={
+                          settings.audio.monitorEnabled
+                            ? '关闭本地试听，继续发送语音'
+                            : '发送语音时同时在耳机试听'
+                        }
+                        disabled={!desktop}
+                        onClick={() => {
+                          if (!settings.audio.previewDeviceId) {
+                            openSettings('general');
+                            notify('请先选择试听设备。');
+                            return;
+                          }
+                          const enabled = !settings.audio.monitorEnabled;
+                          persist(
+                            { ...settings, audio: { ...settings.audio, monitorEnabled: enabled } },
+                            true,
+                          );
+                          void composer
+                            .setMonitoring(enabled)
+                            .catch(() => notify('试听切换失败，请重试。'));
+                        }}
+                      >
+                        <Headphones size={16} />
+                      </button>
                       {busy ? (
                         <>
                           <span role="status" className="composer-phase">
@@ -823,23 +860,6 @@ export default function App() {
                             title="仅翻译，不输出语音"
                           >
                             翻译
-                          </button>
-                          <button
-                            className="icon-button"
-                            aria-label={
-                              settings.composer.output === 'translation'
-                                ? '翻译并试听译文'
-                                : '试听原文'
-                            }
-                            title={
-                              settings.composer.output === 'translation'
-                                ? '自动翻译后在试听设备播放'
-                                : '在试听设备播放原文'
-                            }
-                            disabled={!desktop || !text.trim()}
-                            onClick={() => void runComposer('speak', 'preview')}
-                          >
-                            <Headphones size={16} />
                           </button>
                           <button
                             disabled={!desktop || !text.trim()}
