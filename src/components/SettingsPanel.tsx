@@ -36,6 +36,9 @@ export default function SettingsPanel({
   onSave,
   notify,
   onDiagnostics,
+  onRefreshApplications,
+  refreshingApplications,
+  captureSupported,
   section,
   onBusyChange,
 }: {
@@ -45,6 +48,9 @@ export default function SettingsPanel({
   onSave: (settings: Settings) => void;
   notify: (message: string) => void;
   onDiagnostics: () => void;
+  onRefreshApplications: () => Promise<void>;
+  refreshingApplications: boolean;
+  captureSupported: boolean;
   section: SettingsSection;
   onBusyChange: (busy: boolean) => void;
 }) {
@@ -460,6 +466,16 @@ export default function SettingsPanel({
               </button>
             </div>
             <div className="preference-card">
+              <SettingRow title="监听应用">
+                <button
+                  className="subtle"
+                  disabled={!desktop || !captureSupported || refreshingApplications}
+                  onClick={() => void onRefreshApplications()}
+                >
+                  <RefreshCw size={14} />
+                  {refreshingApplications ? '刷新中…' : '刷新应用'}
+                </button>
+              </SettingRow>
               <SettingRow title="虚拟麦克风">
                 <span className="preference-value">
                   {devices.some((d) => d.id === voxBridgeOutputId)

@@ -82,6 +82,7 @@ export class ComposerController {
       output?: ComposerSettings['output'];
     },
     callbacks: {
+      accepted?: () => void;
       phase: (phase: ComposerPhase) => void;
       translation: (text: string) => void;
       notice?: (message: string) => void;
@@ -122,6 +123,7 @@ export class ComposerController {
     };
     this.operation = operation;
     try {
+      callbacks.accepted?.();
       let content = text;
       if (needsTranslation) {
         callbacks.phase('translating');

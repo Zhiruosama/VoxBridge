@@ -113,6 +113,7 @@ export default function App() {
   const listenEpochRef = useRef(new ListeningEpoch());
   const listening = listenPhase !== 'idle';
   const [text, setText] = useState('');
+  const draftRevisionRef = useRef(0);
   const [composerPhase, setComposerPhase] = useState<ComposerPhase>('idle');
   const busy = composerPhase !== 'idle';
   const [composer] = useState(
@@ -222,6 +223,7 @@ export default function App() {
       setCaptureSources(await listCaptureSources());
     } catch (error) {
       setListenError(String(error));
+      if (page === 'settings') notify(String(error));
     } finally {
       setRefreshingSources(false);
     }
@@ -366,6 +368,18 @@ export default function App() {
     }
     const id = crypto.randomUUID();
     const source = text;
+    const sourceRevision = draftRevisionRef.current;
+    let clearedRevision: number | null = null;
+    const restoreSubmittedDraft = () => {
+      if (
+        mountedRef.current &&
+        clearedRevision !== null &&
+        draftRevisionRef.current === clearedRevision
+      ) {
+        draftRevisionRef.current++;
+        setText(source);
+      }
+    };
     const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
     try {
       const outcome = await composer.run(
@@ -379,6 +393,16 @@ export default function App() {
         },
         {
           notice: notify,
+          accepted: () => {
+            if (
+              action === 'speak' &&
+              route === 'send' &&
+              draftRevisionRef.current === sourceRevision
+            ) {
+              clearedRevision = ++draftRevisionRef.current;
+              setText('');
+            }
+          },
           phase: (phase) => {
             if (mountedRef.current) setComposerPhase(phase);
           },
@@ -390,9 +414,9 @@ export default function App() {
           },
         },
       );
-      if (mountedRef.current && outcome === 'completed' && action === 'speak' && route === 'send')
-        setText((current) => (current === source ? '' : current));
+      if (outcome === 'stopped') restoreSubmittedDraft();
     } catch (error) {
+      restoreSubmittedDraft();
       if (mountedRef.current) notify(String(error));
     }
   }
@@ -567,6 +591,9 @@ export default function App() {
               onSave={persist}
               notify={notify}
               onDiagnostics={() => setPage('diagnostics')}
+              onRefreshApplications={refreshCaptureSources}
+              refreshingApplications={refreshingSources}
+              captureSupported={runtime?.platform === 'macos'}
             />
           )}
           {page === 'diagnostics' && (
@@ -599,15 +626,6 @@ export default function App() {
                       : []),
                   ]}
                 />
-                <button
-                  className="subtle"
-                  disabled={
-                    listening || refreshingSources || !desktop || runtime?.platform !== 'macos'
-                  }
-                  onClick={() => void refreshCaptureSources()}
-                >
-                  {refreshingSources ? '刷新中…' : '刷新应用'}
-                </button>
                 <div className="language-pair">
                   <Select
                     label="听取语言"
@@ -721,10 +739,10 @@ export default function App() {
                     id="speech-input"
                     maxLength={500}
                     value={text}
-                    disabled={busy}
                     aria-describedby="composer-hint"
                     title={composerHint}
                     onChange={(event) => {
+                      draftRevisionRef.current++;
                       setText(event.target.value);
                     }}
                     onCompositionStart={() => {

@@ -44,6 +44,27 @@ function deferred<T>() {
 }
 
 describe('composer operation', () => {
+  it('accepts a validated submission once while holding the operation lock', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    const speech = deferred<void>();
+    dependencies.speak.mockReturnValue(speech.promise);
+    const accepted = vi.fn(() => expect(controller.busy).toBe(true));
+    const running = controller.run(input, { ...callbacks, accepted });
+    expect(accepted).toHaveBeenCalledOnce();
+    expect(await controller.run({ ...input, id: 'next' }, { ...callbacks, accepted })).toBe('busy');
+    expect(accepted).toHaveBeenCalledOnce();
+    speech.resolve();
+    expect(await running).toBe('completed');
+  });
+  it('does not accept or clear the draft when validation fails', async () => {
+    const { controller, input, callbacks } = fixture();
+    const accepted = vi.fn();
+    input.settings.audio.sendDeviceId = '';
+    await expect(controller.run(input, { ...callbacks, accepted })).rejects.toThrow('发送设备');
+    expect(accepted).not.toHaveBeenCalled();
+    expect(controller.busy).toBe(false);
+  });
+
   it('translates then speaks the returned text with the exact selected route', async () => {
     const { controller, input, callbacks, dependencies } = fixture();
     expect(await controller.run(input, callbacks)).toBe('completed');
