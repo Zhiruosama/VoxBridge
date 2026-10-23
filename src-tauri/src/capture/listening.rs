@@ -10,6 +10,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(target_os = "macos")]
+mod realtime;
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListeningRequest {
@@ -209,14 +212,40 @@ pub async fn start_listening(
         crate::asr::endpoint(&request.asr_profile)?;
         let job = state.begin(&request.session_id)?;
         let asr_job = asr_state.begin(&request.session_id)?;
-        let translation =
-            translations.listening_session(request.translation_profile, &request.session_id)?;
+        let translation = translations
+            .listening_session(request.translation_profile.clone(), &request.session_id)?;
         let _audio_permit = audio_gate
             .0
             .clone()
             .try_acquire_owned()
             .map_err(|_| "请先停止试听或发送，再开始监听。")?;
         let key = crate::credentials::read(&request.asr_profile.id)?;
+        if request.asr_profile.is_realtime() {
+            let result = realtime::run(
+                &request,
+                &on_event,
+                &job.token,
+                &asr_job.token,
+                &translation,
+                &key,
+            )
+            .await;
+            job.token.cancel();
+            let _ = send(
+                &on_event,
+                ListeningEvent::Progress {
+                    session_id: request.session_id.clone(),
+                    phase: if result.is_ok() { "stopped" } else { "failed" },
+                    sample_rate: 0,
+                    frames: 0,
+                    rms: 0.0,
+                    dropped_frames: 0,
+                    dropped_segments: 0,
+                    discontinuities: 0,
+                },
+            );
+            return result;
+        }
         let skipped = Arc::new(AtomicU64::new(0));
         let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
         send(

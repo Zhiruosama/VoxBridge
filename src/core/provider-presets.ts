@@ -3,6 +3,15 @@ import type { ProviderProfile, Settings } from './types';
 // Public connection settings only. Credentials are held separately by the OS.
 export const providerPresets: ProviderProfile[] = [
   {
+    id: 'provider-qwen-realtime',
+    name: 'Qwen ASR · 实时',
+    stage: 'asr',
+    adapter: 'qwen_dashscope_asr',
+    baseUrl: 'wss://maas.qianwenaiapi.com/api-ws/v1/inference',
+    modelId: 'qwen-audio-3.0-asr-flash-streaming',
+    voice: '',
+  },
+  {
     id: 'provider-qwen-asr',
     name: 'Qwen ASR · HTTP 短音频',
     stage: 'asr',

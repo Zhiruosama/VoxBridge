@@ -61,7 +61,7 @@ function validateEndpoint(baseUrl: string, adapter: ProviderProfile['adapter']):
     const protocols =
       adapter === 'pending_asr'
         ? ['https:', 'wss:']
-        : adapter === 'minimax_tts_ws'
+        : adapter === 'minimax_tts_ws' || adapter === 'qwen_dashscope_asr'
           ? ['wss:']
           : ['https:'];
     const secureProtocol =
@@ -118,7 +118,7 @@ export function parseSettings(value: unknown): Settings {
         ? ['openai_chat_completions']
         : stage === 'tts'
           ? ['minimax_tts_ws', 'openai_audio_speech']
-          : ['pending_asr', 'qwen_chat_asr'];
+          : ['pending_asr', 'qwen_chat_asr', 'qwen_dashscope_asr'];
     if (!['asr', 'translation', 'tts'].includes(stage) || !adapters.includes(adapter))
       throw new Error('不支持的服务协议。');
     for (const key of ['id', 'name', 'baseUrl', 'modelId', 'voice']) {

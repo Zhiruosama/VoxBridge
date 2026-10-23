@@ -4,6 +4,7 @@ export type Adapter =
   | 'minimax_tts_ws'
   | 'openai_audio_speech'
   | 'qwen_chat_asr'
+  | 'qwen_dashscope_asr'
   | 'pending_asr';
 export interface AudioRouting {
   previewDeviceId: string;

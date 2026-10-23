@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 const MAX_WAV: usize = 1_000_000;
 const MAX_RESPONSE: usize = 256 * 1024;
 const STOPPED: &str = "语音识别已停止。";
+pub(crate) mod realtime;
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +23,12 @@ pub struct AsrProfile {
     pub model_id: String,
 }
 
+impl AsrProfile {
+    pub(crate) fn is_realtime(&self) -> bool {
+        self.adapter == "qwen_dashscope_asr"
+    }
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Transcript {
@@ -30,6 +37,9 @@ pub struct Transcript {
 }
 
 pub(crate) fn endpoint(profile: &AsrProfile) -> Result<url::Url, String> {
+    if profile.adapter == "qwen_dashscope_asr" {
+        return realtime::endpoint(profile);
+    }
     if profile.stage != "asr" || profile.adapter != "qwen_chat_asr" {
         return Err("此配置不支持 Qwen HTTP 分段语音识别。".into());
     }
@@ -154,6 +164,9 @@ pub(crate) async fn recognize(
     key: &str,
     token: &CancellationToken,
 ) -> Result<Transcript, String> {
+    if profile.adapter != "qwen_chat_asr" {
+        return Err("文件转写需要 Qwen HTTP 短音频配置。".into());
+    }
     let url = endpoint(profile)?;
     let seconds = validate_wav(audio)?;
     tokio::select! {

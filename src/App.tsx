@@ -212,8 +212,12 @@ export default function App() {
     const source = captureSources.find((item) => String(item.pid) === captureSourceId);
     const asrProfile = profileFor(settings, 'asr');
     const invalid = validateProfile(asrProfile) || validateProfile(translationProfile);
-    if (!source || invalid || asrProfile.adapter !== 'qwen_chat_asr') {
-      setListenError(invalid || '请刷新并选择目标音频进程，配置 Qwen HTTP ASR 与文字翻译服务。');
+    if (
+      !source ||
+      invalid ||
+      !['qwen_chat_asr', 'qwen_dashscope_asr'].includes(asrProfile.adapter)
+    ) {
+      setListenError(invalid || '请刷新并选择目标音频进程，配置语音识别与文字翻译服务。');
       return;
     }
     const id = crypto.randomUUID();
@@ -463,9 +467,9 @@ export default function App() {
                   listenPhase === 'stopping' ||
                   (!listening && (!captureSourceId || busy || refreshingSources))
                 }
-                title="点击开始后，目标声音会按短段发送到 ASR 和翻译服务，可能计费；当前是 HTTP 分段识别，不是实时 WebSocket"
+                title="开始后，目标声音会发送到所选的语音识别与翻译服务，可能计费"
               >
-                {listenPhase === 'stopping' ? '正在停止…' : listening ? '停止监听' : '开始分段监听'}
+                {listenPhase === 'stopping' ? '正在停止…' : listening ? '停止监听' : '开始监听'}
               </button>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaults, parseSettings, profileFor } from './settings';
+import { defaults, parseSettings, profileFor, validateProfile } from './settings';
 import { applyProviderPreset } from './provider-presets';
 
 describe('provider presets', () => {
@@ -33,6 +33,19 @@ describe('provider presets', () => {
     expect(settings.active.translation).toBe(defaults.active.translation);
     expect(settings.active.tts).toBe(defaults.active.tts);
     expect(JSON.stringify(settings)).not.toContain('apiKey');
+  });
+  it('round-trips the realtime preset and enforces WebSocket transport', () => {
+    const settings = applyProviderPreset(structuredClone(defaults), 'provider-qwen-realtime');
+    const profile = profileFor(parseSettings(settings), 'asr');
+    expect(profile.adapter).toBe('qwen_dashscope_asr');
+    expect(profile.modelId).toBe('qwen-audio-3.0-asr-flash-streaming');
+    expect(validateProfile(profile)).toBeNull();
+    expect(validateProfile({ ...profile, baseUrl: 'https://example.com' })).toBeTruthy();
+    expect(validateProfile({ ...profile, baseUrl: 'ws://example.com' })).toBeTruthy();
+    expect(validateProfile({ ...profile, baseUrl: 'ws://127.0.0.1:9000' })).toBeNull();
+    expect(validateProfile({ ...profile, baseUrl: 'wss://example.com/?key=secret' })).toBeTruthy();
+    expect(settings.active.translation).toBe(defaults.active.translation);
+    expect(settings.active.tts).toBe(defaults.active.tts);
   });
   it('does not import arbitrary thinking options or leak fields across stages', () => {
     const input = structuredClone(defaults);

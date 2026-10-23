@@ -93,7 +93,7 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
             aria-label="ASR 测试 WAV 文件"
             type="file"
             accept=".wav,audio/wav"
-            disabled={!desktop || busy}
+            disabled={!desktop || busy || profile.adapter !== 'qwen_chat_asr'}
             onChange={(event) => {
               setFile(event.target.files?.[0] ?? null);
               setResult(null);
@@ -129,7 +129,9 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
         role={error ? 'alert' : 'status'}
       >
         {error ||
-          '支持 0.1–30 秒、16 kHz 单声道 PCM16 WAV。点击后会将所选音频发送给当前 ASR 服务，可能计费；不保存音频或文本。此入口不是实时 WebSocket 识别。'}
+          (profile.adapter === 'qwen_dashscope_asr'
+            ? '实时识别请回到字幕页，选择音频进程后开始监听。'
+            : '支持 0.1–30 秒、16 kHz 单声道 PCM16 WAV。点击后会将所选音频发送给当前 ASR 服务，可能计费；不保存音频或文本。此入口不是实时 WebSocket 识别。')}
       </p>
     </section>
   );

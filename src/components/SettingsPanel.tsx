@@ -140,7 +140,6 @@ export default function SettingsPanel({
       <header className="preferences-heading">
         <div className="preferences-title">
           <h1>{sectionTitles[section]}</h1>
-          {section === 'asr' && <span className="tag">HTTP 短句</span>}
         </div>
         <div className="preferences-save">
           {dirty && <span role="status">未保存</span>}
@@ -469,6 +468,7 @@ export default function SettingsPanel({
                     options={[
                       { value: 'pending_asr', label: '未配置协议' },
                       { value: 'qwen_chat_asr', label: 'Qwen HTTP 短音频' },
+                      { value: 'qwen_dashscope_asr', label: 'Qwen 实时识别' },
                     ]}
                   />
                 ) : (

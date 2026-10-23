@@ -11,7 +11,7 @@ pub struct AudioSegment {
     pub wav: Vec<u8>,
 }
 
-struct Resampler {
+pub(crate) struct Resampler {
     rate: u32,
     history: VecDeque<f32>,
     input_count: u64,
@@ -20,7 +20,7 @@ struct Resampler {
 }
 
 impl Resampler {
-    fn new(rate: u32) -> Self {
+    pub(crate) fn new(rate: u32) -> Self {
         let cutoff = 0.45 * (f64::from(RATE) / f64::from(rate)).min(1.0);
         let kernels = (0..256)
             .map(|phase| {
@@ -60,7 +60,7 @@ impl Resampler {
         self.output_count = 0;
     }
 
-    fn push(&mut self, value: f32, mut output: impl FnMut(f32)) {
+    pub(crate) fn push(&mut self, value: f32, mut output: impl FnMut(f32)) {
         self.history.push_back(value);
         self.input_count += 1;
         loop {
