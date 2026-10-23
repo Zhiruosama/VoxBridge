@@ -10,6 +10,9 @@ export function applyTranscript(state: Session, event: TranscriptEvent): Session
     revision: event.revision,
     source: event.text,
     final: event.final,
+    ...(existing && event.text.startsWith(existing.source)
+      ? { translation: existing.translation, translationRevision: existing.translationRevision }
+      : {}),
     time:
       event.startMs !== undefined && Number.isFinite(event.startMs) && event.startMs >= 0
         ? [
@@ -33,15 +36,22 @@ export function applyTranslation(
   segmentId: string,
   revision: number,
   text: string,
+  sourceText?: string,
 ): Session {
   if (!state.id || state.id !== sessionId) return state;
   return {
     ...state,
-    segments: state.segments.map((segment) =>
-      segment.id === segmentId && segment.revision === revision && segment.final
-        ? { ...segment, translation: text }
-        : segment,
-    ),
+    segments: state.segments.map((segment) => {
+      if (segment.id !== segmentId || revision < (segment.translationRevision ?? 0)) return segment;
+      const matches =
+        sourceText === undefined
+          ? segment.final && segment.revision === revision
+          : !segment.final &&
+            revision <= segment.revision &&
+            !!sourceText.trim() &&
+            segment.source.startsWith(sourceText);
+      return matches ? { ...segment, translation: text, translationRevision: revision } : segment;
+    }),
   };
 }
 

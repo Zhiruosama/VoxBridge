@@ -62,6 +62,7 @@ export interface Segment {
   revision: number;
   source: string;
   translation?: string;
+  translationRevision?: number;
   final: boolean;
   time: string;
 }
@@ -119,6 +120,7 @@ export type ListeningEvent =
       segmentId: string;
       revision: number;
       text: string;
+      sourceText?: string;
     };
 export interface CaptureProgress {
   sessionId: string;

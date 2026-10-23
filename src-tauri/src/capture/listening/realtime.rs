@@ -1,6 +1,7 @@
 use super::*;
 use crate::asr::realtime::Sentence;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
+mod previews;
 use tokio_util::sync::CancellationToken;
 
 fn capture_pcm(
@@ -113,7 +114,8 @@ pub(super) async fn run(
         },
     )?;
     let (audio_tx, audio_rx) = mpsc::channel(100);
-    let (final_tx, mut final_rx) = mpsc::channel::<(Sentence, Instant)>(4);
+    let (final_tx, final_rx) = mpsc::channel::<(Sentence, Instant)>(4);
+    let (preview_tx, preview_rx) = watch::channel(None);
     let (ready_tx, ready_rx) = oneshot::channel();
     let skipped = Arc::new(AtomicU64::new(0));
     let source = request.source.clone();
@@ -178,6 +180,7 @@ pub(super) async fn run(
                     },
                 )?;
                 if sentence.final_text {
+                    preview_tx.send_replace(None);
                     match final_tx.try_send((sentence, Instant::now())) {
                         Ok(()) => {}
                         Err(mpsc::error::TrySendError::Full(_)) => {
@@ -187,6 +190,8 @@ pub(super) async fn run(
                             return Err("字幕翻译任务已结束。".into())
                         }
                     }
+                } else {
+                    preview_tx.send_replace(Some(sentence));
                 }
                 Ok(())
             },
@@ -196,25 +201,44 @@ pub(super) async fn run(
         result
     };
     let translated = async {
-        let result: Result<(), String> = async {
-            loop {
-                let (sentence, created) = tokio::select! { biased;
-                    _ = token.cancelled() => return Ok(()),
-                    sentence = final_rx.recv() => match sentence { Some(sentence) => sentence, None => return Ok(()) },
-                };
-                if created.elapsed() > Duration::from_secs(20) {
-                    skipped.fetch_add(1, Ordering::Relaxed);
-                    continue;
-                }
-                let text = tokio::select! { biased;
-                    _ = token.cancelled() => return Ok(()),
-                    result = translation.translate(&sentence.text, &request.source_language, &request.target_language, token) => result?,
-                };
-                if !token.is_cancelled() {
-                    send(channel, ListeningEvent::Translation { session_id: request.session_id.clone(), generation: request.generation, segment_id: segment_id(&request.session_id, request.generation, sentence.id), revision: sentence.revision, text })?;
-                }
-            }
-        }.await;
+        let result = previews::translate_updates(
+            token,
+            final_rx,
+            preview_rx,
+            &skipped,
+            |sentence| async move {
+                translation
+                    .translate(
+                        &sentence.text,
+                        &request.source_language,
+                        &request.target_language,
+                        token,
+                    )
+                    .await
+            },
+            |sentence, text| {
+                send(
+                    channel,
+                    ListeningEvent::Translation {
+                        session_id: request.session_id.clone(),
+                        generation: request.generation,
+                        segment_id: segment_id(
+                            &request.session_id,
+                            request.generation,
+                            sentence.id,
+                        ),
+                        revision: sentence.revision,
+                        source_text: if sentence.final_text {
+                            None
+                        } else {
+                            Some(sentence.text)
+                        },
+                        text,
+                    },
+                )
+            },
+        )
+        .await;
         token.cancel();
         result
     };

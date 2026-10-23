@@ -221,7 +221,14 @@ export default function App() {
       setSession((state) => applyTranscript(state, event));
     } else if (event.type === 'translation') {
       setSession((state) =>
-        applyTranslation(state, event.sessionId, event.segmentId, event.revision, event.text),
+        applyTranslation(
+          state,
+          event.sessionId,
+          event.segmentId,
+          event.revision,
+          event.text,
+          event.sourceText,
+        ),
       );
     } else if (event.type === 'recovering') {
       setListenPhase('recovering');

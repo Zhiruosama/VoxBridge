@@ -76,6 +76,8 @@ pub enum ListeningEvent {
         segment_id: String,
         revision: u32,
         text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        source_text: Option<String>,
     },
 }
 
@@ -147,6 +149,7 @@ impl SegmentProcessor<'_> {
                 segment_id,
                 revision: 1,
                 text,
+                source_text: None,
             })?;
         }
         Ok(())

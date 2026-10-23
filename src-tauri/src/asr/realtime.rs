@@ -141,7 +141,7 @@ pub(crate) async fn recognize_stream(
             static SEQUENCE:std::sync::atomic::AtomicU64=std::sync::atomic::AtomicU64::new(0);
             let clock=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|_|"系统时间不可用。")?.as_nanos();
             let task_id=format!("{:032x}",clock ^ (u128::from(std::process::id())<<64) ^ u128::from(SEQUENCE.fetch_add(1,std::sync::atomic::Ordering::Relaxed)));
-            write(&mut socket, Message::Text(json!({"header":{"action":"run-task","task_id":task_id,"streaming":"duplex"},"payload":{"task_group":"audio","task":"asr","function":"recognition","model":profile.model_id,"parameters":{"format":"pcm","sample_rate":16000},"input":{}}}).to_string().into())).await.map_err(|_|"无法启动实时 ASR。")?;
+            write(&mut socket, Message::Text(json!({"header":{"action":"run-task","task_id":task_id,"streaming":"duplex"},"payload":{"task_group":"audio","task":"asr","function":"recognition","model":profile.model_id,"parameters":{"format":"pcm","sample_rate":16000,"max_sentence_silence":400,"multi_threshold_mode_enabled":true},"input":{}}}).to_string().into())).await.map_err(|_|"无法启动实时 ASR。")?;
             let started=tokio::time::timeout(Duration::from_secs(15),receive(&mut socket)).await.map_err(|_|"实时 ASR 启动超时。")??;
             if started.pointer("/header/event").and_then(Value::as_str)!=Some("task-started") || started.pointer("/header/task_id").and_then(Value::as_str)!=Some(task_id.as_str()) {
                 return Err("实时 ASR 任务未就绪，请检查模型权限与协议。".into());

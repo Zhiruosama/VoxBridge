@@ -92,3 +92,37 @@ describe('expression subtitles', () => {
     expect(state.segments.at(-1)?.translation).toBe('Updated');
   });
 });
+
+describe('interim translation revisions', () => {
+  it('shows a translated prefix during continuous speech and replaces it with the final result', () => {
+    let state = applyTranscript({ id: 'a', segments: [] }, { ...event, text: 'Hello world' });
+    state = applyTranscript(state, { ...event, revision: 2, text: 'Hello world again' });
+    state = applyTranslation(state, 'a', 'one', 1, '你好世界', 'Hello world');
+    expect(state.segments[0].translation).toBe('你好世界');
+    state = applyTranscript(state, {
+      ...event,
+      revision: 3,
+      text: 'Hello world again',
+      final: true,
+    });
+    expect(state.segments[0].translation).toBe('你好世界');
+    state = applyTranslation(state, 'a', 'one', 2, '晚到的临时译文', 'Hello world again');
+    expect(state.segments[0].translation).toBe('你好世界');
+    state = applyTranslation(state, 'a', 'one', 3, '世界你好，又见面了');
+    expect(state.segments[0].translation).toBe('世界你好，又见面了');
+  });
+  it('rejects changed ASR text, older previews, and other sessions', () => {
+    let state = applyTranscript({ id: 'a', segments: [] }, { ...event, text: 'I can go' });
+    state = applyTranslation(state, 'a', 'one', 1, '我能去', 'I can go');
+    state = applyTranscript(state, { ...event, revision: 2, text: 'I cannot go' });
+    expect(state.segments[0].translation).toBeUndefined();
+    expect(
+      applyTranslation(state, 'a', 'one', 1, '错误', 'I can go').segments[0].translation,
+    ).toBeUndefined();
+    state = applyTranslation(state, 'a', 'one', 2, '我不能去', 'I cannot go');
+    expect(
+      applyTranslation(state, 'a', 'one', 1, '旧结果', 'I cannot').segments[0].translation,
+    ).toBe('我不能去');
+    expect(applyTranslation(state, 'b', 'one', 2, '其他会话', 'I cannot go')).toBe(state);
+  });
+});
