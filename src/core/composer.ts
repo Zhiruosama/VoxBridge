@@ -3,16 +3,15 @@ import type { ComposerSettings, Settings, SpeechProgress } from './types';
 
 export type ComposerPhase =
   | 'idle'
+  | 'detecting'
   | 'waitingDevice'
   | 'translating'
   | 'synthesizing'
   | 'decoding'
   | 'playing'
   | 'stopping';
-export function composerLanguages(settings: Settings, listening: boolean) {
-  return listening && settings.listening.sourceLanguage !== '自动识别'
-    ? { source: settings.listening.targetLanguage, target: settings.listening.sourceLanguage }
-    : { source: settings.sourceLanguage, target: settings.targetLanguage };
+export function composerLanguages(settings: Settings, _listening: boolean) {
+  return { source: settings.sourceLanguage, target: settings.targetLanguage };
 }
 
 export function composerKeyAction(
@@ -35,6 +34,7 @@ export function composerKeyAction(
 }
 
 type Dependencies = {
+  detectLanguage?: (text: string) => Promise<string | null>;
   translate: (
     profile: Settings['profiles'][number],
     text: string,
@@ -43,7 +43,7 @@ type Dependencies = {
     id: string,
   ) => Promise<string>;
   speak: (
-    profile: Settings['profiles'][number],
+    profile: Settings['profiles'][number] & { language?: string },
     text: string,
     audio: Settings['audio'],
     route: ComposerSettings['route'],
@@ -98,10 +98,6 @@ export class ComposerController {
     if (!text || [...text].length > 500) throw new Error('请输入 1–500 字的内容。');
     const translationProfile = profileFor(settings, 'translation');
     const speechProfile = profileFor(settings, 'tts');
-    if (needsTranslation) {
-      const invalid = validateProfile(translationProfile);
-      if (invalid) throw new Error(`${invalid} 请到设置页完善文字翻译服务。`);
-    }
     if (input.action === 'speak') {
       const invalid = validateProfile(speechProfile);
       if (invalid) throw new Error(`${invalid} 请到设置页完善语音合成服务。`);
@@ -125,17 +121,27 @@ export class ComposerController {
     try {
       callbacks.accepted?.();
       let content = text;
-      if (needsTranslation) {
-        callbacks.phase('translating');
-        content = await this.dependencies.translate(
-          translationProfile,
-          text,
-          direction.source,
-          direction.target,
-          operation.id,
-        );
+      let detected: string | null = null;
+      if (this.dependencies.detectLanguage) {
+        callbacks.phase('detecting');
+        detected = await this.dependencies.detectLanguage(text);
         if (operation.cancelled) return 'stopped';
-        if (!content.trim()) throw new Error('翻译服务返回空内容，请重试。');
+      }
+      if (needsTranslation) {
+        if (detected !== direction.target) {
+          const invalid = validateProfile(translationProfile);
+          if (invalid) throw new Error(`${invalid} 请到设置页完善文字翻译服务。`);
+          callbacks.phase('translating');
+          content = await this.dependencies.translate(
+            translationProfile,
+            text,
+            direction.source,
+            direction.target,
+            operation.id,
+          );
+          if (operation.cancelled) return 'stopped';
+          if (!content.trim()) throw new Error('翻译服务返回空内容，请重试。');
+        }
         callbacks.translation(content);
       }
       if (operation.cancelled) return 'stopped';
@@ -146,7 +152,10 @@ export class ComposerController {
         callbacks.phase('synthesizing');
         if (operation.cancelled) return 'stopped';
         await this.dependencies.speak(
-          speechProfile,
+          {
+            ...speechProfile,
+            language: needsTranslation ? direction.target : (detected ?? undefined),
+          },
           content,
           { ...settings.audio, monitorEnabled: operation.monitorEnabled },
           route,

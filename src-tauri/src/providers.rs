@@ -429,6 +429,12 @@ async fn request_translation_with_context(
 pub(crate) const INVALID_TRANSLATION: &str = "翻译服务未返回有效译文，请重试或更换模型。";
 
 fn valid_translation(source: &str, result: &str, target: &str) -> bool {
+    if let Some(actual) = crate::language::detect(result) {
+        if ["英语", "简体中文", "日语", "韩语", "西班牙语"].contains(&target) && actual != target
+        {
+            return false;
+        }
+    }
     let lower = result.to_lowercase();
     let commentary = [
         "the phrase ",
@@ -482,6 +488,24 @@ fn valid_translation(source: &str, result: &str, target: &str) -> bool {
 mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, Read, Write};
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn wrong_target_language_is_not_accepted_as_a_translation() {
+        let english = "This is a wonderful day and I would like to talk to my friends.";
+        for target in ["简体中文", "日语", "韩语", "西班牙语"] {
+            assert!(!valid_translation(
+                "今天很适合和朋友一起聊天。",
+                english,
+                target
+            ));
+        }
+        assert!(valid_translation(
+            "今天很适合和朋友一起聊天。",
+            english,
+            "英语"
+        ));
+    }
 
     #[test]
     fn stop_before_dispatch_and_during_request_are_both_respected() {

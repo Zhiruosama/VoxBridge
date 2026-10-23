@@ -4,6 +4,7 @@ mod audio;
 mod audio_pipeline;
 mod capture;
 mod credentials;
+mod language;
 #[cfg(test)]
 mod live_tests;
 mod overlay;
@@ -46,6 +47,7 @@ pub fn run() {
         .manage(speech::AudioGate::new())
         .invoke_handler(tauri::generate_handler![
             runtime_info,
+            language::detect_text_language,
             overlay::publish_overlay,
             overlay::read_overlay,
             overlay::show_overlay,

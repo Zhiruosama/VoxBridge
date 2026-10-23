@@ -9,6 +9,7 @@ fn main() {
             "set_credential",
             "remove_credential",
             "translate",
+            "detect_text_language",
             "cancel_translation",
             "transcribe_wav",
             "stop_asr",

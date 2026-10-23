@@ -43,6 +43,65 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+describe('selected language and direct speech', () => {
+  it.each(['英语', '简体中文', '日语', '韩语', '西班牙语'])(
+    'passes %s as both translation target and synthesized speech language',
+    async (target) => {
+      const { input, dependencies, controller, callbacks } = fixture();
+      input.settings.targetLanguage = target;
+      input.settings.listening = { sourceLanguage: '英语', targetLanguage: '简体中文' };
+      await controller.run({ ...input, listening: true }, callbacks);
+      expect(dependencies.translate.mock.calls[0]?.[3]).toBe(target);
+      expect(dependencies.speak.mock.calls[0]?.[0].language).toBe(target);
+      expect(dependencies.speak.mock.calls[0]?.[1]).toBe('Hello');
+    },
+  );
+  it('skips translation and its configuration requirements when actual input matches target', async () => {
+    const { input, dependencies, callbacks } = fixture();
+    input.text = '今日はとてもいい天気ですね。';
+    input.settings.targetLanguage = '日语';
+    input.settings.sourceLanguage = '简体中文';
+    input.settings.profiles[1].modelId = '';
+    const controller = new ComposerController({
+      ...dependencies,
+      detectLanguage: async () => '日语',
+    });
+    await controller.run(input, callbacks);
+    expect(dependencies.translate).not.toHaveBeenCalled();
+    expect(dependencies.speak.mock.calls[0]?.[1]).toBe(input.text);
+    expect(dependencies.speak.mock.calls[0]?.[0].language).toBe('日语');
+    expect(callbacks.translation).toHaveBeenCalledWith(input.text);
+  });
+  it('does not trust the source dropdown when actual input is different or uncertain', async () => {
+    for (const detected of ['简体中文', null]) {
+      const { input, dependencies, callbacks } = fixture();
+      input.settings.sourceLanguage = input.settings.targetLanguage = '英语';
+      const controller = new ComposerController({
+        ...dependencies,
+        detectLanguage: async () => detected,
+      });
+      await controller.run(input, callbacks);
+      expect(dependencies.translate).toHaveBeenCalledOnce();
+    }
+  });
+  it('locks the submission during detection and does not speak after cancellation', async () => {
+    const { input, dependencies, callbacks } = fixture();
+    const detection = deferred<string | null>();
+    const controller = new ComposerController({
+      ...dependencies,
+      detectLanguage: () => detection.promise,
+    });
+    const running = controller.run(input, callbacks);
+    expect(callbacks.phase).toHaveBeenCalledWith('detecting');
+    expect(await controller.run(input, callbacks)).toBe('busy');
+    await controller.cancel();
+    detection.resolve('英语');
+    expect(await running).toBe('stopped');
+    expect(dependencies.translate).not.toHaveBeenCalled();
+    expect(dependencies.speak).not.toHaveBeenCalled();
+  });
+});
+
 describe('composer operation', () => {
   it('accepts a validated submission once while holding the operation lock', async () => {
     const { controller, input, callbacks, dependencies } = fixture();
@@ -69,7 +128,7 @@ describe('composer operation', () => {
     const { controller, input, callbacks, dependencies } = fixture();
     expect(await controller.run(input, callbacks)).toBe('completed');
     expect(dependencies.speak).toHaveBeenCalledWith(
-      input.settings.profiles[2],
+      { ...input.settings.profiles[2], language: '英语' },
       'Hello',
       input.settings.audio,
       'send',
@@ -277,23 +336,23 @@ describe('composer keyboard', () => {
 });
 
 describe('duplex expression', () => {
-  it('reverses the live listening direction without mutating saved settings', async () => {
+  it('uses the selected output language even while listening in another direction', async () => {
     const { controller, input, callbacks, dependencies } = fixture();
-    input.settings.sourceLanguage = '英语';
-    input.settings.targetLanguage = '简体中文';
+    input.settings.sourceLanguage = '简体中文';
+    input.settings.targetLanguage = '日语';
     input.settings.listening = { sourceLanguage: '英语', targetLanguage: '简体中文' };
     await controller.run({ ...input, listening: true }, callbacks);
     expect(dependencies.translate).toHaveBeenCalledWith(
       input.settings.profiles[1],
       '你好',
       '简体中文',
-      '英语',
+      '日语',
       'request',
     );
-    expect(input.settings.sourceLanguage).toBe('英语');
+    expect(input.settings.sourceLanguage).toBe('简体中文');
     expect(composerLanguages(input.settings, false)).toEqual({
-      source: '英语',
-      target: '简体中文',
+      source: '简体中文',
+      target: '日语',
     });
     expect(dependencies.speak).toHaveBeenCalledOnce();
   });
@@ -313,7 +372,7 @@ describe('duplex expression', () => {
   });
 });
 
-it('uses the independent listening direction for duplex replies without overwriting text preferences', () => {
+it('keeps output language independent from changes in the listening source', () => {
   const settings = structuredClone(defaults);
   settings.sourceLanguage = '简体中文';
   settings.targetLanguage = '英语';
@@ -321,6 +380,6 @@ it('uses the independent listening direction for duplex replies without overwrit
   settings.listening = { sourceLanguage: '自动识别', targetLanguage: '英语' };
   expect(composerLanguages(settings, true)).toEqual({ source: '简体中文', target: '英语' });
   settings.listening = { sourceLanguage: '日语', targetLanguage: '简体中文' };
-  expect(composerLanguages(settings, true)).toEqual({ source: '简体中文', target: '日语' });
+  expect(composerLanguages(settings, true)).toEqual({ source: '简体中文', target: '英语' });
   expect(composerLanguages(settings, false)).toEqual({ source: '简体中文', target: '英语' });
 });

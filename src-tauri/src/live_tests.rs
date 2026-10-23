@@ -107,6 +107,64 @@ struct Keys {
 }
 
 #[tokio::test]
+#[ignore = "manual paid five-language translation and TTS test; synthetic text, credentials on stdin"]
+async fn live_selected_languages() {
+    let mut line = String::new();
+    io::stdin().read_line(&mut line).unwrap();
+    let keys: Keys = serde_json::from_str(&line).expect("credential JSON required; not logged");
+    line.clear();
+    let text = "你好！今天天气很好，我们晚上八点一起聊天吧。请记得把会议链接发给我，谢谢！";
+    for target in ["英语", "简体中文", "日语", "韩语", "西班牙语"] {
+        let started = Instant::now();
+        let translated = if crate::language::detect(text) == Some(target) {
+            text.to_string()
+        } else {
+            providers::request_translation(
+                url::Url::parse("https://api.deepseek.com/chat/completions").unwrap(),
+                keys.deepseek.clone(),
+                "deepseek-flash",
+                text,
+                "简体中文",
+                target,
+                Some(providers::Thinking::Disabled),
+            )
+            .await
+            .expect("target language translation")
+        };
+        println!("TARGET {target}: {translated}");
+        assert_eq!(
+            crate::language::detect(&translated),
+            Some(target),
+            "actual translated language"
+        );
+        let profile: speech::SpeechProfile = serde_json::from_value(serde_json::json!({
+            "id":"isolated-test", "stage":"tts", "adapter":"minimax_tts_ws",
+            "baseUrl":"wss://api.minimax.cn/ws/v1/t2a_v2", "modelId":"speech-2.8-turbo",
+            "voice":"male-qn-qingse", "language":target
+        }))
+        .unwrap();
+        let token = CancellationToken::new();
+        let bytes = speech::synthesize_cancellable(
+            &profile,
+            speech::endpoint(&profile).unwrap(),
+            &translated,
+            &keys.minimax,
+            &token,
+        )
+        .await
+        .expect("target language TTS");
+        let count = bytes.len();
+        assert!(speech::decode(bytes, &token)
+            .unwrap()
+            .any(|sample| sample.abs() > 0.001));
+        println!(
+            "TARGET {target}: {} ms total, {count} bytes, decodable non-silent audio",
+            started.elapsed().as_millis()
+        );
+    }
+}
+
+#[tokio::test]
 #[ignore = "manual paid API test; provide credentials as one JSON line on stdin"]
 async fn live_provider_smoke() {
     println!("LIVE_READY: optional credential JSON on stdin; empty input uses OS credential store");

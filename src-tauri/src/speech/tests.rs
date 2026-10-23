@@ -39,6 +39,7 @@ fn minimax_errors_distinguish_balance_auth_and_voice_without_echoing_provider_te
 }
 pub(super) fn profile(adapter: &str, base_url: String) -> SpeechProfile {
     SpeechProfile {
+        language: None,
         id: "test-profile".into(),
         stage: "tts".into(),
         adapter: adapter.into(),
@@ -294,10 +295,11 @@ async fn cancellation_drops_a_waiting_connection() {
 #[tokio::test]
 async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let p = profile(
+    let mut p = profile(
         "minimax_tts_ws",
         format!("ws://{}", listener.local_addr().unwrap()),
     );
+    p.language = Some("日语".into());
     let server = async {
         let (stream, _) = listener.accept().await.unwrap();
         let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
@@ -311,6 +313,7 @@ async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
         let start: Value =
             serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
         assert_eq!(start["event"], "task_start");
+        assert_eq!(start["language_boost"], "Japanese");
         assert_eq!(start["voice_setting"]["voice_id"], "test-voice");
         assert_eq!(start["audio_setting"]["format"], "mp3");
         ws.send(Message::Text(

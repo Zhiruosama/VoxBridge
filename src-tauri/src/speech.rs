@@ -158,6 +158,8 @@ pub struct SpeechProfile {
     base_url: String,
     model_id: String,
     voice: String,
+    #[serde(default)]
+    language: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -406,7 +408,7 @@ async fn synthesize_response(
     if receive(&mut socket).await?["event"] != "connected_success" {
         return Err("语音连接握手顺序异常。".into());
     }
-    socket.send(Message::Text(json!({ "event":"task_start", "model":profile.model_id, "voice_setting":{"voice_id":profile.voice}, "audio_setting":{"sample_rate":32000,"bitrate":128000,"format":if stream.is_some() { "pcm" } else { "mp3" },"channel":1} }).to_string().into())).await.map_err(|_| "无法开始语音任务。")?;
+    socket.send(Message::Text(json!({ "event":"task_start", "model":profile.model_id, "language_boost":crate::language::speech_language(profile.language.as_deref())?, "voice_setting":{"voice_id":profile.voice}, "audio_setting":{"sample_rate":32000,"bitrate":128000,"format":if stream.is_some() { "pcm" } else { "mp3" },"channel":1} }).to_string().into())).await.map_err(|_| "无法开始语音任务。")?;
     if receive(&mut socket).await?["event"] != "task_started" {
         return Err("语音任务未就绪。".into());
     }
@@ -664,6 +666,7 @@ pub(crate) async fn execute(
     gate: &AudioGate,
 ) -> Result<(), String> {
     let url = endpoint(&profile)?;
+    crate::language::speech_language(profile.language.as_deref())?;
     if text.trim().is_empty() || text.chars().count() > 500 {
         return Err("语音文字须为 1–500 字。".into());
     }

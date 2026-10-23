@@ -13,6 +13,9 @@ import type {
 } from './core/types';
 
 export const desktop = isTauri();
+export async function detectTextLanguage(text: string): Promise<string | null> {
+  return desktop ? invoke('detect_text_language', { text }) : null;
+}
 export async function runtimeInfo(): Promise<RuntimeInfo> {
   return desktop
     ? invoke('runtime_info')
@@ -69,7 +72,7 @@ export async function stopTone() {
   if (desktop) await invoke('stop_tone');
 }
 export async function speak(
-  profile: ProviderProfile,
+  profile: ProviderProfile & { language?: string },
   text: string,
   routing: AudioRouting,
   route: 'preview' | 'send',

@@ -43,6 +43,7 @@ import {
 import { listen } from '@tauri-apps/api/event';
 import {
   cancelTranslation,
+  detectTextLanguage,
   desktop,
   listCaptureSources,
   publishOverlay,
@@ -119,6 +120,7 @@ export default function App() {
   const [composer] = useState(
     () =>
       new ComposerController({
+        detectLanguage: detectTextLanguage,
         translate,
         speak,
         cancelTranslation,
@@ -704,7 +706,9 @@ export default function App() {
                           <time>{segment.time}</time>
                           {!segment.final && <span>识别中…</span>}
                         </div>
-                        <p className="source-text">{segment.source}</p>
+                        {segment.source.trim() !== segment.translation?.trim() && (
+                          <p className="source-text">{segment.source}</p>
+                        )}
                         {segment.translation && (
                           <p className="translation-text">{segment.translation}</p>
                         )}
@@ -790,6 +794,14 @@ export default function App() {
                       {translationProfile.modelId || '选择模型'}
                       <ChevronDown size={11} />
                     </button>
+                    <Select
+                      label="语音目标语言"
+                      value={settings.targetLanguage}
+                      disabled={busy}
+                      onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
+                      options={languages.map((language) => ({ value: language, label: language }))}
+                      compact
+                    />
                     {text.length > 450 && <span className="input-count">{text.length}/500</span>}
                     <div className="composer-actions">
                       <button
@@ -851,6 +863,7 @@ export default function App() {
                             {
                               {
                                 waitingDevice: '等待设备…',
+                                detecting: '处理中…',
                                 translating: '翻译中…',
                                 synthesizing: '合成中…',
                                 decoding: '准备播放…',
