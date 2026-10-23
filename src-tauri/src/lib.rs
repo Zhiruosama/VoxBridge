@@ -33,6 +33,10 @@ fn runtime_info() -> RuntimeInfo {
 
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            credentials::initialize(app.handle()).map_err(std::io::Error::other)?;
+            Ok(())
+        })
         .manage(providers::Requests::default())
         .manage(audio::ToneState::default())
         .manage(capture::CaptureState::default())

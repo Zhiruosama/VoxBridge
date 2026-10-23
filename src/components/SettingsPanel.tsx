@@ -114,7 +114,10 @@ export default function SettingsPanel({
         }
       })
       .catch((error) => {
-        if (active) setKeyError(String(error));
+        if (active) {
+          setHasKey(false);
+          setKeyError(String(error));
+        }
       });
     return () => {
       active = false;
@@ -136,7 +139,7 @@ export default function SettingsPanel({
     setHasKey(exists);
     setVaultStatus(status);
   }
-  async function saveKey(mode: 'session' | 'template' | 'clear' = 'session') {
+  async function saveKey(mode: 'saved' | 'template' | 'clear' = 'saved') {
     setBusy(true);
     setKeyError('');
     try {
@@ -152,14 +155,14 @@ export default function SettingsPanel({
       await refreshKeyState();
       notify(
         mode === 'clear'
-          ? '已清除本次密钥。'
+          ? '已移除保存的密钥。'
           : mode === 'template'
-            ? '已保存加密模板，本次运行无需再次授权。'
-            : '本次已可使用，关闭应用后清除。',
+            ? '密钥和模板已保存，下次启动自动可用。'
+            : '密钥已保存，下次启动自动可用。',
       );
     } catch (error) {
       setKeyError(String(error));
-      await refreshKeyState();
+      await refreshKeyState().catch(() => {});
     } finally {
       setBusy(false);
     }
@@ -173,7 +176,7 @@ export default function SettingsPanel({
       notify('模板已解锁，本次运行无需再次授权。');
     } catch (error) {
       setKeyError(String(error));
-      await refreshKeyState();
+      await refreshKeyState().catch(() => {});
     } finally {
       setBusy(false);
     }
@@ -780,7 +783,7 @@ export default function SettingsPanel({
               <SettingRow title="API Key">
                 <span className={`credential-status ${hasKey ? 'positive' : ''}`}>
                   {hasKey && <Check size={13} />}
-                  {hasKey === null ? '检查本次状态…' : hasKey ? '本次已可使用' : '本次未设置'}
+                  {hasKey === null ? '检查密钥…' : hasKey ? '可使用' : '未设置'}
                 </span>
               </SettingRow>
               {vaultStatus.hasSaved && !vaultStatus.unlocked && (
@@ -806,9 +809,9 @@ export default function SettingsPanel({
                   />
                   <button
                     onClick={() => void saveKey()}
-                    disabled={!desktop || !secret.trim() || busy}
+                    disabled={!desktop || (!secret.trim() && !hasKey) || busy}
                   >
-                    {busy ? '处理中…' : '本次使用'}
+                    {busy ? '处理中…' : '保存密钥'}
                   </button>
                   <button
                     onClick={() => void saveKey('template')}
@@ -824,8 +827,8 @@ export default function SettingsPanel({
                   {hasKey && (
                     <button
                       className="icon-button"
-                      aria-label="清除本次密钥"
-                      title="清除本次密钥"
+                      aria-label="移除保存的密钥"
+                      title="移除保存的密钥"
                       onClick={() => void saveKey('clear')}
                       disabled={busy}
                     >

@@ -262,7 +262,7 @@ async fn live_qwen_asr_short_audio() {
         key = crate::credentials::read_for_test("provider-qwen-asr")
             .expect("save ASR credential before live validation");
     } else {
-        crate::credentials::set_credential("provider-qwen-asr".into(), key.trim().into())
+        crate::credentials::set_for_test("provider-qwen-asr".into(), key.trim().into())
             .expect("save ASR credential");
     }
     let audio = std::fs::read(

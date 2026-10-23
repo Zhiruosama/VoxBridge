@@ -116,9 +116,9 @@ async fn live_provider_smoke() {
     if !line.trim().is_empty() {
         let keys: Keys =
             serde_json::from_str(&line).expect("expected credential JSON; input not logged");
-        credentials::set_credential("provider-deepseek-flash".into(), keys.deepseek)
+        credentials::set_for_test("provider-deepseek-flash".into(), keys.deepseek)
             .expect("save translation credential");
-        credentials::set_credential("provider-minimax-cn".into(), keys.minimax)
+        credentials::set_for_test("provider-minimax-cn".into(), keys.minimax)
             .expect("save speech credential");
     }
     line.clear();

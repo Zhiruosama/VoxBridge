@@ -114,7 +114,7 @@ impl Vault {
             .session
             .get(id)
             .map(|s| s.to_string())
-            .ok_or("本次尚未设置密钥，请在设置中输入，或显式解锁模板。".into())
+            .ok_or("尚未设置密钥，请在设置中保存密钥，或解锁已有模板。".into())
     }
     pub fn set(&self, id: &str, secret: &str) -> Result<(), String> {
         super::validate_id(id)?;
@@ -141,6 +141,25 @@ impl Vault {
         let m = self.0.lock().map_err(|_| "密钥状态不可用。")?;
         Ok((m.master.is_some(), !m.attempted))
     }
+    pub fn values(&self) -> Result<BTreeMap<String, Zeroizing<String>>, String> {
+        Ok(self
+            .0
+            .lock()
+            .map_err(|_| "密钥状态不可用。")?
+            .session
+            .clone())
+    }
+    pub fn delete_saved(&self, path: &Path, id: &str) -> Result<(), String> {
+        super::validate_id(id)?;
+        let mut m = self.0.lock().map_err(|_| "密钥状态不可用。")?;
+        let mut next = m.templates.clone();
+        next.remove(id);
+        let encrypted = encrypt(m.master.as_ref().ok_or("请先保存密钥。")?, &next)?;
+        write_encrypted(path, &encrypted)?;
+        m.templates = next;
+        m.session.remove(id);
+        Ok(())
+    }
     pub fn clear(&self) {
         if let Ok(mut memory) = self.0.lock() {
             *memory = Memory::default();
@@ -159,7 +178,9 @@ impl Vault {
                 return Ok(());
             }
             if m.attempted {
-                return Err("本次已申请过模板授权；可手动输入使用，重新授权需重启应用。".into());
+                return Err(
+                    "本次已申请过密钥存储授权，重新授权需重启应用；原有密钥未删除。".into(),
+                );
             }
             // Empty input never reaches the credential store or consumes the gate.
             if !create && !path.exists() {
@@ -195,32 +216,36 @@ impl Vault {
         let mut next = m.templates.clone();
         next.insert(id.into(), secret);
         let encrypted = encrypt(m.master.as_ref().ok_or("请先在设置中解锁模板。")?, &next)?;
-        let parent = path.parent().ok_or("模板路径无效。")?;
-        std::fs::create_dir_all(parent).map_err(|_| "无法创建模板目录。")?;
-        let temp = parent.join(format!(".credentials-{}.tmp", hex::encode(random(8)?)));
-        let result = (|| {
-            use std::io::Write;
-            let mut options = std::fs::OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                options.mode(0o600);
-            }
-            let mut file = options.open(&temp).map_err(|_| "无法写入加密模板。")?;
-            file.write_all(&encrypted)
-                .and_then(|_| file.sync_all())
-                .map_err(|_| "无法保存加密模板。")?;
-            std::fs::rename(&temp, path).map_err(|_| "无法更新加密模板。")?;
-            Ok::<(), String>(())
-        })();
-        if result.is_err() {
-            let _ = std::fs::remove_file(&temp);
-        }
-        result?;
+        write_encrypted(path, &encrypted)?;
         m.templates = next;
         Ok(())
     }
+}
+fn write_encrypted(path: &Path, encrypted: &[u8]) -> Result<(), String> {
+    let parent = path.parent().ok_or("模板路径无效。")?;
+    std::fs::create_dir_all(parent).map_err(|_| "无法创建模板目录。")?;
+    let temp = parent.join(format!(".credentials-{}.tmp", hex::encode(random(8)?)));
+    let result = (|| {
+        use std::io::Write;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&temp).map_err(|_| "无法写入加密模板。")?;
+        file.write_all(encrypted)
+            .and_then(|_| file.sync_all())
+            .map_err(|_| "无法保存加密模板。")?;
+        std::fs::rename(&temp, path).map_err(|_| "无法更新加密模板。")?;
+        Ok::<(), String>(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
+    }
+    result?;
+    Ok(())
 }
 #[cfg(test)]
 mod tests;
