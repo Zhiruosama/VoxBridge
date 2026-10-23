@@ -197,9 +197,9 @@ struct Registry {
 }
 #[derive(Default)]
 pub struct AsrState(Arc<Mutex<Registry>>);
-struct Job {
+pub(crate) struct Job {
     id: String,
-    token: CancellationToken,
+    pub(crate) token: CancellationToken,
     registry: Arc<Mutex<Registry>>,
 }
 impl Drop for Job {
@@ -225,7 +225,7 @@ impl AsrState {
         }
     }
 
-    fn begin(&self, id: &str) -> Result<Job, String> {
+    pub(crate) fn begin(&self, id: &str) -> Result<Job, String> {
         if id.is_empty() || id.len() > 128 {
             return Err("ASR 请求标识无效。".into());
         }

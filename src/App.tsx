@@ -9,7 +9,6 @@ import {
   MessageSquare,
   Mic,
   Volume2,
-  Monitor,
   PanelLeftClose,
   Settings2,
   Square,
@@ -19,8 +18,19 @@ import Diagnostics from './components/Diagnostics';
 import Select from './components/Select';
 import Toast from './components/Toast';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
-import type { RuntimeInfo, Session, Settings } from './core/types';
-import { cancelTranslation, desktop, runtimeInfo, speak, stopSpeech, translate } from './bridge';
+import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
+import { applyTranscript, applyTranslation } from './core/session';
+import {
+  cancelTranslation,
+  desktop,
+  listCaptureSources,
+  runtimeInfo,
+  speak,
+  startListening,
+  stopCapture,
+  stopSpeech,
+  translate,
+} from './bridge';
 
 const languages = ['英语', '简体中文', '日语', '韩语', '西班牙语'];
 type Page = 'workspace' | 'settings' | 'diagnostics';
@@ -48,7 +58,18 @@ export default function App() {
   const dismissNotice = useCallback(() => {
     setNotice((current) => ({ ...current, message: '' }));
   }, []);
-  const [session] = useState<Session>({ id: null, segments: [] });
+  const [session, setSession] = useState<Session>({ id: null, segments: [] });
+  const [captureSources, setCaptureSources] = useState<CaptureSource[]>([]);
+  const [captureSourceId, setCaptureSourceId] = useState('');
+  const [refreshingSources, setRefreshingSources] = useState(false);
+  const [listenPhase, setListenPhase] = useState<'idle' | 'starting' | 'running' | 'stopping'>(
+    'idle',
+  );
+  const [listenStatus, setListenStatus] = useState('');
+  const [listenError, setListenError] = useState('');
+  const listeningRef = useRef<string | null>(null);
+  const listenStoppingRef = useRef(false);
+  const listening = listenPhase !== 'idle';
   const [text, setText] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
@@ -90,9 +111,104 @@ export default function App() {
     () => () => {
       if (requestRef.current) void cancelTranslation(requestRef.current);
       if (speechRef.current) void stopSpeech(speechRef.current);
+      const id = listeningRef.current;
+      listeningRef.current = null;
+      if (id) void stopCapture(id).catch(() => {});
     },
     [],
   );
+
+  async function refreshCaptureSources() {
+    if (listeningRef.current || refreshingSources) return;
+    setRefreshingSources(true);
+    setListenError('');
+    try {
+      setCaptureSources(await listCaptureSources());
+    } catch (error) {
+      setListenError(String(error));
+    } finally {
+      setRefreshingSources(false);
+    }
+  }
+
+  function receiveListening(event: ListeningEvent) {
+    if (listeningRef.current !== event.sessionId || listenStoppingRef.current) return;
+    if (event.type === 'transcript') {
+      setSession((state) => applyTranscript(state, event));
+    } else if (event.type === 'translation') {
+      setSession((state) =>
+        applyTranslation(state, event.sessionId, event.segmentId, event.revision, event.text),
+      );
+    } else if (event.phase === 'running') {
+      setListenPhase('running');
+      setListenStatus(
+        `分段监听 · RMS ${event.rms.toFixed(4)} · 丢帧 ${event.droppedFrames} · 跳过 ${event.droppedSegments} 段 · 音频断点 ${event.discontinuities}`,
+      );
+    }
+  }
+
+  async function beginListening() {
+    if (listeningRef.current || pendingRef.current || speechRef.current) return;
+    const source = captureSources.find((item) => String(item.pid) === captureSourceId);
+    const asrProfile = profileFor(settings, 'asr');
+    const invalid = validateProfile(asrProfile) || validateProfile(translationProfile);
+    if (!source || invalid || asrProfile.adapter !== 'qwen_chat_asr') {
+      setListenError(invalid || '请刷新并选择目标音频进程，配置 Qwen HTTP ASR 与文字翻译服务。');
+      return;
+    }
+    const id = crypto.randomUUID();
+    listeningRef.current = id;
+    listenStoppingRef.current = false;
+    setListenPhase('starting');
+    setListenStatus('正在准备采集，请留意系统权限提示…');
+    setListenError('');
+    setSession({ id, segments: [] });
+    try {
+      await startListening(
+        {
+          source,
+          sessionId: id,
+          asrProfile,
+          translationProfile,
+          sourceLanguage: settings.sourceLanguage,
+          targetLanguage: settings.targetLanguage,
+        },
+        receiveListening,
+      );
+    } catch (error) {
+      if (
+        listeningRef.current === id &&
+        !(listenStoppingRef.current && String(error) === '采集已停止。')
+      ) {
+        setListenError(String(error));
+      }
+    } finally {
+      if (listeningRef.current === id) {
+        listeningRef.current = null;
+        setSession((state) => ({ ...state, id: null }));
+        setListenPhase('idle');
+        setListenStatus('监听已停止，字幕仅保留在当前窗口。');
+      }
+    }
+  }
+
+  async function endListening() {
+    const id = listeningRef.current;
+    if (!id || listenStoppingRef.current) return;
+    listenStoppingRef.current = true;
+    setListenPhase('stopping');
+    setSession((state) => ({ ...state, id: null }));
+    setListenStatus('正在停止采集与网络请求…');
+    try {
+      await stopCapture(id);
+    } catch (error) {
+      if (listeningRef.current !== id) return;
+      setListenError(String(error));
+      listenStoppingRef.current = false;
+      setSession((state) => ({ ...state, id }));
+      setListenPhase('running');
+    }
+  }
 
   function persist(next: Settings, silent = false) {
     try {
@@ -104,7 +220,7 @@ export default function App() {
     }
   }
   async function runTranslation() {
-    if (pendingRef.current || speechRef.current) return;
+    if (pendingRef.current || speechRef.current || listeningRef.current) return;
     const invalid = validateProfile(translationProfile);
     if (invalid) {
       setError(`${invalid} 请到设置页完善文字翻译服务。`);
@@ -139,7 +255,7 @@ export default function App() {
   }
 
   async function runSpeech(route: 'preview' | 'send', content = text) {
-    if (speechRef.current || pendingRef.current) return;
+    if (speechRef.current || pendingRef.current || listeningRef.current) return;
     const invalid = validateProfile(speechProfile);
     if (invalid) {
       setError(`${invalid} 请到设置页完善语音合成服务。`);
@@ -200,6 +316,11 @@ export default function App() {
   }
 
   function openSettings(section: SettingsSection = 'general') {
+    if (listeningRef.current) {
+      void endListening();
+      notify('正在停止监听，结束后可进入设置。');
+      return;
+    }
     setSettingsSection(section);
     setPage('settings');
   }
@@ -292,8 +413,17 @@ export default function App() {
           </div>
           {page === 'workspace' && (
             <div className="toolbar-actions">
-              <button disabled title="应用声音采集尚未接入，完成后可在这里开始监听">
-                开始监听
+              <button
+                onClick={() => void (listening ? endListening() : beginListening())}
+                disabled={
+                  !desktop ||
+                  runtime?.platform !== 'macos' ||
+                  listenPhase === 'stopping' ||
+                  (!listening && (!captureSourceId || busy || !!speechPhase || refreshingSources))
+                }
+                title="点击开始后，目标声音会按短段发送到 ASR 和翻译服务，可能计费；当前是 HTTP 分段识别，不是实时 WebSocket"
+              >
+                {listenPhase === 'stopping' ? '正在停止…' : listening ? '停止监听' : '开始分段监听'}
               </button>
             </div>
           )}
@@ -327,14 +457,39 @@ export default function App() {
           {page === 'workspace' && (
             <>
               <div className="workspace-toolbar">
-                <button className="source-button" disabled title="应用音频采集待接入">
-                  <Monitor size={14} />
-                  选择应用
-                  <ChevronDown size={12} />
+                <Select
+                  label="目标应用音频进程"
+                  value={captureSourceId}
+                  onChange={setCaptureSourceId}
+                  disabled={
+                    listening || refreshingSources || !desktop || runtime?.platform !== 'macos'
+                  }
+                  placeholder="选择音频进程"
+                  compact
+                  options={[
+                    ...captureSources.map((source) => ({
+                      value: String(source.pid),
+                      label: `${source.bundleId || '音频进程'} · PID ${source.pid}`,
+                    })),
+                    ...(captureSourceId &&
+                    !captureSources.some((source) => String(source.pid) === captureSourceId)
+                      ? [{ value: captureSourceId, label: '原进程已不可用，请重新选择' }]
+                      : []),
+                  ]}
+                />
+                <button
+                  className="subtle"
+                  disabled={
+                    listening || refreshingSources || !desktop || runtime?.platform !== 'macos'
+                  }
+                  onClick={() => void refreshCaptureSources()}
+                >
+                  {refreshingSources ? '刷新中…' : '刷新进程'}
                 </button>
                 <div className="language-pair">
                   <Select
                     label="源语言"
+                    disabled={listening}
                     value={settings.sourceLanguage}
                     onChange={(value) => persist({ ...settings, sourceLanguage: value }, true)}
                     options={languages.map((language) => ({ value: language, label: language }))}
@@ -343,6 +498,7 @@ export default function App() {
                   <ArrowRight size={12} />
                   <Select
                     label="目标语言"
+                    disabled={listening}
                     value={settings.targetLanguage}
                     onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
                     options={languages.map((language) => ({ value: language, label: language }))}
@@ -350,6 +506,14 @@ export default function App() {
                   />
                 </div>
               </div>
+              <p
+                className={listenError ? 'diagnostic-feedback error-text' : 'diagnostic-feedback'}
+                role={listenError ? 'alert' : 'status'}
+              >
+                {listenError ||
+                  listenStatus ||
+                  '先让目标应用发声，再刷新进程。点击监听后音频会发送到 ASR 与翻译服务，可能计费；当前为 HTTP 分段识别。监听期间暂禁用 TTS。'}
+              </p>
               <div
                 className="transcript-scroll"
                 ref={scrollRef}
@@ -441,7 +605,7 @@ export default function App() {
                       ) : (
                         <button
                           className="subtle"
-                          disabled={!text.trim() || !desktop}
+                          disabled={!text.trim() || !desktop || listening}
                           onClick={() => void runTranslation()}
                           title={desktop ? '翻译输入的文字' : '请通过桌面应用使用翻译'}
                         >
@@ -452,13 +616,13 @@ export default function App() {
                         className="icon-button"
                         aria-label="试听输入文字"
                         title="试听输入文字"
-                        disabled={!desktop || !text.trim() || busy || !!speechPhase}
+                        disabled={!desktop || !text.trim() || busy || !!speechPhase || listening}
                         onClick={() => void runSpeech('preview')}
                       >
                         <Headphones size={16} />
                       </button>
                       <button
-                        disabled={!desktop || !text.trim() || busy || !!speechPhase}
+                        disabled={!desktop || !text.trim() || busy || !!speechPhase || listening}
                         title="将输入文字合成为语音并发送到所选设备"
                         aria-label="发送合成语音"
                         className="send-button"
@@ -480,14 +644,18 @@ export default function App() {
                     <div className="composer-actions">
                       <button
                         className="subtle"
-                        disabled={!desktop || busy || !!speechPhase || result.length > 500}
+                        disabled={
+                          !desktop || busy || !!speechPhase || listening || result.length > 500
+                        }
                         onClick={() => void runSpeech('preview', result)}
                       >
                         试听译文
                       </button>
                       <button
                         className="subtle"
-                        disabled={!desktop || busy || !!speechPhase || result.length > 500}
+                        disabled={
+                          !desktop || busy || !!speechPhase || listening || result.length > 500
+                        }
                         onClick={() => void runSpeech('send', result)}
                       >
                         发送译文

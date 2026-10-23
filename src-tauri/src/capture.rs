@@ -11,6 +11,8 @@ use tokio_util::sync::CancellationToken;
 #[path = "platform/macos_capture.rs"]
 mod native;
 
+pub(crate) mod listening;
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureSource {

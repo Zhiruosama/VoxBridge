@@ -46,6 +46,7 @@ export interface TranscriptEvent {
   revision: number;
   text: string;
   final: boolean;
+  startMs?: number;
 }
 export interface Session {
   id: string | null;
@@ -68,6 +69,19 @@ export interface CaptureSource {
   pid: number;
   bundleId: string;
 }
+export type ListeningEvent =
+  | {
+      type: 'progress';
+      sessionId: string;
+      phase: 'starting' | 'running' | 'stopped' | 'failed';
+      sampleRate: number;
+      rms: number;
+      droppedFrames: number;
+      droppedSegments: number;
+      discontinuities: number;
+    }
+  | (TranscriptEvent & { type: 'transcript'; startMs: number })
+  | { type: 'translation'; sessionId: string; segmentId: string; revision: number; text: string };
 export interface CaptureProgress {
   sessionId: string;
   phase: 'starting' | 'running' | 'stopped' | 'failed';

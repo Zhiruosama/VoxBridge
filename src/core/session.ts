@@ -10,7 +10,16 @@ export function applyTranscript(state: Session, event: TranscriptEvent): Session
     revision: event.revision,
     source: event.text,
     final: event.final,
-    time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+    time:
+      event.startMs !== undefined && Number.isFinite(event.startMs) && event.startMs >= 0
+        ? [
+            Math.floor(event.startMs / 3600000),
+            Math.floor(event.startMs / 60000) % 60,
+            Math.floor(event.startMs / 1000) % 60,
+          ]
+            .map((part) => String(part).padStart(2, '0'))
+            .join(':')
+        : new Date().toLocaleTimeString('zh-CN', { hour12: false }),
   };
   const segments = existing
     ? state.segments.map((item) => (item.id === segment.id ? segment : item))

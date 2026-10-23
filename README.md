@@ -4,7 +4,7 @@
 
 **最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
 
-> 当前阶段：**工作台开发版**。可运行界面、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。已通过真实 DeepSeek V4.1 Flash 翻译与 MiniMax Speech 2.8 Turbo 合成 / 解码测试。TTS 先完整接收再播放；实际设备播放、听感和 Mac 路由尚未验收。Mac 目标音频进程采集诊断已接入，可显式开始 / 停止并查看本地电平；权限和非零声音采集尚未验收，已接入 Qwen HTTP 短音频 ASR 并通过 `qwen3-asr-flash` 合成语音验证；实时音频输入与字幕链路仍待接入。下表为完整首版计划。
+> 当前阶段：**工作台开发版**。可运行界面、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。已通过真实 DeepSeek V4.1 Flash 翻译与 MiniMax Speech 2.8 Turbo 合成 / 解码测试。TTS 先完整接收再播放；实际设备播放、听感和 Mac 路由尚未验收。Mac 目标音频进程采集诊断已接入，可显式开始 / 停止并查看本地电平；权限和非零声音采集尚未验收，已接入 Qwen HTTP 短音频 ASR 并通过 `qwen3-asr-flash` 合成语音验证；主窗口已接通目标进程 HTTP 分段 ASR 与双语字幕，需显式开始；真实声音端到端、低延迟 WebSocket 与 partial 识别仍待验收或接入。下表为完整首版计划。
 
 ![工作台开发版预览](docs/assets/workspace-preview.png)
 

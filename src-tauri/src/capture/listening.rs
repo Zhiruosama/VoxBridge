@@ -1,0 +1,506 @@
+use super::{CaptureSource, CaptureState};
+use crate::{asr::AsrProfile, providers::TranslationProfile};
+use serde::{Deserialize, Serialize};
+#[cfg(target_os = "macos")]
+use std::{
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
+};
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListeningRequest {
+    source: CaptureSource,
+    session_id: String,
+    asr_profile: AsrProfile,
+    translation_profile: TranslationProfile,
+    source_language: String,
+    target_language: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum ListeningEvent {
+    Progress {
+        session_id: String,
+        phase: &'static str,
+        sample_rate: u32,
+        rms: f64,
+        dropped_frames: u64,
+        dropped_segments: u64,
+        discontinuities: u64,
+    },
+    Transcript {
+        session_id: String,
+        segment_id: String,
+        revision: u32,
+        text: String,
+        r#final: bool,
+        start_ms: u64,
+    },
+    Translation {
+        session_id: String,
+        segment_id: String,
+        revision: u32,
+        text: String,
+    },
+}
+
+#[cfg(target_os = "macos")]
+struct QueuedSegment {
+    audio: crate::audio_pipeline::AudioSegment,
+    created: Instant,
+}
+
+#[cfg(target_os = "macos")]
+fn send(
+    channel: &tauri::ipc::Channel<ListeningEvent>,
+    event: ListeningEvent,
+) -> Result<(), String> {
+    channel.send(event).map_err(|_| "字幕界面已关闭。".into())
+}
+
+#[cfg(target_os = "macos")]
+struct SegmentProcessor<'a> {
+    profile: &'a AsrProfile,
+    key: &'a str,
+    translation: &'a crate::providers::TranslationSession<'a>,
+    session_id: &'a str,
+    source: &'a str,
+    target: &'a str,
+}
+
+#[cfg(target_os = "macos")]
+impl SegmentProcessor<'_> {
+    async fn process(
+        &self,
+        segment: crate::audio_pipeline::AudioSegment,
+        token: &tokio_util::sync::CancellationToken,
+        mut emit: impl FnMut(ListeningEvent) -> Result<(), String>,
+    ) -> Result<(), String> {
+        let recognized = crate::asr::recognize(self.profile, &segment.wav, self.key, token).await?;
+        if recognized.text.trim().is_empty() || token.is_cancelled() {
+            return Ok(());
+        }
+        let segment_id = format!("{}-{}", self.session_id, segment.sequence);
+        emit(ListeningEvent::Transcript {
+            session_id: self.session_id.into(),
+            segment_id: segment_id.clone(),
+            revision: 1,
+            text: recognized.text.clone(),
+            r#final: true,
+            start_ms: segment.start_ms,
+        })?;
+        let text = self
+            .translation
+            .translate(&recognized.text, self.source, self.target, token)
+            .await?;
+        if !token.is_cancelled() {
+            emit(ListeningEvent::Translation {
+                session_id: self.session_id.into(),
+                segment_id,
+                revision: 1,
+                text,
+            })?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn capture_segments(
+    source: CaptureSource,
+    session_id: String,
+    token: tokio_util::sync::CancellationToken,
+    sender: tokio::sync::mpsc::Sender<QueuedSegment>,
+    channel: tauri::ipc::Channel<ListeningEvent>,
+    skipped: Arc<AtomicU64>,
+) -> Result<(), String> {
+    if token.is_cancelled() {
+        return Ok(());
+    }
+    let (writer, mut reader, dropped) = crate::pcm::channel(192_000);
+    let capture = match super::native::Capture::start(&source, writer, &token) {
+        Ok(capture) => capture,
+        Err(error) if error == "采集已停止。" => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    let mut pipeline = crate::audio_pipeline::AudioPipeline::new(capture.sample_rate)?;
+    let mut meter = crate::pcm::Meter::default();
+    let mut reported = Instant::now() - Duration::from_secs(1);
+    loop {
+        if capture.failed() {
+            return Err("监听采集设备已断开或发生错误。".into());
+        }
+        if token.is_cancelled() || sender.is_closed() {
+            return Ok(());
+        }
+        for _ in 0..48_000 {
+            if token.is_cancelled() {
+                return Ok(());
+            }
+            let Ok(frame) = reader.pop() else {
+                break;
+            };
+            meter.consume(frame);
+            if let Some(audio) = pipeline.consume(frame) {
+                let segment = QueuedSegment {
+                    audio,
+                    created: Instant::now(),
+                };
+                match sender.try_send(segment) {
+                    Ok(()) => {}
+                    Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                        skipped.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => return Ok(()),
+                }
+            }
+        }
+        if reported.elapsed() >= Duration::from_millis(250) {
+            if !super::native::source_exists(&source) {
+                return Err("目标音频进程已退出或改变，请刷新后重新监听。".into());
+            }
+            send(
+                &channel,
+                ListeningEvent::Progress {
+                    session_id: session_id.clone(),
+                    phase: "running",
+                    sample_rate: capture.sample_rate,
+                    rms: meter.rms(),
+                    dropped_frames: dropped.load(Ordering::Relaxed),
+                    dropped_segments: skipped.load(Ordering::Relaxed),
+                    discontinuities: pipeline.discontinuities,
+                },
+            )?;
+            reported = Instant::now();
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[tauri::command]
+pub async fn start_listening(
+    request: ListeningRequest,
+    on_event: tauri::ipc::Channel<ListeningEvent>,
+    state: tauri::State<'_, CaptureState>,
+    asr_state: tauri::State<'_, crate::asr::AsrState>,
+    translations: tauri::State<'_, crate::providers::Requests>,
+    audio_gate: tauri::State<'_, crate::speech::AudioGate>,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        if request.source.pid <= 0
+            || request.source.pid as u32 == std::process::id()
+            || request.source.bundle_id.len() > 512
+            || request.source_language.is_empty()
+            || request.target_language.is_empty()
+            || request.source_language.len() > 100
+            || request.target_language.len() > 100
+        {
+            return Err("监听进程或语言参数无效。".into());
+        }
+        crate::asr::endpoint(&request.asr_profile)?;
+        let job = state.begin(&request.session_id)?;
+        let asr_job = asr_state.begin(&request.session_id)?;
+        let translation =
+            translations.listening_session(request.translation_profile, &request.session_id)?;
+        let _audio_permit = audio_gate
+            .0
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| "请先停止试听或发送，再开始监听。")?;
+        let key = crate::credentials::read(&request.asr_profile.id)?;
+        let skipped = Arc::new(AtomicU64::new(0));
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        send(
+            &on_event,
+            ListeningEvent::Progress {
+                session_id: request.session_id.clone(),
+                phase: "starting",
+                sample_rate: 0,
+                rms: 0.0,
+                dropped_frames: 0,
+                dropped_segments: 0,
+                discontinuities: 0,
+            },
+        )?;
+        let channel = on_event.clone();
+        let token = job.token.clone();
+        let id = request.session_id.clone();
+        let capture_skipped = skipped.clone();
+        let worker = tauri::async_runtime::spawn_blocking(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                capture_segments(
+                    request.source,
+                    id,
+                    token.clone(),
+                    sender,
+                    channel,
+                    capture_skipped,
+                )
+            }))
+            .unwrap_or_else(|_| Err("监听采集任务异常退出。".into()));
+            token.cancel();
+            result
+        });
+        let processed = async {
+            loop {
+                let segment = tokio::select! {
+                    biased;
+                    _ = job.token.cancelled() => return Ok(()),
+                    _ = asr_job.token.cancelled() => return Ok(()),
+                    _ = translation.token.cancelled() => return Ok(()),
+                    segment = receiver.recv() => match segment { Some(segment) => segment, None => return Ok(()) },
+                };
+                if segment.created.elapsed() > Duration::from_secs(20) { skipped.fetch_add(1, Ordering::Relaxed); continue; }
+                let processor = SegmentProcessor { profile: &request.asr_profile, key: &key,
+                    translation: &translation, session_id: &request.session_id,
+                    source: &request.source_language, target: &request.target_language };
+                tokio::select! {
+                    biased;
+                    _ = job.token.cancelled() => return Ok(()),
+                    _ = asr_job.token.cancelled() => return Ok(()),
+                    _ = translation.token.cancelled() => return Ok(()),
+                    result = processor.process(segment.audio, &job.token, |event| send(&on_event, event)) => result?,
+                };
+            }
+        }.await;
+        job.token.cancel();
+        drop(receiver);
+        let captured = worker
+            .await
+            .map_err(|_| "监听采集任务异常退出。".to_string())
+            .and_then(|result| result);
+        let result = captured.and(processed);
+        let _ = send(
+            &on_event,
+            ListeningEvent::Progress {
+                session_id: request.session_id,
+                phase: if result.is_ok() { "stopped" } else { "failed" },
+                sample_rate: 0,
+                rms: 0.0,
+                dropped_frames: 0,
+                dropped_segments: skipped.load(Ordering::Relaxed),
+                discontinuities: 0,
+            },
+        );
+        result
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (
+            request,
+            on_event,
+            state,
+            asr_state,
+            translations,
+            audio_gate,
+        );
+        Err("分段监听暂仅支持 Mac 桌面版。".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn channel_events_match_frontend_contract() {
+        let event = ListeningEvent::Transcript {
+            session_id: "s".into(),
+            segment_id: "s-1".into(),
+            revision: 1,
+            text: "hello".into(),
+            r#final: true,
+            start_ms: 100,
+        };
+        let value = serde_json::to_value(event).unwrap();
+        assert_eq!(value["type"], "transcript");
+        assert_eq!(value["sessionId"], "s");
+        assert_eq!(value["final"], true);
+        assert_eq!(value["startMs"], 100);
+    }
+
+    #[cfg(target_os = "macos")]
+    fn http_response(text: &str) -> (String, std::thread::JoinHandle<serde_json::Value>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/v1", listener.local_addr().unwrap());
+        let body =
+            serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":text}}]})
+                .to_string();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut bytes = Vec::new();
+            let end = loop {
+                let mut buffer = [0; 4096];
+                let count = stream.read(&mut buffer).unwrap();
+                assert!(count > 0);
+                bytes.extend_from_slice(&buffer[..count]);
+                if let Some(end) = bytes.windows(4).position(|v| v == b"\r\n\r\n") {
+                    let headers = String::from_utf8_lossy(&bytes[..end]);
+                    let length = headers
+                        .lines()
+                        .find_map(|line| {
+                            line.to_lowercase()
+                                .strip_prefix("content-length: ")
+                                .and_then(|v| v.parse::<usize>().ok())
+                        })
+                        .unwrap();
+                    if bytes.len() >= end + 4 + length {
+                        break end;
+                    }
+                }
+            };
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            serde_json::from_slice(&bytes[end + 4..]).unwrap()
+        });
+        (url, server)
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn pcm_segment_reaches_asr_then_corresponding_translation_without_real_credentials() {
+        let (asr_url, asr_server) = http_response("Good morning");
+        let (translation_url, translation_server) = http_response("早上好");
+        let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":asr_url,"modelId":"test-model"})).unwrap();
+        let translations = crate::providers::Requests::default();
+        let translation_profile = serde_json::from_value(serde_json::json!({"id":"test-translation","stage":"translation","adapter":"openai_chat_completions","baseUrl":translation_url,"modelId":"test-model"})).unwrap();
+        let translation = translations
+            .reserve_listening(translation_profile, "session", "test-key".into())
+            .unwrap();
+        let processor = SegmentProcessor {
+            profile: &profile,
+            key: "test-key",
+            translation: &translation,
+            session_id: "session",
+            source: "English",
+            target: "Chinese",
+        };
+        let mut pipeline = crate::audio_pipeline::AudioPipeline::new(48000).unwrap();
+        let mut segment = None;
+        for index in 0..96000 {
+            let value = if (9600..48000).contains(&index) {
+                0.2
+            } else {
+                0.0
+            };
+            if let Some(audio) = pipeline.consume(crate::pcm::Frame {
+                index,
+                samples: [value; 2],
+            }) {
+                segment = Some(audio);
+            }
+        }
+        let mut events = Vec::new();
+        processor
+            .process(
+                segment.unwrap(),
+                &tokio_util::sync::CancellationToken::new(),
+                |event| {
+                    events.push(event);
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 2);
+        let transcript = serde_json::to_value(&events[0]).unwrap();
+        let translated = serde_json::to_value(&events[1]).unwrap();
+        assert_eq!(transcript["type"], "transcript");
+        assert_eq!(transcript["text"], "Good morning");
+        assert_eq!(translated["type"], "translation");
+        assert_eq!(translated["text"], "早上好");
+        assert_eq!(transcript["segmentId"], translated["segmentId"]);
+        let asr_body = asr_server.join().unwrap();
+        assert!(asr_body
+            .pointer("/messages/0/content/0/input_audio/data")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .starts_with("data:audio/wav;base64,"));
+        assert_eq!(
+            translation_server
+                .join()
+                .unwrap()
+                .pointer("/messages/1/content")
+                .unwrap(),
+            "Good morning"
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn cancelled_pipeline_emits_no_events_and_translation_slot_is_released() {
+        let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":"http://127.0.0.1:1/v1","modelId":"test"})).unwrap();
+        let translations = crate::providers::Requests::default();
+        let translation_profile: TranslationProfile = serde_json::from_value(serde_json::json!({"id":"test-translation","stage":"translation","adapter":"openai_chat_completions","baseUrl":"http://127.0.0.1:1/v1","modelId":"test"})).unwrap();
+        let translation = translations
+            .reserve_listening(translation_profile.clone(), "session", "test-key".into())
+            .unwrap();
+        assert!(translations
+            .reserve_listening(translation_profile.clone(), "session", "test-key".into())
+            .is_err());
+        let processor = SegmentProcessor {
+            profile: &profile,
+            key: "test-key",
+            translation: &translation,
+            session_id: "session",
+            source: "English",
+            target: "Chinese",
+        };
+        let token = tokio_util::sync::CancellationToken::new();
+        token.cancel();
+        let audio = crate::audio_pipeline::AudioSegment {
+            sequence: 1,
+            start_ms: 0,
+            wav: crate::audio_pipeline::encode_wav(&[0; 1600]),
+        };
+        let mut count = 0;
+        assert!(processor
+            .process(audio, &token, |_| {
+                count += 1;
+                Ok(())
+            })
+            .await
+            .is_err());
+        assert_eq!(count, 0);
+        drop(translation);
+        assert!(translations
+            .reserve_listening(translation_profile, "session", "test-key".into())
+            .is_ok());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn full_queue_rejects_new_segments_without_blocking() {
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+        let segment = || QueuedSegment {
+            audio: crate::audio_pipeline::AudioSegment {
+                sequence: 1,
+                start_ms: 0,
+                wav: vec![],
+            },
+            created: Instant::now(),
+        };
+        sender.try_send(segment()).unwrap();
+        assert!(matches!(
+            sender.try_send(segment()),
+            Err(tokio::sync::mpsc::error::TrySendError::Full(_))
+        ));
+        assert!(receiver.recv().await.is_some());
+        drop(receiver);
+        assert!(sender.is_closed());
+    }
+}

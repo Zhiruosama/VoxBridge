@@ -1,5 +1,7 @@
 mod asr;
 mod audio;
+#[cfg(any(target_os = "macos", test))]
+mod audio_pipeline;
 mod capture;
 mod credentials;
 #[cfg(test)]
@@ -23,7 +25,7 @@ fn runtime_info() -> RuntimeInfo {
     RuntimeInfo {
         platform: std::env::consts::OS,
         native_capture: cfg!(target_os = "macos"),
-        message: "工作台开发版 · 支持文字翻译、语音合成、Qwen HTTP 短音频识别及 Mac 目标进程采集诊断。实时采集识别链路、实际权限和声音路由待验证。",
+        message: "工作台开发版 · 支持 Mac 目标进程 HTTP 分段识别与双语字幕。实时 WebSocket、真实采集权限、延迟和声音路由仍待验收。",
     }
 }
 
@@ -50,6 +52,7 @@ pub fn run() {
             capture::list_capture_sources,
             capture::capture_diagnostic,
             capture::stop_capture,
+            capture::listening::start_listening,
             speech::speak,
             speech::stop_speech,
         ])

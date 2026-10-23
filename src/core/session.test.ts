@@ -32,6 +32,32 @@ describe('transcript session isolation', () => {
     expect(applyTranscript({ ...state, id: null }, event).segments).toHaveLength(1);
     expect(applyTranslation(state, 'a', 'one', 2, '你好').segments[0].translation).toBe('你好');
   });
+  it('pairs HTTP final segments with translations and isolates a restarted session', () => {
+    let state = applyTranscript(
+      { id: 'listen-1', segments: [] },
+      {
+        sessionId: 'listen-1',
+        segmentId: 'listen-1-1',
+        revision: 1,
+        final: true,
+        text: 'Good morning',
+        startMs: 65000,
+      },
+    );
+    state = applyTranslation(state, 'listen-1', 'listen-1-1', 1, '早上好');
+    expect(state.segments[0]).toMatchObject({
+      source: 'Good morning',
+      translation: '早上好',
+      final: true,
+      time: '00:01:05',
+    });
+    const stopped = { ...state, id: null };
+    expect(applyTranslation(stopped, 'listen-1', 'listen-1-1', 1, 'late')).toBe(stopped);
+    const restarted: Session = { id: 'listen-2', segments: [] };
+    expect(applyTranscript(restarted, { ...event, sessionId: 'listen-1', final: true })).toBe(
+      restarted,
+    );
+  });
   it('bounds history without losing the newest segment', () => {
     let state: Session = { id: 'a', segments: [] };
     for (let i = 0; i < 501; i++)

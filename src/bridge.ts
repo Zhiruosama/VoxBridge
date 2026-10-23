@@ -3,6 +3,7 @@ import type {
   AudioRouting,
   CaptureProgress,
   CaptureSource,
+  ListeningEvent,
   OutputDevice,
   ProviderProfile,
   RuntimeInfo,
@@ -95,4 +96,20 @@ export async function transcribeWav(
 }
 export async function stopAsr(requestId: string) {
   if (desktop) await invoke('stop_asr', { requestId });
+}
+export async function startListening(
+  request: {
+    source: CaptureSource;
+    sessionId: string;
+    asrProfile: ProviderProfile;
+    translationProfile: ProviderProfile;
+    sourceLanguage: string;
+    targetLanguage: string;
+  },
+  onEvent: (event: ListeningEvent) => void,
+): Promise<void> {
+  if (!desktop) throw new Error('分段监听需要 Mac 桌面版。');
+  const channel = new Channel<ListeningEvent>();
+  channel.onmessage = onEvent;
+  return invoke('start_listening', { request, onEvent: channel });
 }

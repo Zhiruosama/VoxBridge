@@ -48,7 +48,7 @@ pub enum Thinking {
     Disabled,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranslationProfile {
     id: String,
@@ -81,6 +81,96 @@ fn endpoint(base: &str) -> Result<url::Url, String> {
     }
     url.set_path(&format!("{path}/chat/completions"));
     Ok(url)
+}
+
+pub(crate) struct TranslationSession<'a> {
+    requests: &'a Requests,
+    id: String,
+    pub(crate) token: CancellationToken,
+    url: url::Url,
+    key: String,
+    model: String,
+    thinking: Option<Thinking>,
+}
+
+impl Drop for TranslationSession<'_> {
+    fn drop(&mut self) {
+        self.token.cancel();
+        if let Ok(mut registry) = self.requests.0.lock() {
+            registry.active.remove(&self.id);
+        }
+    }
+}
+
+impl Requests {
+    pub(crate) fn listening_session(
+        &self,
+        profile: TranslationProfile,
+        id: &str,
+    ) -> Result<TranslationSession<'_>, String> {
+        if profile.stage != "translation"
+            || profile.adapter != "openai_chat_completions"
+            || profile.model_id.trim().is_empty()
+            || id.is_empty()
+            || id.len() > 128
+        {
+            return Err("监听翻译服务配置无效。".into());
+        }
+        endpoint(&profile.base_url)?;
+        let key = crate::credentials::read(&profile.id)?;
+        self.reserve_listening(profile, id, key)
+    }
+
+    pub(crate) fn reserve_listening(
+        &self,
+        profile: TranslationProfile,
+        id: &str,
+        key: String,
+    ) -> Result<TranslationSession<'_>, String> {
+        if profile.stage != "translation"
+            || profile.adapter != "openai_chat_completions"
+            || profile.model_id.trim().is_empty()
+            || id.is_empty()
+            || id.len() > 128
+        {
+            return Err("监听翻译服务配置无效。".into());
+        }
+        let url = endpoint(&profile.base_url)?;
+        let token = self.0.lock().map_err(|_| "翻译状态不可用。")?.begin(id)?;
+        Ok(TranslationSession {
+            requests: self,
+            id: id.into(),
+            token,
+            url,
+            key,
+            model: profile.model_id,
+            thinking: profile.thinking,
+        })
+    }
+}
+
+impl TranslationSession<'_> {
+    pub(crate) async fn translate(
+        &self,
+        text: &str,
+        source: &str,
+        target: &str,
+        stop: &CancellationToken,
+    ) -> Result<String, String> {
+        if text.trim().is_empty()
+            || text.chars().count() > 2000
+            || source.len() > 100
+            || target.len() > 100
+        {
+            return Err("字幕翻译文本或语言参数超出限制。".into());
+        }
+        tokio::select! {
+            biased;
+            _ = stop.cancelled() => Err("监听已停止。".into()),
+            _ = self.token.cancelled() => Err("监听已停止。".into()),
+            result = request_translation(self.url.clone(), self.key.clone(), &self.model, text, source, target, self.thinking) => result,
+        }
+    }
 }
 
 fn status_message(status: u16) -> String {
