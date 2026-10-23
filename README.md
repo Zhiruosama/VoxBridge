@@ -73,7 +73,7 @@ npm start         # 启动桌面开发应用，按当前开发机平台运行
 npm run desktop:build:mac
 ```
 
-输出位于 `src-tauri/target/release/bundle/`。Mac 构建、签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
+输出位于 `src-tauri/target/release/bundle/`。2026-10-23 已在 Apple Silicon Mac 完成 `.app` 构建；`.dmg`、应用运行、发布签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
 
 浏览器预览可以体验布局和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；设置中的“新增配置”提供 DeepSeek V4.1 Flash 和 MiniMax Speech 2.8 国内服务预设，模型与音色均可编辑。
 
@@ -83,7 +83,7 @@ npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-本轮 Windows 验证：前端 9 项测试、Rust 18 项自动测试通过；真实服务测试单独手动运行，不进入默认 CI。真实联调结果见 [2026-10-23 服务验证](docs/validation/2026-10-23-live-providers.md)，不代表实际播放或 Mac 路由通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
+历史 Windows 验证：前端 9 项测试、Rust 18 项自动测试通过。2026-10-23 Mac 本批验证：前端 33 项测试、Rust 20 项自动测试、严格 Clippy、前端生产构建和 `.app` 构建通过；3 项真实服务手动测试保持忽略。真实服务测试单独手动运行，不进入默认 CI。真实联调结果见 [2026-10-23 服务验证](docs/validation/2026-10-23-live-providers.md)，不代表实际播放或 Mac 路由通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
 
 开发清单：[TODO.md](TODO.md)。详细启动、验证与限制：[开发指南](docs/09-development.md)。暂无可分发安装包。
 

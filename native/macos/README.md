@@ -1,6 +1,6 @@
 # Mac 音频采集探针
 
-这是与产品分开的 Core Audio taps 可行性工具，当前在 Windows 编写，**尚未在 Mac 编译或运行**。不要将其通过与否视为桌面应用集成已完成。
+这是与产品分开的 Core Audio taps 可行性工具。2026-10-23 已在 macOS 26.4 / Apple Silicon、Swift 6.3.3 上使用 Swift 5 模式及 macOS 14.2 目标完整构建，并通过 ad-hoc 签名校验；编译警告视为错误。**尚未运行采集或验证权限 / 电平**，不要将构建通过视为桌面应用集成或最低系统实机兼容性已完成。
 
 要求：macOS 14.2+、Apple Command Line Tools，开发 SDK 需包含 Core Audio taps API。参考 [Apple 官方示例](https://developer.apple.com/documentation/coreaudio/capturing-system-audio-with-core-audio-taps)。
 

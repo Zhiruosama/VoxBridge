@@ -513,6 +513,24 @@ pub fn stop_speech(request_id: String, state: tauri::State<'_, SpeechState>) -> 
     state.cancel(request_id)
 }
 
+fn speech_outcome(
+    synthesized: Result<(), String>,
+    played: Result<(), String>,
+) -> (Result<(), String>, &'static str) {
+    let result = match (synthesized, played) {
+        (Err(error), Err(playback_error)) if error == STOPPED && playback_error != STOPPED => {
+            Err(playback_error)
+        }
+        (result, played) => result.and(played),
+    };
+    let phase = match &result {
+        Ok(()) => "completed",
+        Err(error) if error == STOPPED => "stopped",
+        Err(_) => "failed",
+    };
+    (result, phase)
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn speak(
@@ -563,28 +581,14 @@ pub async fn speak(
     }
     .await;
     drop(audio_tx);
-    let stopped = job.token.is_cancelled();
     if result.is_err() {
         job.token.cancel();
     }
-    let played = worker.await.map_err(|_| "音频播放任务失败。".to_string())?;
-    let result = match (result, played) {
-        (Err(error), Err(playback_error)) if error == STOPPED && playback_error != STOPPED => {
-            Err(playback_error)
-        }
-        (result, played) => result.and(played),
-    };
-    progress(
-        &on_progress,
-        &request_id,
-        if result.is_ok() {
-            "completed"
-        } else if stopped {
-            "stopped"
-        } else {
-            "failed"
-        },
-    );
+    let played = worker
+        .await
+        .unwrap_or_else(|_| Err("音频播放任务失败。".to_string()));
+    let (result, phase) = speech_outcome(result, played);
+    progress(&on_progress, &request_id, phase);
     result
 }
 

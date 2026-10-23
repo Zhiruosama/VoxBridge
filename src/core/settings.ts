@@ -38,22 +38,44 @@ export const defaults: Settings = {
   ],
 };
 
-export function validateProfile(profile: ProviderProfile): string | null {
-  if (!profile.name.trim()) return '请输入服务名称。';
-  if (!profile.baseUrl.trim()) return '请输入 API 地址。';
+function validateEndpoint(baseUrl: string, adapter: ProviderProfile['adapter']): string | null {
+  if (!baseUrl.trim()) return null;
   try {
-    const url = new URL(profile.baseUrl);
-    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-    const protocols = profile.adapter === 'minimax_tts_ws' ? ['wss:'] : ['https:'];
-    const localProtocol = profile.adapter === 'minimax_tts_ws' ? 'ws:' : 'http:';
-    if (!protocols.includes(url.protocol) && !(local && url.protocol === localProtocol)) {
-      return '远程服务请使用 HTTPS / WSS；本机服务可使用 HTTP / WS。';
-    }
-    if (url.username || url.password || url.search || url.hash)
+    const url = new URL(baseUrl);
+    const authority = baseUrl
+      .trim()
+      .replace(/[\t\r\n]/g, '')
+      .match(/^[a-z][a-z\d+.-]*:[/\\]*([^/\\?#]*)/i)?.[1];
+    if (
+      authority?.includes('@') ||
+      url.username ||
+      url.password ||
+      url.href.includes('?') ||
+      url.href.includes('#')
+    )
       return '地址不能包含凭据、查询参数或片段。';
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    const protocols =
+      adapter === 'pending_asr'
+        ? ['https:', 'wss:']
+        : adapter === 'minimax_tts_ws'
+          ? ['wss:']
+          : ['https:'];
+    const secureProtocol =
+      url.protocol === 'ws:' ? 'wss:' : url.protocol === 'http:' ? 'https:' : '';
+    if (!protocols.includes(url.protocol) && !(local && protocols.includes(secureProtocol)))
+      return '远程服务请使用 HTTPS / WSS；本机服务可使用 HTTP / WS。';
   } catch {
     return '请输入完整、有效的 API 地址。';
   }
+  return null;
+}
+
+export function validateProfile(profile: ProviderProfile): string | null {
+  if (!profile.name.trim()) return '请输入服务名称。';
+  if (!profile.baseUrl.trim()) return '请输入 API 地址。';
+  const invalid = validateEndpoint(profile.baseUrl, profile.adapter);
+  if (invalid) return invalid;
   if (!profile.modelId.trim()) return '请输入模型 ID。';
   if (profile.stage === 'tts' && !profile.voice.trim()) return '请输入音色 ID。';
   return null;
@@ -88,6 +110,8 @@ export function parseSettings(value: unknown): Settings {
     for (const key of ['id', 'name', 'baseUrl', 'modelId', 'voice']) {
       if (typeof p[key] !== 'string') throw new Error('服务配置字段不完整。');
     }
+    const invalid = validateEndpoint(p.baseUrl as string, adapter);
+    if (invalid) throw new Error(invalid);
     return {
       id: p.id as string,
       name: p.name as string,

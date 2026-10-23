@@ -8,8 +8,8 @@
 - Rust 后端通过系统凭据存储保存密钥：macOS Keychain / Windows Credential Store。已有密钥不会被读取回前端；Mac 行为尚未实测。
 - OpenAI-compatible Chat Completions 文字翻译：本机后端调用、超时、响应大小限制、停止与取消、对常见错误分类。当前采用非流式完整译文，后续按需求扩展流式翻译。
 - 输出设备诊断：用户选择设备后，显式播放约 1 秒的低音量测试音并可停止。不执行任何自动系统默认设备切换。
-- TTS：MiniMax WebSocket 与 OpenAI-compatible `/audio/speech`；内存有界接收、解码后试听 / 指定设备发送、停止。两种协议通过本机模拟服务测试；真实供应商及实际声音待验证，详见 [TTS 开发说明](10-speech-backend.md)。
-- 独立 Swift 原生采集探针，待 Mac 编译及权限 / 采集验证。
+- TTS：MiniMax WebSocket 与 OpenAI-compatible `/audio/speech`；内存有界接收、解码后试听 / 指定设备发送、停止。两种协议通过本机模拟服务测试；MiniMax 真实合成 / 解码已有 Windows 验证记录，实际播放与 Mac 路由待验收，详见 [TTS 开发说明](10-speech-backend.md)。
+- 独立 Swift 原生采集探针已在 Apple Silicon Mac 完整构建并通过 ad-hoc 签名校验；权限 / 采集尚未验证。
 
 ## 尚未实现
 
@@ -34,13 +34,15 @@ npm start
 npm run desktop:build:mac
 ```
 
-结果位于 `src-tauri/target/release/bundle/macos/` 和 `bundle/dmg/`。Mac 构建与发布签名尚未验证，不把配置存在等同于安装包已验收。
+结果位于 `src-tauri/target/release/bundle/macos/` 和 `bundle/dmg/`。2026-10-23 已在 macOS 26.4 / Apple Silicon、Node 24.18.0、Rust 1.99.1、Swift 6.3.3 环境完成前端格式 / 测试 / 构建、Rust 格式 / 默认测试 / 严格 Clippy，以及独立探针构建 / 临时签名校验。使用 `npm run tauri -- build --bundles app` 构建了约 18.51 MiB 的 `VoxBridge.app`，并确认 arm64 可执行文件与 Info.plist 有效。未运行应用、采集或播放，未构建 `.dmg`，未验收发布签名、公证或干净环境安装；不把构建通过等同于 M1 闭环。Rust 由本机官方安装器提供；本轮未修改 shell 配置，若 `cargo` 不在 PATH，请先在终端加载 `~/.cargo/env`。
 
 需要开发时单独检查界面，可使用 `npm run dev` 打开 `http://127.0.0.1:1420`；这不是产品交付形态。`npm run build` 只构建前端；`npm run desktop:build` 按当前平台生成应用 / 安装程序。只浏览界面无需 BlackHole；只有后续虚拟路由测试才需要安装。
 
 主界面仅保留字幕与输入。设备测试位于 **设置 → 音频与诊断**；字幕示例区已移除。诊断页的“试听输出设备”与常规设置共用同一配置，修改后点击“保存更改”；发送设备仍独立设置。保存提示使用圆角浮层，不占页面布局空间。真实监听仍禁用；桌面版可配置 TTS 后试听和发送语音。
 
 设置工作区左侧按常规、文字翻译、语音识别、语音合成、音频与诊断分类。常规页提供主题、试听 / 发送设备、设备诊断入口和版本信息；模型页采用连接与凭据两个分组。普通配置统一点击“保存更改”，密钥仍独立保存。同一设置工作区切换分类保留草稿，离开工作区会放弃未保存内容。
+
+本批 Mac 自动验证：前端 33 项测试、Rust 20 项默认测试通过，3 项真实服务手动测试保持忽略。新增回归覆盖普通配置保存前拒绝含认证 / 查询 / 片段的 URL、空分隔符、非活动配置和失败时不写存储；空地址 / 模型 / 音色草稿仍可保存。非空地址必须有效且使用对应安全协议，本机允许匹配的 HTTP / WS。旧版已保存的不安全或错误地址会使加载失败并回退默认设置，原 localStorage 不会自动清除；本修复不代表清理了历史磁盘凭据。TTS 终态依据合成与播放合并结果分类，真实返回错误优先于清理取消；回归使用模拟任务，不替代真实播放中停止验收。
 
 Windows 已额外验证内嵌资源的独立开发程序：关闭开发服务器后仍可启动。当前本地输出为 `src-tauri/target/debug/voxbridge.exe`；这是用于验证的开发构建，不是正式安装包。发布构建继续使用上述桌面打包命令。
 

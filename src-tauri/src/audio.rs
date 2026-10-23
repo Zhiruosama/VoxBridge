@@ -173,7 +173,11 @@ mod tests {
         fill(&mut samples, 2, 48_000.0, &mut position, &token, 1);
         assert!(samples[..96_000].iter().any(|s| s.abs() > 0.05));
         assert!(samples.iter().all(|s| s.abs() <= 0.061));
-        assert!(samples.chunks_exact(2).all(|frame| frame[0] == frame[1]));
+        assert!(samples
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .all(|frame| frame[0] == frame[1]));
         assert!(samples[96_000..].iter().all(|s| *s == 0.0));
         token.store(2, Ordering::SeqCst);
         fill(&mut samples, 2, 48_000.0, &mut 100, &token, 1);

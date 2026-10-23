@@ -104,6 +104,69 @@ fn registry_handles_early_cancel_busy_and_stale_stop() {
 }
 
 #[test]
+fn final_outcome_preserves_cancellation_and_real_failure_priority() {
+    for (synthesized, played, expected, phase) in [
+        (Ok(()), Ok(()), Ok(()), "completed"),
+        (Ok(()), Err(STOPPED.into()), Err(STOPPED.into()), "stopped"),
+        (Err(STOPPED.into()), Ok(()), Err(STOPPED.into()), "stopped"),
+        (
+            Err(STOPPED.into()),
+            Err(STOPPED.into()),
+            Err(STOPPED.into()),
+            "stopped",
+        ),
+        (
+            Err("provider failed".into()),
+            Err(STOPPED.into()),
+            Err("provider failed".into()),
+            "failed",
+        ),
+        (
+            Err(STOPPED.into()),
+            Err("device failed".into()),
+            Err("device failed".into()),
+            "failed",
+        ),
+        (
+            Err("provider failed".into()),
+            Err("device failed".into()),
+            Err("provider failed".into()),
+            "failed",
+        ),
+        (
+            Ok(()),
+            Err("worker failed".into()),
+            Err("worker failed".into()),
+            "failed",
+        ),
+    ] {
+        assert_eq!(speech_outcome(synthesized, played), (expected, phase));
+    }
+}
+
+#[tokio::test]
+async fn cancel_after_synthesis_while_waiting_for_playback_reports_stopped() {
+    let state = SpeechState::default();
+    let job = state.begin("playing").unwrap();
+    let token = job.token.clone();
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+    let worker = tokio::spawn(async move {
+        ready_tx.send(()).unwrap();
+        token.cancelled().await;
+        Err(STOPPED.to_string())
+    });
+    ready_rx.await.unwrap();
+    assert!(!job.token.is_cancelled());
+    state.cancel("playing".into()).unwrap();
+    assert_eq!(
+        speech_outcome(Ok(()), worker.await.unwrap()),
+        (Err(STOPPED.into()), "stopped")
+    );
+    drop(job);
+    assert!(state.begin("next").is_ok());
+}
+
+#[test]
 fn decode_generated_mp3_and_reject_invalid_audio_and_cancel() {
     let token = CancellationToken::new();
     let source = decode(MP3.to_vec(), &token).unwrap();

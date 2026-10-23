@@ -39,10 +39,11 @@ func processPID(_ object: AudioObjectID) throws -> pid_t {
 
 func bundleID(_ object: AudioObjectID) -> String {
     var property = address(kAudioProcessPropertyBundleID)
-    var value: CFString = "" as CFString
-    var size = UInt32(MemoryLayout<CFString>.size)
-    guard AudioObjectGetPropertyData(object, &property, 0, nil, &size, &value) == noErr else { return "unknown" }
-    return value as String
+    var value: Unmanaged<CFString>?
+    var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+    guard AudioObjectGetPropertyData(object, &property, 0, nil, &size, &value) == noErr,
+          let value else { return "unknown" }
+    return value.takeRetainedValue() as String
 }
 
 func defaultOutputUID() throws -> String {
@@ -52,10 +53,11 @@ func defaultOutputUID() throws -> String {
     try check(AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &outputProperty, 0, nil, &size, &output), "Read default output")
     guard output != kAudioObjectUnknown else { throw ProbeError.message("No default output device") }
     var uidProperty = address(kAudioDevicePropertyDeviceUID)
-    var uid: CFString = "" as CFString
-    size = UInt32(MemoryLayout<CFString>.size)
+    var uid: Unmanaged<CFString>?
+    size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
     try check(AudioObjectGetPropertyData(output, &uidProperty, 0, nil, &size, &uid), "Read output UID")
-    return uid as String
+    guard let uid else { throw ProbeError.message("Output device UID is missing") }
+    return uid.takeRetainedValue() as String
 }
 
 final class Meter: @unchecked Sendable {

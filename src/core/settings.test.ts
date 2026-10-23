@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { defaults, parseSettings, validateProfile } from './settings';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { defaults, loadSettings, parseSettings, saveSettings, validateProfile } from './settings';
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('provider profiles', () => {
   it('migrates old settings without routing and strips unknown audio fields', () => {
@@ -38,6 +40,74 @@ describe('provider profiles', () => {
     expect(JSON.stringify(parseSettings(input))).not.toContain('never-save-me');
     input.active.translation = input.active.tts;
     expect(() => parseSettings(input)).toThrow();
+  });
+  it('preserves incomplete profiles without requiring a model or voice', () => {
+    const input = structuredClone(defaults);
+    for (const profile of input.profiles) {
+      profile.baseUrl = '';
+      profile.modelId = '';
+      profile.voice = '';
+    }
+    expect(parseSettings(input)).toEqual(input);
+    input.profiles[1].baseUrl = 'https://example.com/v1';
+    expect(parseSettings(input)).toEqual(input);
+    expect(validateProfile(input.profiles[1])).toBe('请输入模型 ID。');
+  });
+  it.each([
+    'https://user@example.com/v1',
+    'https://user:never-save@example.com/v1',
+    'https://@example.com/v1',
+    'https://:@example.com/v1',
+    'https:\t//:@example.com/v1',
+    'https://example.com/v1?key=never-save',
+    'https://example.com/v1#never-save',
+    'https://example.com/v1?',
+    'https://example.com/v1#',
+    'http://example.com/v1',
+    'file:///private/config',
+    'not a URL',
+  ])('rejects an unsafe URL even in an inactive profile: %s', (baseUrl) => {
+    const input = structuredClone(defaults);
+    input.profiles.push({ ...input.profiles[1], id: 'inactive', baseUrl });
+    expect(() => parseSettings(input)).toThrow();
+  });
+  it.each([
+    ['translation', 'https://example.com/v1'],
+    ['translation', 'https://example.com/v1/%3F%23'],
+    ['translation', 'https://example.com/v1/@model'],
+    ['translation', 'http://127.0.0.1:9000/v1'],
+    ['translation', 'http://[::1]:9000/v1'],
+    ['tts', 'wss://example.com/audio'],
+    ['tts', 'ws://localhost:9000/audio'],
+    ['asr', 'wss://example.com/asr'],
+    ['asr', 'https://example.com/asr'],
+  ])('allows a safe %s endpoint in incomplete settings: %s', (stage, baseUrl) => {
+    const input = structuredClone(defaults);
+    input.profiles.find((profile) => profile.stage === stage)!.baseUrl = baseUrl;
+    expect(parseSettings(input)).toEqual(input);
+  });
+  it('rejects unsafe settings before writing and preserves the stored value', () => {
+    const previous = JSON.stringify(defaults);
+    const setItem = vi.fn();
+    const getItem = vi.fn(() => previous);
+    vi.stubGlobal('localStorage', { setItem, getItem });
+    const input = structuredClone(defaults);
+    input.profiles[1].baseUrl = 'https://user:never-save@example.com/v1';
+    expect(() => saveSettings(input)).toThrow('地址不能包含凭据、查询参数或片段。');
+    expect(setItem).not.toHaveBeenCalled();
+    expect(loadSettings()).toEqual(defaults);
+  });
+  it('round-trips safe incomplete settings without imported credential fields', () => {
+    const stored = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      setItem: (key: string, value: string) => stored.set(key, value),
+      getItem: (key: string) => stored.get(key) ?? null,
+    });
+    const input = structuredClone(defaults);
+    Object.assign(input.profiles[1], { apiKey: 'never-save' });
+    saveSettings(input);
+    expect(loadSettings()).toEqual(defaults);
+    expect([...stored.values()].join('')).not.toContain('never-save');
   });
   it('allows local endpoints but rejects unsafe or credential-bearing URLs', () => {
     const p = { ...defaults.profiles[1], modelId: 'custom', baseUrl: 'http://127.0.0.1:1234/v1' };

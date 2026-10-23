@@ -16,7 +16,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 </dict></plist>
 PLIST
 arch="$(uname -m)"
-xcrun swiftc -parse-as-library -swift-version 5 -target "$arch-apple-macosx14.2" \
+xcrun swiftc -parse-as-library -swift-version 5 -warnings-as-errors -target "$arch-apple-macosx14.2" \
   AudioProbe.swift -framework CoreAudio -framework AudioToolbox \
   -o "$app/Contents/MacOS/AudioProbe"
 codesign --force --sign - "$app"
