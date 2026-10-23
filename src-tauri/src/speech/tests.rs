@@ -37,7 +37,7 @@ fn minimax_errors_distinguish_balance_auth_and_voice_without_echoing_provider_te
         assert!(!error.contains("private-secret"));
     }
 }
-fn profile(adapter: &str, base_url: String) -> SpeechProfile {
+pub(super) fn profile(adapter: &str, base_url: String) -> SpeechProfile {
     SpeechProfile {
         id: "test-profile".into(),
         stage: "tts".into(),

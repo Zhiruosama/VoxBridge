@@ -10,7 +10,7 @@ pub struct OutputDevice {
     pub name: String,
 }
 
-fn output_id(device: &cpal::Device) -> Result<String, String> {
+pub(crate) fn output_id(device: &cpal::Device) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
         macos::output_id(device)

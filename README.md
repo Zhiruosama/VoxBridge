@@ -4,7 +4,7 @@
 
 **最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
 
-> 当前阶段：**macOS 工作台开发版**。已接入翻译、MiniMax / OpenAI 兼容 TTS、指定设备输出、HTTP 分段 ASR、双语字幕和悬浮字幕。2026-10-23 已用受控播放进程，通过真实 Core Audio 采集 → Qwen ASR → DeepSeek 翻译 → 关联字幕事件验证，并通过 20 次原生启停 / 静音 / 进程隔离检查；旧零电平测试的播放时序已修正。此结果不代表 Discord / 浏览器、GUI 权限恢复、中文准确率、BlackHole 路由或全屏浮窗已验收。TTS 仍为完整接收后播放，实时 WebSocket ASR 和增量 TTS 尚未完成。详见[Mac 音频闭环验证](docs/validation/2026-10-23-capture-loop.md)。
+> 当前阶段：**macOS 工作台开发版**。已接入翻译、MiniMax / OpenAI 兼容 TTS、指定设备输出、HTTP 分段 ASR、双语字幕和悬浮字幕。2026-10-23 已用受控播放进程，通过真实 Core Audio 采集 → Qwen ASR → DeepSeek 翻译 → 关联字幕事件验证，并通过 20 次原生启停 / 静音 / 进程隔离检查；旧零电平测试的播放时序已修正。此结果不代表 Discord / 浏览器、GUI 权限恢复、中文准确率、BlackHole 路由或全屏浮窗已验收。MiniMax TTS 已支持有界 PCM 流式播放和真实耳机停止测试；OpenAI 兼容 TTS 仍完整接收后播放，实时 WebSocket ASR 尚未完成。详见[Mac 音频闭环验证](docs/validation/2026-10-23-capture-loop.md)。
 
 ![工作台开发版预览](docs/assets/workspace-preview.png)
 

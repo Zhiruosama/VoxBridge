@@ -1,4 +1,4 @@
-//! Bounded, buffered TTS prototype. No audio or credentials are written to disk.
+//! Bounded TTS output. MiniMax streams PCM; compatible HTTP responses use buffered decoding.
 use futures_util::{SinkExt, StreamExt};
 use rodio::{buffer::SamplesBuffer, Decoder, DeviceSinkBuilder, Player, Source};
 use serde::{Deserialize, Serialize};
@@ -265,6 +265,16 @@ async fn synthesize(
     text: &str,
     key: &str,
 ) -> Result<Vec<u8>, String> {
+    synthesize_response(profile, url, text, key, None).await
+}
+
+async fn synthesize_response(
+    profile: &SpeechProfile,
+    url: url::Url,
+    text: &str,
+    key: &str,
+    stream: Option<&tokio::sync::mpsc::Sender<Vec<u8>>>,
+) -> Result<Vec<u8>, String> {
     if profile.adapter == "openai_audio_speech" {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -346,7 +356,7 @@ async fn synthesize(
     if receive(&mut socket).await?["event"] != "connected_success" {
         return Err("语音连接握手顺序异常。".into());
     }
-    socket.send(Message::Text(json!({ "event":"task_start", "model":profile.model_id, "voice_setting":{"voice_id":profile.voice}, "audio_setting":{"sample_rate":32000,"bitrate":128000,"format":"mp3","channel":1} }).to_string().into())).await.map_err(|_| "无法开始语音任务。")?;
+    socket.send(Message::Text(json!({ "event":"task_start", "model":profile.model_id, "voice_setting":{"voice_id":profile.voice}, "audio_setting":{"sample_rate":32000,"bitrate":128000,"format":if stream.is_some() { "pcm" } else { "mp3" },"channel":1} }).to_string().into())).await.map_err(|_| "无法开始语音任务。")?;
     if receive(&mut socket).await?["event"] != "task_started" {
         return Err("语音任务未就绪。".into());
     }
@@ -359,11 +369,34 @@ async fn synthesize(
         .await
         .map_err(|_| "无法提交语音文字。")?;
     let mut audio = Vec::new();
+    let mut received = 0_usize;
     loop {
-        let value = receive(&mut socket).await?;
+        let value = tokio::time::timeout(Duration::from_secs(20), receive(&mut socket))
+            .await
+            .map_err(|_| "语音响应超时。")??;
+        if stream.is_some() {
+            streaming::validate_metadata(&value)?;
+        }
         if let Some(encoded) = value.pointer("/data/audio").and_then(Value::as_str) {
             let bytes = hex::decode(encoded).map_err(|_| "语音服务返回了无效音频编码。")?;
-            append_audio(&mut audio, &bytes)?;
+            received = received
+                .checked_add(bytes.len())
+                .filter(|size| *size <= MAX_AUDIO)
+                .ok_or("语音响应超过 8 MiB 限制，请缩短文字。")?;
+            if let Some(sender) = stream {
+                if received > 32000 * 2 * 120 {
+                    return Err("语音超过 120 秒限制。".into());
+                }
+                // 100 ms blocks plus a bounded receiver apply backpressure to the socket.
+                for block in bytes.chunks(6400) {
+                    sender
+                        .send(block.to_vec())
+                        .await
+                        .map_err(|_| "语音输出任务已结束。")?;
+                }
+            } else {
+                append_audio(&mut audio, &bytes)?;
+            }
         }
         if value["is_final"] == true || value["event"] == "task_finished" {
             break;
@@ -377,7 +410,7 @@ async fn synthesize(
         .map_err(|_| "无法结束语音任务。")?;
     // Best-effort close is bounded by the enclosing timeout and cancellation.
     let _ = socket.close(None).await;
-    if audio.is_empty() {
+    if received == 0 {
         return Err("服务返回了空音频。".into());
     }
     Ok(audio)
@@ -433,6 +466,19 @@ pub(crate) fn decode(audio: Vec<u8>, token: &CancellationToken) -> Result<Sample
     Ok(SamplesBuffer::new(channels, rate, samples))
 }
 
+fn open_output(device_id: &str, failed: Arc<AtomicBool>) -> Result<rodio::MixerDeviceSink, String> {
+    let device = crate::platform::resolve_output(device_id)?;
+    DeviceSinkBuilder::from_device(device)
+        .map_err(|_| "无法读取设备格式。")?
+        .with_error_callback(move |_| {
+            failed.store(true, Ordering::SeqCst);
+        })
+        .open_stream()
+        .map_err(|_| "无法打开所选输出设备。".into())
+}
+
+mod streaming;
+
 fn playback(
     device_id: String,
     token: CancellationToken,
@@ -443,18 +489,7 @@ fn playback(
 ) -> Result<(), String> {
     // The output stream stays on this blocking thread, including on macOS where it is !Send.
     let failed = Arc::new(AtomicBool::new(false));
-    let setup = (|| {
-        let device = crate::platform::resolve_output(&device_id)?;
-        let error_flag = failed.clone();
-        let stream = DeviceSinkBuilder::from_device(device)
-            .map_err(|_| "无法读取设备格式。")?
-            .with_error_callback(move |_| {
-                error_flag.store(true, Ordering::SeqCst);
-            })
-            .open_stream()
-            .map_err(|_| "无法打开所选输出设备。")?;
-        Ok::<_, String>(stream)
-    })();
+    let setup = open_output(&device_id, failed.clone());
     let stream = match setup {
         Ok(stream) => {
             let _ = ready.send(Ok(()));
@@ -555,6 +590,19 @@ pub async fn speak(
         .try_acquire_owned()
         .map_err(|_| "音频输出正忙，请等待当前播放结束。")?;
     let key = crate::credentials::read(&profile.id)?;
+    if profile.adapter == "minimax_tts_ws" {
+        return streaming::speak_streaming(
+            profile,
+            url,
+            text,
+            device,
+            key,
+            job,
+            permit,
+            on_progress,
+        )
+        .await;
+    }
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let (audio_tx, audio_rx) = std::sync::mpsc::sync_channel(1);
     let token = job.token.clone();
