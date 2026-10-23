@@ -68,6 +68,7 @@ export interface Settings {
   sourceLanguage: string;
   targetLanguage: string;
   theme: 'dark' | 'light' | 'system';
+  captionColors: { recognition: string; expression: string };
   audio: AudioRouting;
   subtitle: SubtitleAppearance;
   composer: ComposerSettings;

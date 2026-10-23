@@ -392,6 +392,7 @@ nav button[aria-current='page'] {
 }
 .segment {
   margin-bottom: 26px;
+  color: var(--caption-color, var(--text));
 }
 .segment-meta {
   display: flex;
@@ -402,7 +403,7 @@ nav button[aria-current='page'] {
   margin-bottom: 8px;
 }
 .source-text {
-  color: var(--muted);
+  color: var(--caption-source, var(--muted));
   font-size: 14px;
   line-height: 1.7;
   overflow-wrap: anywhere;
@@ -413,6 +414,32 @@ nav button[aria-current='page'] {
   margin-top: 5px;
   overflow-wrap: anywhere;
   font-weight: 500;
+}
+.expression-word {
+  animation: expression-reveal 200ms ease-out both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+@keyframes expression-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.caption-custom-color {
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .expression-word {
+    animation: none;
+  }
 }
 .jump-latest {
   position: absolute;

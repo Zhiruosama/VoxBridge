@@ -3,7 +3,7 @@ import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-rea
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
-import { blankProfile, profileFor } from '../core/settings';
+import { blankProfile, profileFor, captionColorDefaults } from '../core/settings';
 import { outputDeviceOptions, voxBridgeOutputId } from '../core/audio-routing';
 import {
   openVirtualMicInstaller,
@@ -211,6 +211,60 @@ export default function SettingsPanel({
                   ]}
                 />
               </SettingRow>
+            </div>
+          </section>
+          <section className="preference-section" aria-labelledby="caption-colors-heading">
+            <div className="preference-section-title">
+              <h2 id="caption-colors-heading">工作台字幕配色</h2>
+              <button
+                onClick={() => setDraft({ ...draft, captionColors: { ...captionColorDefaults } })}
+              >
+                恢复默认
+              </button>
+            </div>
+            <div className="preference-card">
+              {(
+                [
+                  ['recognition', '语音识别'],
+                  ['expression', '主动输入'],
+                ] as const
+              ).map(([kind, label]) => (
+                <SettingRow title={label} key={kind}>
+                  <div
+                    className="subtitle-color-options"
+                    role="group"
+                    aria-label={`${label}字幕颜色`}
+                  >
+                    {subtitleColors.map((color, index) => (
+                      <button
+                        key={color}
+                        className="subtitle-color"
+                        aria-label={['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index]}
+                        aria-pressed={draft.captionColors[kind] === color}
+                        style={{ backgroundColor: color }}
+                        onClick={() =>
+                          setDraft({
+                            ...draft,
+                            captionColors: { ...draft.captionColors, [kind]: color },
+                          })
+                        }
+                      />
+                    ))}
+                    <input
+                      type="color"
+                      className="caption-custom-color"
+                      aria-label={`${label}自定义颜色`}
+                      value={draft.captionColors[kind]}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          captionColors: { ...draft.captionColors, [kind]: event.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                </SettingRow>
+              ))}
             </div>
           </section>
           <section className="preference-section" aria-labelledby="listening-language-heading">

@@ -277,3 +277,27 @@ describe('translation style prompt', () => {
     );
   });
 });
+
+it('defaults both caption groups to white when upgrading older settings', () => {
+  const old = { ...defaults, captionColors: undefined };
+  expect(parseSettings(old).captionColors).toEqual({
+    recognition: '#ffffff',
+    expression: '#ffffff',
+  });
+});
+it('round-trips independent caption colors without changing service selections', () => {
+  const settings = {
+    ...structuredClone(defaults),
+    captionColors: { recognition: '#80DEEA', expression: '#f8bbd0' },
+  };
+  const loaded = parseSettings(JSON.parse(JSON.stringify(settings)));
+  expect(loaded.captionColors).toEqual({ recognition: '#80deea', expression: '#f8bbd0' });
+  expect(loaded.active).toEqual(settings.active);
+});
+it('rejects malformed caption color values rather than injecting CSS', () => {
+  const loaded = parseSettings({
+    ...defaults,
+    captionColors: { recognition: 'url(https://example.com)', expression: '#fff; color:red' },
+  });
+  expect(loaded.captionColors).toEqual({ recognition: '#ffffff', expression: '#ffffff' });
+});

@@ -2,12 +2,23 @@ import { defaultTranslationPrompt, translationPromptLimit } from './translation-
 import type { ComposerSettings, ProviderProfile, Settings, Stage } from './types';
 import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
 
+export const captionColorDefaults = { recognition: '#ffffff', expression: '#ffffff' };
+function parseCaptionColors(value: unknown): Settings['captionColors'] {
+  const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const color = (key: keyof Settings['captionColors']) =>
+    typeof input[key] === 'string' && /^#[\da-f]{6}$/i.test(input[key])
+      ? input[key].toLowerCase()
+      : captionColorDefaults[key];
+  return { recognition: color('recognition'), expression: color('expression') };
+}
+
 export const defaults: Settings = {
   schemaVersion: 1,
   sourceLanguage: '简体中文',
   targetLanguage: '英语',
   listening: { sourceLanguage: '自动识别', targetLanguage: '简体中文' },
   theme: 'dark',
+  captionColors: { ...captionColorDefaults },
   audio: { previewDeviceId: '', sendDeviceId: '', monitorEnabled: false },
   subtitle: { ...subtitleDefaults },
   composer: { enterAction: 'speak', output: 'translation', route: 'send' },
@@ -205,6 +216,7 @@ export function parseSettings(value: unknown): Settings {
   }
   return {
     schemaVersion: 1,
+    captionColors: parseCaptionColors(input.captionColors),
     subtitle: parseSubtitleAppearance(input.subtitle),
     composer: parseComposerSettings(input.composer),
     listening: {

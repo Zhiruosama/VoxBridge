@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import ExpressionReveal from './components/ExpressionReveal';
 import {
   ArrowDown,
   ArrowRight,
@@ -662,25 +663,44 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="transcript-content" data-selection-scope>
-                    {session.segments.map((segment) => (
-                      <article className="segment" key={segment.id}>
-                        <div className="segment-meta">
-                          <time>{segment.time}</time>
-                          {!segment.final && <span>识别中…</span>}
-                        </div>
-                        {segment.source.trim() !== segment.translation?.trim() && (
-                          <p className="source-text">{segment.source}</p>
-                        )}
-                        {segment.translation && (
-                          <p className="translation-text">{segment.translation}</p>
-                        )}
-                        {segment.translationError && (
-                          <p className="caption-feedback" role="status">
-                            这句暂未翻译成功
-                          </p>
-                        )}
-                      </article>
-                    ))}
+                    {session.segments.map((segment) => {
+                      const expression = segment.id.startsWith('expression:');
+                      const color =
+                        settings.captionColors[expression ? 'expression' : 'recognition'];
+                      const text = (value: string) =>
+                        expression ? <ExpressionReveal text={value} /> : value;
+                      return (
+                        <article
+                          className="segment"
+                          key={segment.id}
+                          style={
+                            {
+                              '--caption-color': color === '#ffffff' ? 'var(--text)' : color,
+                              '--caption-source':
+                                color === '#ffffff'
+                                  ? 'var(--muted)'
+                                  : `color-mix(in srgb, ${color} 72%, var(--bg))`,
+                            } as CSSProperties
+                          }
+                        >
+                          <div className="segment-meta">
+                            <time>{segment.time}</time>
+                            {!segment.final && <span>识别中…</span>}
+                          </div>
+                          {segment.source.trim() !== segment.translation?.trim() && (
+                            <p className="source-text">{text(segment.source)}</p>
+                          )}
+                          {segment.translation && (
+                            <p className="translation-text">{text(segment.translation)}</p>
+                          )}
+                          {segment.translationError && (
+                            <p className="caption-feedback" role="status">
+                              这句暂未翻译成功
+                            </p>
+                          )}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </div>
