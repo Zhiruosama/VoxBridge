@@ -1359,3 +1359,9 @@ input:focus {
   flex-shrink: 0;
   color: var(--muted);
 }
+
+.caption-feedback {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 5px;
+}

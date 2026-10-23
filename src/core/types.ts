@@ -56,6 +56,7 @@ export interface Settings {
   audio: AudioRouting;
   subtitle: SubtitleAppearance;
   composer: ComposerSettings;
+  listening: { sourceLanguage: string; targetLanguage: string };
 }
 export interface Segment {
   id: string;
@@ -63,6 +64,7 @@ export interface Segment {
   source: string;
   translation?: string;
   translationRevision?: number;
+  translationError?: boolean;
   final: boolean;
   time: string;
 }
@@ -98,6 +100,13 @@ export interface CaptureSource {
   appScoped?: boolean;
 }
 export type ListeningEvent =
+  | {
+      type: 'translationError';
+      sessionId: string;
+      generation: number;
+      segmentId: string;
+      revision: number;
+    }
   | { type: 'recovering'; sessionId: string; attempt: number; delayMs: number; reason: string }
   | { type: 'sourceChanged'; sessionId: string; generation: number; source: CaptureSource }
   | {

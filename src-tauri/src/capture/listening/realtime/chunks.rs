@@ -8,6 +8,10 @@ pub(super) struct Chunks {
     next_id: u64,
     live: Option<Sentence>,
     opened_ms: u64,
+    carry: String,
+    updated_ms: u64,
+    provider_final: bool,
+    last_start_ms: u64,
 }
 
 impl Chunks {
@@ -18,20 +22,43 @@ impl Chunks {
             return output;
         }
         if self.remote_id != Some(source.id) {
-            if let Some(mut tail) = self.live.take() {
-                tail.final_text = true;
-                tail.revision += 1;
-                output.push(tail);
+            self.carry = self
+                .live
+                .as_ref()
+                .map(|tail| tail.text.clone())
+                .unwrap_or_default();
+            if dangling(&self.carry) {
+                self.carry = self.carry.trim_end_matches('.').into();
             }
             self.remote_id = Some(source.id);
-            self.previous.clear();
+            self.previous = self.carry.clone();
             self.consumed = 0;
-            self.opened_ms = now_ms;
+            if self.live.is_none() {
+                self.opened_ms = now_ms;
+            }
         }
-        let stable = common_prefix(&self.previous, &source.text);
-        self.consumed = remap_boundary(&self.previous, &source.text, self.consumed);
+        self.updated_ms = now_ms;
+        self.provider_final = source.final_text;
+        let combined = if self.carry.is_empty() {
+            source.text.clone()
+        } else {
+            format!(
+                "{}{}{}",
+                self.carry,
+                if self.carry.chars().last().is_some_and(cjk)
+                    && source.text.chars().next().is_some_and(cjk)
+                {
+                    ""
+                } else {
+                    " "
+                },
+                source.text
+            )
+        };
+        let stable = common_prefix(&self.previous, &combined);
+        self.consumed = remap_boundary(&self.previous, &combined, self.consumed);
         let stable = stable.saturating_sub(self.consumed);
-        let text = source.text.clone();
+        let text = combined;
         let mut tail = &text[self.consumed..];
         let mut stable_remaining = stable;
         loop {
@@ -50,16 +77,18 @@ impl Chunks {
             }
             if self.live.is_none() {
                 self.next_id += 1;
+                let candidate = if self.consumed == 0 {
+                    source.start_ms
+                } else {
+                    now_ms.saturating_sub(500).max(source.start_ms)
+                };
+                self.last_start_ms = candidate.max(self.last_start_ms);
                 self.live = Some(Sentence {
                     id: self.next_id,
                     revision: 0,
                     text: String::new(),
                     final_text: false,
-                    start_ms: if self.consumed == 0 {
-                        source.start_ms
-                    } else {
-                        now_ms.saturating_sub(500).max(source.start_ms)
-                    },
+                    start_ms: self.last_start_ms,
                 });
             }
             let cut = cut_at(
@@ -87,6 +116,24 @@ impl Chunks {
         self.previous = text;
         output
     }
+
+    /// A brief final pause lets a following provider fragment complete a price or phrase.
+    pub fn flush(&mut self, now_ms: u64) -> Vec<Sentence> {
+        let Some(live) = self.live.as_ref() else {
+            return Vec::new();
+        };
+        let quiet = now_ms.saturating_sub(self.updated_ms);
+        let wait = if dangling(&live.text) { 2800 } else { 900 };
+        if !self.provider_final || quiet < wait {
+            return Vec::new();
+        }
+        let mut live = self.live.take().unwrap();
+        live.revision += 1;
+        live.final_text = true;
+        self.consumed = self.previous.len();
+        self.opened_ms = now_ms;
+        vec![live]
+    }
 }
 
 fn common_prefix(a: &str, b: &str) -> usize {
@@ -101,19 +148,36 @@ fn cjk(c: char) -> bool {
     matches!(c, '\u{3400}'..='\u{9fff}' | '\u{3040}'..='\u{30ff}' | '\u{ac00}'..='\u{d7af}')
 }
 
-fn cut_at(text: &str, stable: usize, elapsed: u64, final_text: bool) -> Option<usize> {
+fn dangling(text: &str) -> bool {
+    let last = text
+        .trim_end_matches(|c: char| c.is_ascii_punctuation() || c.is_whitespace())
+        .split_whitespace()
+        .last()
+        .unwrap_or("")
+        .to_lowercase();
+    [
+        "a", "an", "the", "to", "of", "in", "on", "at", "for", "with", "and", "or", "but",
+        "that's", "these", "those", "this", "that", "my", "your", "his", "her", "their", "hundred",
+        "thousand", "million", "billion",
+    ]
+    .contains(&last.as_str())
+        || (!last.is_empty()
+            && last
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '.' || c == ','))
+}
+
+fn cut_at(text: &str, stable: usize, elapsed: u64, _final_text: bool) -> Option<usize> {
     let chars: Vec<_> = text.char_indices().collect();
     let cjk_text = chars.iter().filter(|(_, c)| cjk(*c)).count() > chars.len() / 3;
-    let limit = if cjk_text { 32 } else { 100 };
-    let mut words = 0;
-    let mut whitespace = None;
+    let soft = if cjk_text { 40 } else { 120 };
+    let hard = if cjk_text { 80 } else { 260 };
+    let mut clause = None;
+    let mut word_boundary = None;
     for (n, (i, c)) in chars.iter().copied().enumerate() {
         let end = i + c.len_utf8();
-        if c.is_whitespace() {
-            whitespace = Some(end);
-            words += 1;
-        }
-        let sentence_end = matches!(c, '。' | '！' | '？' | '!' | '?' | ';' | '；')
+        let prefix = &text[..end];
+        let strong = matches!(c, '。' | '！' | '？' | '!' | '?' | ';' | '；')
             || (c == '.' && {
                 let before = text[..i].split_whitespace().last().unwrap_or("");
                 let decimal = chars
@@ -121,37 +185,34 @@ fn cut_at(text: &str, stable: usize, elapsed: u64, final_text: bool) -> Option<u
                     .is_some_and(|(_, c)| c.is_ascii_digit())
                     && chars.get(n + 1).is_some_and(|(_, c)| c.is_ascii_digit());
                 !decimal
-                    && !["Mr", "Mrs", "Ms", "Dr", "Prof", "St", "e.g", "i.e"].contains(&before)
+                    && ![
+                        "Mr", "Mrs", "Ms", "Dr", "Prof", "St", "e.g", "i.e", "U.S", "U.K",
+                    ]
+                    .contains(&before)
                     && (end == text.len()
                         || chars.get(n + 1).is_some_and(|(_, c)| c.is_whitespace()))
             });
-        if sentence_end && n >= 3 {
+        if strong && n >= 3 && !dangling(prefix) {
             return Some(end);
         }
-        if n + 1 >= limit || words >= 16 {
-            return Some(if cjk_text {
-                end
-            } else {
-                whitespace.filter(|cut| *cut >= 20).unwrap_or(end)
-            });
+        if c.is_whitespace() && !dangling(prefix) && n >= soft {
+            word_boundary = Some(end);
         }
-    }
-    if final_text {
-        return Some(text.len());
-    }
-    if elapsed >= 1200 && stable >= 12 {
-        let end = stable.min(text.len());
-        if cjk_text {
-            return Some(end);
-        }
-        if let Some((i, c)) = text[..end]
-            .char_indices()
-            .rev()
-            .find(|(_, c)| c.is_whitespace())
+        if n >= soft
+            && (matches!(c, ',' | '，' | '、' | ':' | '：')
+                || c.is_whitespace()
+                    && ["and ", "but ", "while ", "although ", "because ", "so "]
+                        .iter()
+                        .any(|word| text[end..].starts_with(word)))
+            && !dangling(prefix)
         {
-            if i >= 12 {
-                return Some(i + c.len_utf8());
+            clause = Some(end);
+            if end <= stable && elapsed >= 2500 {
+                return clause;
             }
+        }
+        if n + 1 >= hard {
+            return Some(clause.or(word_boundary).unwrap_or(end));
         }
     }
     None

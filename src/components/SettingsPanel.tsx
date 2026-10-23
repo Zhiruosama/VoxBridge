@@ -239,6 +239,28 @@ export default function SettingsPanel({
           <section className="preference-section" aria-labelledby="composer-heading">
             <h2 id="composer-heading">文字表达</h2>
             <div className="preference-card">
+              <SettingRow title="输入语言">
+                <Select
+                  label="文字输入语言"
+                  value={draft.sourceLanguage}
+                  options={['简体中文', '英语', '日语', '韩语', '西班牙语'].map((language) => ({
+                    value: language,
+                    label: language,
+                  }))}
+                  onChange={(value) => setDraft({ ...draft, sourceLanguage: value })}
+                />
+              </SettingRow>
+              <SettingRow title="输出语言">
+                <Select
+                  label="文字输出语言"
+                  value={draft.targetLanguage}
+                  options={['简体中文', '英语', '日语', '韩语', '西班牙语'].map((language) => ({
+                    value: language,
+                    label: language,
+                  }))}
+                  onChange={(value) => setDraft({ ...draft, targetLanguage: value })}
+                />
+              </SettingRow>
               <SettingRow title="Enter 操作">
                 <Select
                   label="Enter 操作"

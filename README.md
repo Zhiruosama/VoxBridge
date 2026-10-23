@@ -6,7 +6,7 @@
 
 > 当前阶段：**macOS 工作台开发版**。已接入翻译、MiniMax / OpenAI 兼容 TTS、指定设备输出、HTTP 分段 / WebSocket 实时 ASR、双语字幕和悬浮字幕。2026-10-23 已用受控播放进程，通过真实 Core Audio 采集 → Qwen ASR → DeepSeek 翻译 → 关联字幕事件验证，并通过 20 次原生启停 / 静音 / 进程隔离检查；旧零电平测试的播放时序已修正。此结果不代表 Discord / 浏览器、GUI 权限恢复、中文准确率、BlackHole 路由或全屏浮窗已验收。MiniMax TTS 已支持有界 PCM 流式播放和真实耳机停止测试；OpenAI 兼容 TTS 仍完整接收后播放，千问实时 WebSocket ASR 的 partial / final 与定稿翻译已通过受控英文采集验证；已支持监听同时进行文字翻译 / 语音输出、网络与采集异常的有界自动恢复；真实 Discord 路由仍待验收。详见[Mac 音频闭环验证](docs/validation/2026-10-23-capture-loop.md)、[实时 ASR 验证](docs/validation/2026-10-23-realtime-asr.md)及[同时收发与自动恢复](docs/validation/2026-10-23-duplex-recovery.md)。
 
-实时 WebSocket 字幕按标点、长度和稳定尾部切成短句，已提交译文固定保留，后续只处理新增内容；最多 3 个短句并行翻译。详见[稳定短句字幕验证](docs/validation/2026-10-23-stable-short-captions.md)。
+实时字幕优先按自然句和分句切段，金额与单位等未完成短语可跨识别片段合并；已提交译文保留，最多 3 句并行翻译。监听语言独立设置，默认自动识别并译为中文；模型解释或异常语言会校验重试。详见[字幕自然断句与真实 Flash 验证](docs/validation/2026-10-23-natural-caption-quality.md)。
 
 监听入口已改为按已打开的应用选择（如 Google Chrome、微信），同一应用的声音进程自动归并；进程变化沿用有界自动恢复。详见[按应用监听验证](docs/validation/2026-10-23-application-capture.md)。
 

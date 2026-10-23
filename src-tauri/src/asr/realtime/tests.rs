@@ -76,7 +76,7 @@ async fn mock_stream_waits_for_ready_and_delivers_revisions_before_finish() {
             serde_json::from_str(socket.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
         assert_eq!(run["header"]["action"], "run-task");
         assert_eq!(run["payload"]["parameters"]["sample_rate"], 16000);
-        assert_eq!(run["payload"]["parameters"]["max_sentence_silence"], 400);
+        assert_eq!(run["payload"]["parameters"]["max_sentence_silence"], 650);
         assert_eq!(
             run["payload"]["parameters"]["multi_threshold_mode_enabled"],
             true

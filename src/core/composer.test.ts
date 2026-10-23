@@ -222,6 +222,7 @@ describe('duplex expression', () => {
     const { controller, input, callbacks, dependencies } = fixture();
     input.settings.sourceLanguage = '英语';
     input.settings.targetLanguage = '简体中文';
+    input.settings.listening = { sourceLanguage: '英语', targetLanguage: '简体中文' };
     await controller.run({ ...input, listening: true }, callbacks);
     expect(dependencies.translate).toHaveBeenCalledWith(
       input.settings.profiles[1],
@@ -251,4 +252,16 @@ describe('duplex expression', () => {
     speech.resolve();
     expect(await running).toBe('stopped');
   });
+});
+
+it('uses the independent listening direction for duplex replies without overwriting text preferences', () => {
+  const settings = structuredClone(defaults);
+  settings.sourceLanguage = '简体中文';
+  settings.targetLanguage = '英语';
+  expect(composerLanguages(settings, true)).toEqual({ source: '简体中文', target: '英语' });
+  settings.listening = { sourceLanguage: '自动识别', targetLanguage: '英语' };
+  expect(composerLanguages(settings, true)).toEqual({ source: '简体中文', target: '英语' });
+  settings.listening = { sourceLanguage: '日语', targetLanguage: '简体中文' };
+  expect(composerLanguages(settings, true)).toEqual({ source: '简体中文', target: '日语' });
+  expect(composerLanguages(settings, false)).toEqual({ source: '简体中文', target: '英语' });
 });

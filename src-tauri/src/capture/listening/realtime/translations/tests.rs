@@ -28,7 +28,7 @@ async fn slow_caption_does_not_block_following_captions_or_get_cancelled_by_them
             Ok(format!("译文 {}", s.id))
         },
         |s, text| {
-            assert_eq!(text, format!("译文 {}", s.id));
+            assert_eq!(text.unwrap(), format!("译文 {}", s.id));
             observed.lock().unwrap().push(s.id);
             Ok(())
         },
@@ -70,4 +70,33 @@ async fn concurrency_is_bounded_and_stop_suppresses_all_pending_results() {
     let (result, ()) = tokio::join!(worker, drive);
     result.unwrap();
     assert_eq!(requests.load(Ordering::Relaxed), 3);
+}
+
+#[tokio::test]
+async fn invalid_model_reply_is_isolated_to_its_caption_and_later_captions_continue() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(32);
+    tx.send(caption(1)).await.unwrap();
+    tx.send(caption(2)).await.unwrap();
+    drop(tx);
+    let events = Mutex::new(Vec::new());
+    translate_chunks(
+        &token,
+        rx,
+        |s| async move {
+            if s.id == 1 {
+                Err(crate::providers::INVALID_TRANSLATION.into())
+            } else {
+                Ok("正常译文".into())
+            }
+        },
+        |s, result| {
+            events.lock().unwrap().push((s.id, result.is_ok()));
+            Ok(())
+        },
+    )
+    .await
+    .unwrap();
+    let events = events.into_inner().unwrap();
+    assert!(events.contains(&(1, false)) && events.contains(&(2, true)));
 }

@@ -116,8 +116,7 @@ pub(super) async fn run(
     )?;
     let (audio_tx, audio_rx) = mpsc::channel(100);
     let (final_tx, final_rx) = mpsc::channel::<Sentence>(32);
-    let mut chunks = chunks::Chunks::default();
-    let started = Instant::now();
+    let (source_tx, mut source_rx) = mpsc::channel(64);
     let (ready_tx, ready_rx) = oneshot::channel();
     let skipped = Arc::new(AtomicU64::new(0));
     let source = request.source.clone();
@@ -165,7 +164,31 @@ pub(super) async fn run(
                 if token.is_cancelled() {
                     return Ok(());
                 }
-                for sentence in chunks.push(sentence, started.elapsed().as_millis() as u64) {
+                source_tx
+                    .try_send(sentence)
+                    .map_err(|_| "识别结果处理积压，请重新监听。")?;
+                Ok(())
+            },
+        )
+        .await;
+        token.cancel();
+        result
+    };
+    let segmented = async {
+        let mut chunks = chunks::Chunks::default();
+        let started = Instant::now();
+        let mut tick = tokio::time::interval(Duration::from_millis(200));
+        let result: Result<(), String> = async {
+            loop {
+                let output = tokio::select! { biased;
+                    _ = token.cancelled() => return Ok(()),
+                    sentence = source_rx.recv() => match sentence {
+                        Some(sentence) => chunks.push(sentence, started.elapsed().as_millis() as u64),
+                        None => return Ok(()),
+                    },
+                    _ = tick.tick() => chunks.flush(started.elapsed().as_millis() as u64),
+                };
+                for sentence in output {
                     send(
                         channel,
                         ListeningEvent::Transcript {
@@ -195,10 +218,9 @@ pub(super) async fn run(
                         }
                     }
                 }
-                Ok(())
-            },
-        )
-        .await;
+
+            }
+        }.await;
         token.cancel();
         result
     };
@@ -217,6 +239,24 @@ pub(super) async fn run(
                     .await
             },
             |sentence, text| {
+                let text = match text {
+                    Ok(text) => text,
+                    Err(_) => {
+                        return send(
+                            channel,
+                            ListeningEvent::TranslationError {
+                                session_id: request.session_id.clone(),
+                                generation: request.generation,
+                                segment_id: segment_id(
+                                    &request.session_id,
+                                    request.generation,
+                                    sentence.id,
+                                ),
+                                revision: sentence.revision,
+                            },
+                        )
+                    }
+                };
                 send(
                     channel,
                     ListeningEvent::Translation {
@@ -244,9 +284,9 @@ pub(super) async fn run(
         };
         token.cancel();
     };
-    let (capture, recognition, translation, ()) =
-        tokio::join!(captured, recognized, translated, stopped);
-    capture.and(recognition).and(translation)
+    let (capture, recognition, segmentation, translation, ()) =
+        tokio::join!(captured, recognized, segmented, translated, stopped);
+    capture.and(recognition).and(segmentation).and(translation)
 }
 
 #[cfg(test)]

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { appendExpression, applyTranscript, applyTranslation, discardUnfinished } from './session';
+import {
+  appendExpression,
+  applyTranscript,
+  applyTranslation,
+  discardUnfinished,
+  applyTranslationError,
+} from './session';
 import type { Session, TranscriptEvent } from './types';
 
 const event: TranscriptEvent = {
@@ -166,4 +172,15 @@ describe('committed realtime caption chunks', () => {
     expect(state.segments.map((s) => s.id)).toEqual(['first', 'second', 'third']);
     expect(state.segments.every((s) => s.translation?.endsWith(' translated'))).toBe(true);
   });
+});
+
+it('keeps invalid translation feedback local and never replaces a completed translation', () => {
+  let state = applyTranscript({ id: 'a', segments: [] }, { ...event, final: true });
+  state = applyTranslationError(state, 'a', 'one', 1);
+  expect(state.segments[0].translationError).toBe(true);
+  state = applyTranslation(state, 'a', 'one', 1, '有效译文');
+  expect(state.segments[0].translationError).toBe(false);
+  state = applyTranslationError(state, 'a', 'one', 1);
+  expect(state.segments[0].translation).toBe('有效译文');
+  expect(state.segments[0].translationError).toBe(false);
 });

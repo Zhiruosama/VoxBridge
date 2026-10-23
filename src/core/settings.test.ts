@@ -205,3 +205,20 @@ describe('empty current configuration isolation', () => {
     expect(parseSettings(parsed)).toEqual(parsed);
   });
 });
+
+it('migrates listening direction independently from the saved text-expression pair', () => {
+  const old = {
+    ...structuredClone(defaults),
+    sourceLanguage: '简体中文',
+    targetLanguage: '英语',
+  } as Record<string, unknown>;
+  delete old.listening;
+  const parsed = parseSettings(old);
+  expect(parsed.listening).toEqual({ sourceLanguage: '自动识别', targetLanguage: '简体中文' });
+  expect(parsed.sourceLanguage).toBe('简体中文');
+  expect(parsed.targetLanguage).toBe('英语');
+  expect(
+    parseSettings({ ...parsed, listening: { sourceLanguage: '日语', targetLanguage: '韩语' } })
+      .listening,
+  ).toEqual({ sourceLanguage: '日语', targetLanguage: '韩语' });
+});

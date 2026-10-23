@@ -1,5 +1,7 @@
 # Stable short caption chunks
 
+The original 1.2-second prefix-cutting policy documented here was superseded by [natural caption quality fixes](2026-10-23-natural-caption-quality.md) after interactive playback showed overly fragmented phrases. Stable caption identities and bounded parallel translation are retained.
+
 The previous interim translator resubmitted the entire growing provider sentence. A later ASR rewrite could clear a displayed provisional translation; receiving a final also cancelled an in-flight preview and started a larger request. Increasing the preview polling rate did not fix that ownership problem.
 
 Realtime recognition now creates independent local caption IDs. Sentence punctuation commits a short caption immediately. English-like text is bounded at about 100 characters or 16 words, CJK at 32 characters; a stable tail prefix can commit after 1.2 seconds on the next ASR update, using a word boundary for spaced languages. Decimal dots and common titles are protected. Provider final events flush only the uncommitted suffix. Caption start times after a local cut are approximate because the provider's sentence-level begin time does not identify every local boundary.

@@ -3,8 +3,9 @@ import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
 
 export const defaults: Settings = {
   schemaVersion: 1,
-  sourceLanguage: '英语',
-  targetLanguage: '简体中文',
+  sourceLanguage: '简体中文',
+  targetLanguage: '英语',
+  listening: { sourceLanguage: '自动识别', targetLanguage: '简体中文' },
   theme: 'dark',
   audio: { previewDeviceId: '', sendDeviceId: '' },
   subtitle: { ...subtitleDefaults },
@@ -184,6 +185,18 @@ export function parseSettings(value: unknown): Settings {
     schemaVersion: 1,
     subtitle: parseSubtitleAppearance(input.subtitle),
     composer: parseComposerSettings(input.composer),
+    listening: {
+      sourceLanguage: ['自动识别', '英语', '简体中文', '日语', '韩语', '西班牙语'].includes(
+        (input.listening as Record<string, unknown> | undefined)?.sourceLanguage as string,
+      )
+        ? (input.listening as Record<string, string>).sourceLanguage
+        : defaults.listening.sourceLanguage,
+      targetLanguage: ['英语', '简体中文', '日语', '韩语', '西班牙语'].includes(
+        (input.listening as Record<string, unknown> | undefined)?.targetLanguage as string,
+      )
+        ? (input.listening as Record<string, string>).targetLanguage
+        : defaults.listening.targetLanguage,
+    },
     audio: {
       previewDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.previewDeviceId === 'string'

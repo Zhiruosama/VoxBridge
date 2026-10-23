@@ -55,7 +55,9 @@ export function applyTranslation(
             revision <= segment.revision &&
             !!sourceText.trim() &&
             segment.source.startsWith(sourceText);
-      return matches ? { ...segment, translation: text, translationRevision: revision } : segment;
+      return matches
+        ? { ...segment, translation: text, translationRevision: revision, translationError: false }
+        : segment;
     }),
   };
 }
@@ -73,4 +75,24 @@ export function appendExpression(
   const segment = { ...expression, id: `expression:${expression.id}`, revision: 1, final: true };
   const segments = state.segments.filter((item) => item.id !== segment.id);
   return { ...state, segments: [...segments, segment].slice(-500) };
+}
+
+export function applyTranslationError(
+  state: Session,
+  sessionId: string,
+  segmentId: string,
+  revision: number,
+): Session {
+  if (state.id !== sessionId) return state;
+  return {
+    ...state,
+    segments: state.segments.map((segment) =>
+      segment.id === segmentId &&
+      segment.final &&
+      segment.revision === revision &&
+      !segment.translation
+        ? { ...segment, translationError: true }
+        : segment,
+    ),
+  };
 }

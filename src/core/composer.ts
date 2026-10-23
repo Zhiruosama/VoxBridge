@@ -10,8 +10,8 @@ export type ComposerPhase =
   | 'playing'
   | 'stopping';
 export function composerLanguages(settings: Settings, listening: boolean) {
-  return listening
-    ? { source: settings.targetLanguage, target: settings.sourceLanguage }
+  return listening && settings.listening.sourceLanguage !== '自动识别'
+    ? { source: settings.listening.targetLanguage, target: settings.listening.sourceLanguage }
     : { source: settings.sourceLanguage, target: settings.targetLanguage };
 }
 

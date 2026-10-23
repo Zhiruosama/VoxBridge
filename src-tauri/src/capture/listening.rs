@@ -70,6 +70,12 @@ pub enum ListeningEvent {
         r#final: bool,
         start_ms: u64,
     },
+    TranslationError {
+        session_id: String,
+        generation: u32,
+        segment_id: String,
+        revision: u32,
+    },
     Translation {
         session_id: String,
         generation: u32,

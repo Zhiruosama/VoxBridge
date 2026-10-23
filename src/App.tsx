@@ -27,6 +27,7 @@ import {
   appendExpression,
   applyTranscript,
   applyTranslation,
+  applyTranslationError,
   discardUnfinished,
 } from './core/session';
 import { overlaySnapshot } from './core/overlay';
@@ -230,6 +231,10 @@ export default function App() {
           event.sourceText,
         ),
       );
+    } else if (event.type === 'translationError') {
+      setSession((state) =>
+        applyTranslationError(state, event.sessionId, event.segmentId, event.revision),
+      );
     } else if (event.type === 'recovering') {
       setListenPhase('recovering');
       setRecovery(event);
@@ -281,8 +286,8 @@ export default function App() {
           sessionId: id,
           asrProfile,
           translationProfile,
-          sourceLanguage: settings.sourceLanguage,
-          targetLanguage: settings.targetLanguage,
+          sourceLanguage: settings.listening.sourceLanguage,
+          targetLanguage: settings.listening.targetLanguage,
         },
         receiveListening,
       );
@@ -580,19 +585,38 @@ export default function App() {
                 </button>
                 <div className="language-pair">
                   <Select
-                    label="源语言"
-                    disabled={listening || busy}
-                    value={settings.sourceLanguage}
-                    onChange={(value) => persist({ ...settings, sourceLanguage: value }, true)}
-                    options={languages.map((language) => ({ value: language, label: language }))}
+                    label="听取语言"
+                    disabled={listening}
+                    value={settings.listening.sourceLanguage}
+                    onChange={(value) =>
+                      persist(
+                        {
+                          ...settings,
+                          listening: { ...settings.listening, sourceLanguage: value },
+                        },
+                        true,
+                      )
+                    }
+                    options={['自动识别', ...languages].map((language) => ({
+                      value: language,
+                      label: language,
+                    }))}
                     compact
                   />
                   <ArrowRight size={12} />
                   <Select
-                    label="目标语言"
-                    disabled={listening || busy}
-                    value={settings.targetLanguage}
-                    onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
+                    label="字幕语言"
+                    disabled={listening}
+                    value={settings.listening.targetLanguage}
+                    onChange={(value) =>
+                      persist(
+                        {
+                          ...settings,
+                          listening: { ...settings.listening, targetLanguage: value },
+                        },
+                        true,
+                      )
+                    }
                     options={languages.map((language) => ({ value: language, label: language }))}
                     compact
                   />
@@ -638,6 +662,11 @@ export default function App() {
                         <p className="source-text">{segment.source}</p>
                         {segment.translation && (
                           <p className="translation-text">{segment.translation}</p>
+                        )}
+                        {segment.translationError && (
+                          <p className="caption-feedback" role="status">
+                            这句暂未翻译成功
+                          </p>
                         )}
                       </article>
                     ))}
