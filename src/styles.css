@@ -60,6 +60,22 @@ body,
 body {
   margin: 0;
   min-width: 360px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Only content and the active editor participate in text selection. */
+.source-text,
+.translation-text,
+.subtitle-overlay-source,
+.subtitle-overlay-translation,
+.diagnostic-feedback,
+.subtitle-overlay-error,
+.toast > span,
+input:focus,
+textarea:focus,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 button,
 input,

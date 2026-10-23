@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { focusMain, readOverlay, stopOverlayListening } from '../bridge';
 import { newerOverlay, subtitleDefaults } from '../core/overlay';
+import { useTextSelection } from '../hooks/useTextSelection';
 import type { OverlaySnapshot } from '../core/types';
 
 export default function SubtitleOverlay() {
+  useTextSelection();
   const [snapshot, setSnapshot] = useState<OverlaySnapshot>({
     version: 0,
     sessionId: null,
@@ -71,7 +73,7 @@ export default function SubtitleOverlay() {
           {error}
         </div>
       )}
-      <main className="subtitle-overlay-content" aria-live="polite">
+      <main className="subtitle-overlay-content" data-selection-scope aria-live="polite">
         {snapshot.lines.length ? (
           snapshot.lines.map((line, index) => (
             <article key={`${snapshot.sessionId}-${index}`}>

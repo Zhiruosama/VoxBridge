@@ -54,10 +54,13 @@ import {
   translate,
 } from './bridge';
 
+import { useTextSelection } from './hooks/useTextSelection';
+
 const languages = ['英语', '简体中文', '日语', '韩语', '西班牙语'];
 type Page = 'workspace' | 'settings' | 'diagnostics';
 
 export default function App() {
+  useTextSelection();
   const [initial] = useState(() => {
     try {
       return { settings: loadSettings(), error: '' };
@@ -607,7 +610,7 @@ export default function App() {
                     <p>暂无字幕</p>
                   </div>
                 ) : (
-                  <div className="transcript-content">
+                  <div className="transcript-content" data-selection-scope>
                     {session.segments.map((segment) => (
                       <article className="segment" key={segment.id}>
                         <div className="segment-meta">
