@@ -4,7 +4,7 @@
   "description": "Local workspace window only",
   "windows": ["main"],
   "permissions": [
-    "core:default", "allow-runtime-info", "allow-credential-status", "allow-template-status", "allow-unlock-templates", "allow-save-template-credential", "allow-set-credential",
+    "core:default", "allow-runtime-info", "allow-credential-status", "allow-set-credential",
     "allow-remove-credential", "allow-translate",
     "allow-detect-text-language", "allow-cancel-translation", "allow-transcribe-wav",
     "allow-stop-asr", "allow-list-outputs", "allow-test-tone", "allow-stop-tone",

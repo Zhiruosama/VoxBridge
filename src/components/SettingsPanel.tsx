@@ -12,10 +12,6 @@ import {
   listOutputs,
   removeCredential,
   setCredential,
-  templateStatus,
-  unlockTemplates,
-  saveTemplateCredential,
-  type TemplateStatus,
 } from '../bridge';
 import { subtitleColors, subtitleDefaults } from '../core/overlay';
 import Select from './Select';
@@ -63,11 +59,6 @@ export default function SettingsPanel({
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [keyError, setKeyError] = useState('');
-  const [vaultStatus, setVaultStatus] = useState<TemplateStatus>({
-    unlocked: false,
-    canUnlock: true,
-    hasSaved: false,
-  });
   const [renaming, setRenaming] = useState(false);
   const [previousName, setPreviousName] = useState('');
   const [devices, setDevices] = useState<OutputDevice[]>([]);
@@ -106,11 +97,10 @@ export default function SettingsPanel({
     setKeyError('');
     setRenaming(false);
     if (section === 'general') return;
-    Promise.all([credentialStatus(profile.id), templateStatus()])
-      .then(([exists, status]) => {
+    credentialStatus(profile.id)
+      .then((exists) => {
         if (active) {
           setHasKey(exists);
-          setVaultStatus(status);
         }
       })
       .catch((error) => {
@@ -135,45 +125,20 @@ export default function SettingsPanel({
     }));
   }
   async function refreshKeyState() {
-    const [exists, status] = await Promise.all([credentialStatus(profile.id), templateStatus()]);
-    setHasKey(exists);
-    setVaultStatus(status);
+    setHasKey(await credentialStatus(profile.id));
   }
-  async function saveKey(mode: 'saved' | 'template' | 'clear' = 'saved') {
+  async function saveKey(mode: 'saved' | 'clear' = 'saved') {
     setBusy(true);
     setKeyError('');
     try {
       if (mode === 'clear') await removeCredential(profile.id);
-      else if (mode === 'template') {
-        await saveTemplateCredential(profile.id, secret);
-        onSave(draft);
-      } else {
+      else {
         await setCredential(profile.id, secret);
         onSave(draft);
       }
       setSecret('');
       await refreshKeyState();
-      notify(
-        mode === 'clear'
-          ? '已移除保存的密钥。'
-          : mode === 'template'
-            ? '密钥和模板已保存，下次启动自动可用。'
-            : '密钥已保存，下次启动自动可用。',
-      );
-    } catch (error) {
-      setKeyError(String(error));
-      await refreshKeyState().catch(() => {});
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function unlockSavedTemplates() {
-    setBusy(true);
-    setKeyError('');
-    try {
-      await unlockTemplates();
-      await refreshKeyState();
-      notify('模板已解锁，本次运行无需再次授权。');
+      notify(mode === 'clear' ? '已移除保存的密钥。' : '密钥已保存，下次启动自动可用。');
     } catch (error) {
       setKeyError(String(error));
       await refreshKeyState().catch(() => {});
@@ -816,19 +781,9 @@ export default function SettingsPanel({
               <SettingRow title="API Key">
                 <span className={`credential-status ${hasKey ? 'positive' : ''}`}>
                   {hasKey && <Check size={13} />}
-                  {hasKey === null ? '检查密钥…' : hasKey ? '可使用' : '未设置'}
+                  {hasKey === null ? '检查密钥…' : hasKey ? '已保存' : '未设置'}
                 </span>
               </SettingRow>
-              {vaultStatus.hasSaved && !vaultStatus.unlocked && (
-                <SettingRow title="已保存模板">
-                  <button
-                    disabled={busy || !desktop || !vaultStatus.canUnlock}
-                    onClick={() => void unlockSavedTemplates()}
-                  >
-                    {vaultStatus.canUnlock ? '解锁模板 · 本次一次' : '本次未解锁，可手动输入'}
-                  </button>
-                </SettingRow>
-              )}
               <div className="credential-editor">
                 <div className="credential-input-row">
                   <input
@@ -836,7 +791,7 @@ export default function SettingsPanel({
                     type="password"
                     value={secret}
                     disabled={!desktop || busy}
-                    autoComplete="new-password"
+                    autoComplete="off"
                     placeholder={desktop ? 'API Key' : '请在桌面应用中配置'}
                     onChange={(e) => setSecret(e.target.value)}
                   />
@@ -845,17 +800,6 @@ export default function SettingsPanel({
                     disabled={!desktop || (!secret.trim() && !hasKey) || busy}
                   >
                     {busy ? '处理中…' : '保存密钥'}
-                  </button>
-                  <button
-                    onClick={() => void saveKey('template')}
-                    disabled={
-                      !desktop ||
-                      busy ||
-                      (!secret.trim() && !hasKey) ||
-                      (!vaultStatus.unlocked && !vaultStatus.canUnlock)
-                    }
-                  >
-                    保存为模板
                   </button>
                   {hasKey && (
                     <button

@@ -1,32 +1,35 @@
-mod saved;
-mod vault;
+mod crypto;
+mod store;
+use crypto::Master;
 use std::sync::{Mutex, OnceLock};
 use tauri::Manager;
-use vault::{Master, Vault};
 use zeroize::Zeroizing;
 const SERVICE: &str = "com.voxbridge.desktop";
-static SAVED: OnceLock<Mutex<saved::Saved>> = OnceLock::new();
+static STORE: OnceLock<Mutex<Result<store::Store, String>>> = OnceLock::new();
+
 pub fn initialize(app: &tauri::AppHandle) -> Result<(), String> {
-    let directory = app
+    let initialized = app
         .path()
         .app_data_dir()
-        .map_err(|_| "无法定位密钥目录。")?;
-    let saved = saved::Saved::load(saved::daily_path(&directory), silent_master);
-    saved.restore(session())?;
-    SAVED
-        .set(Mutex::new(saved))
-        .map_err(|_| "密钥存储已初始化。".to_string())
+        .map_err(|_| "无法定位凭据目录。".to_string())
+        .and_then(|directory| {
+            let mut store = store::Store::open(directory.join("credentials"))?;
+            store.migrate(&directory, legacy_master)?;
+            Ok(store)
+        });
+    STORE
+        .set(Mutex::new(initialized))
+        .map_err(|_| "凭据存储已经初始化。".into())
 }
-fn saved() -> Result<std::sync::MutexGuard<'static, saved::Saved>, String> {
-    SAVED
+fn with_store<T>(
+    operation: impl FnOnce(&mut store::Store) -> Result<T, String>,
+) -> Result<T, String> {
+    let mut guard = STORE
         .get()
-        .ok_or("密钥存储尚未就绪。")?
+        .ok_or("凭据存储尚未就绪。")?
         .lock()
-        .map_err(|_| "密钥存储不可用。".into())
-}
-fn session() -> &'static Vault {
-    static SESSION: OnceLock<Vault> = OnceLock::new();
-    SESSION.get_or_init(Vault::default)
+        .map_err(|_| "凭据存储不可用。")?;
+    operation(guard.as_mut().map_err(|error| error.clone())?)
 }
 fn validate_id(id: &str) -> Result<(), String> {
     if id.is_empty() || id.len() > 128 || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
@@ -43,25 +46,55 @@ fn validate_secret(secret: &str) -> Result<(), String> {
         Ok(())
     }
 }
+#[cfg(any(test, not(target_os = "macos")))]
 fn entry(id: &str) -> Result<keyring::Entry, String> {
     validate_id(id)?;
-    keyring::Entry::new(SERVICE, id).map_err(|_| "无法访问系统凭据存储。".into())
+    keyring::Entry::new(SERVICE, id).map_err(|_| "无法访问旧版凭据。".into())
 }
-// Startup restores daily credentials once. Service calls never access Keychain.
+// Normal reads, saves and deletes never access Keychain. Only legacy migration may
+// attempt a noninteractive read once at startup, and only without a new store.
 pub fn read(id: &str) -> Result<String, String> {
-    session().read(id)
+    #[cfg(test)]
+    if let Some(secret) = test_values().lock().unwrap().get(id) {
+        return Ok(secret.to_string());
+    }
+    with_store(|store| store.read(id))
 }
 pub async fn read_async(id: &str) -> Result<String, String> {
     read(id)
 }
 pub fn clear_session() {
-    session().clear();
-    if let Ok(saved) = saved() {
-        saved.clear();
-    }
+    let _ = with_store(|store| {
+        store.clear();
+        Ok(())
+    });
 }
-fn silent_master(id: Option<&str>) -> Result<Master, String> {
-    let id = id.ok_or("已保存密钥的标识无效。")?;
+#[tauri::command]
+pub async fn credential_status(id: String) -> Result<bool, String> {
+    with_store(|store| store.contains(&id))
+}
+#[tauri::command]
+pub async fn set_credential(id: String, secret: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_store(|store| {
+            let secret = if secret.trim().is_empty() {
+                store.read(&id)?
+            } else {
+                secret
+            };
+            store.set(&id, &secret)
+        })
+    })
+    .await
+    .map_err(|_| "密钥保存任务失败。".to_string())?
+}
+#[tauri::command]
+pub async fn remove_credential(id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || with_store(|store| store.remove(&id)))
+        .await
+        .map_err(|_| "密钥移除任务失败。".to_string())?
+}
+fn legacy_master(id: &str) -> Result<Master, String> {
     #[cfg(target_os = "macos")]
     {
         use security_framework::item::{ItemClass, ItemSearchOptions, SearchResult};
@@ -89,129 +122,33 @@ fn silent_master(id: Option<&str>) -> Result<Master, String> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        os_master(Some(id))
+        let encoded = Zeroizing::new(
+            entry(id)?
+                .get_password()
+                .map_err(|_| "旧版凭据暂不可读取。")?,
+        );
+        let key = Zeroizing::new(hex::decode(encoded.as_str()).map_err(|_| "旧版凭据无效。")?);
+        if key.len() != 32 {
+            return Err("旧版凭据无效。".into());
+        }
+        Ok(Master { id: id.into(), key })
     }
 }
-fn path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map(|dir| dir.join("credentials.v1.enc"))
-        .map_err(|_| "无法定位模板目录。".into())
+
+#[cfg(test)]
+fn test_values() -> &'static Mutex<store::Values> {
+    static VALUES: OnceLock<Mutex<store::Values>> = OnceLock::new();
+    VALUES.get_or_init(Mutex::default)
 }
-fn os_master(id: Option<&str>) -> Result<Master, String> {
-    match id {
-        Some(id) => {
-            let encoded = Zeroizing::new(
-                entry(id)?
-                    .get_password()
-                    .map_err(|_| "密钥存储授权未完成，原有密钥未删除。")?,
-            );
-            let key =
-                Zeroizing::new(hex::decode(encoded.as_str()).map_err(|_| "模板加密密钥无效。")?);
-            if key.len() != 32 {
-                return Err("模板加密密钥无效。".into());
-            }
-            Ok(Master { id: id.into(), key })
-        }
-        None => {
-            let id = format!("vault-{}", hex::encode(vault::random(16)?));
-            let key = Zeroizing::new(vault::random(32)?);
-            let encoded = Zeroizing::new(hex::encode(&key));
-            entry(&id)?
-                .set_password(encoded.as_str())
-                .map_err(|_| "无法授权保存密钥，请检查系统凭据存储。")?;
-            Ok(Master { id, key })
-        }
-    }
-}
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TemplateStatus {
-    unlocked: bool,
-    can_unlock: bool,
-    has_saved: bool,
-}
-#[tauri::command]
-pub fn template_status(app: tauri::AppHandle) -> Result<TemplateStatus, String> {
-    let (unlocked, can_unlock) = session().flags()?;
-    Ok(TemplateStatus {
-        unlocked,
-        can_unlock,
-        has_saved: path(&app)?.exists(),
-    })
-}
-#[tauri::command]
-pub async fn unlock_templates(app: tauri::AppHandle) -> Result<(), String> {
-    let path = path(&app)?;
-    tauri::async_runtime::spawn_blocking(move || session().unlock(&path, false, os_master))
-        .await
-        .map_err(|_| "模板解锁任务失败。".to_string())?
-}
-#[tauri::command]
-pub async fn save_template_credential(
-    app: tauri::AppHandle,
-    id: String,
-    secret: String,
-) -> Result<(), String> {
-    // Validate an actual key before any disk / authorization work.
-    validate_id(&id)?;
-    let key = if secret.trim().is_empty() {
-        session().read(&id)?
-    } else {
-        validate_secret(&secret)?;
-        secret
-    };
-    let path = path(&app)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        {
-            let mut saved = saved()?;
-            saved.save(&id, &key, os_master)?;
-            session().set(&id, &key)?;
-        }
-        session().unlock(&path, true, os_master)?;
-        session().save(&path, &id)
-    })
-    .await
-    .map_err(|_| "模板保存任务失败。".to_string())?
-}
-#[tauri::command]
-pub async fn credential_status(id: String) -> Result<bool, String> {
-    validate_id(&id)?;
-    if session().read(&id).is_err() {
-        saved()?.status()?;
-    }
-    Ok(session().read(&id).is_ok())
-}
-#[tauri::command]
-pub async fn set_credential(id: String, secret: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let secret = if secret.trim().is_empty() {
-            session().read(&id)?
-        } else {
-            secret
-        };
-        let mut saved = saved()?;
-        saved.save(&id, &secret, os_master)?;
-        session().set(&id, &secret)
-    })
-    .await
-    .map_err(|_| "密钥保存任务失败。".to_string())?
-}
-#[tauri::command]
-pub async fn remove_credential(id: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        validate_id(&id)?;
-        let mut saved = saved()?;
-        saved.remove(&id)?;
-        session().remove(&id)
-    })
-    .await
-    .map_err(|_| "密钥移除任务失败。".to_string())?
-}
-// Historical paid fixtures opt in to the legacy test credentials explicitly; never linked into production.
 #[cfg(test)]
 pub(crate) fn set_for_test(id: String, secret: String) -> Result<(), String> {
-    session().set(&id, &secret)
+    validate_id(&id)?;
+    validate_secret(&secret)?;
+    test_values()
+        .lock()
+        .unwrap()
+        .insert(id, Zeroizing::new(secret));
+    Ok(())
 }
 #[cfg(test)]
 pub(crate) fn read_for_test(id: &str) -> Result<String, String> {
@@ -219,54 +156,30 @@ pub(crate) fn read_for_test(id: &str) -> Result<String, String> {
         return Ok(secret);
     }
     let secret = entry(id)?.get_password().map_err(|_| "测试密钥不可用。")?;
-    session().set(id, &secret)?;
+    set_for_test(id.into(), secret.clone())?;
     Ok(secret)
 }
 
-#[cfg(all(test, target_os = "macos"))]
 #[test]
-#[ignore = "manual isolated Keychain test using synthetic credentials only"]
-fn saved_credentials_survive_process_restart() {
-    const CHILD: &str = "VOXBRIDGE_CREDENTIAL_TEST_PATH";
-    if let Some(path) = std::env::var_os(CHILD) {
-        let saved = saved::Saved::load(path.into(), silent_master);
-        saved.status().expect("noninteractive Keychain restore");
-        let memory = Vault::default();
-        saved.restore(&memory).unwrap();
-        assert_eq!(
-            memory.read("synthetic-profile").unwrap(),
-            "synthetic-not-an-api-key"
-        );
-        return;
-    }
-    let directory = std::env::temp_dir().join(format!(
-        "vox-os-credential-test-{}",
-        hex::encode(vault::random(12).unwrap())
-    ));
-    let path = saved::daily_path(&directory);
-    let master = os_master(None).expect("create isolated Keychain entry");
-    let id = master.id.clone();
-    let mut saved = saved::Saved::load(path.clone(), |_| {
-        panic!("empty config cannot access Keychain")
-    });
-    let result = saved.save("synthetic-profile", "synthetic-not-an-api-key", |_| {
-        Ok(master)
-    });
-    let child = result.map(|()| {
-        std::process::Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "credentials::saved_credentials_survive_process_restart",
-                "--ignored",
-            ])
-            .env(CHILD, path)
-            .status()
-            .unwrap()
-    });
-    entry(&id)
-        .unwrap()
-        .delete_credential()
-        .expect("remove isolated Keychain entry");
-    let _ = std::fs::remove_dir_all(directory);
-    assert!(child.expect("save encrypted credentials").success());
+#[cfg(all(test, target_os = "macos"))]
+#[ignore = "manual one-time installed credential migration; never prints keys or displays authorization UI"]
+fn migrate_installed_credentials() {
+    let directory = std::path::PathBuf::from(std::env::var_os("HOME").unwrap())
+        .join("Library/Application Support/com.voxbridge.desktop");
+    let mut store = store::Store::open(directory.join("credentials")).unwrap();
+    store.migrate(&directory, legacy_master).unwrap();
+    println!(
+        "INSTALLED_CREDENTIALS_RECOVERED: {}",
+        [
+            "provider-deepseek-flash",
+            "provider-minimax-cn",
+            "provider-qwen-realtime",
+            "translation-default",
+            "tts-default",
+            "asr-default"
+        ]
+        .iter()
+        .filter(|id| store.contains(id).unwrap_or(false))
+        .count()
+    );
 }
