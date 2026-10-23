@@ -1,3 +1,4 @@
+import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaults, loadSettings, parseSettings, saveSettings, validateProfile } from './settings';
 
@@ -239,4 +240,40 @@ it('migrates listening direction independently from the saved text-expression pa
     parseSettings({ ...parsed, listening: { sourceLanguage: '日语', targetLanguage: '韩语' } })
       .listening,
   ).toEqual({ sourceLanguage: '日语', targetLanguage: '韩语' });
+});
+
+describe('translation style prompt', () => {
+  it('migrates an older configuration to the casual default without changing the active model', () => {
+    const settings = structuredClone(defaults);
+    delete settings.profiles[1].translationPrompt;
+    const parsed = parseSettings(settings);
+    expect(parsed.profiles[1].translationPrompt).toBe(defaultTranslationPrompt);
+    expect(parsed.active).toEqual(settings.active);
+    expect(defaultTranslationPrompt).toContain('Instagram');
+    expect(defaultTranslationPrompt).toContain('Discord');
+  });
+  it('round-trips custom text and explicit empty values per profile', () => {
+    const settings = structuredClone(defaults);
+    settings.profiles[1].translationPrompt = 'Keep it casual. "Quotes"\nAnd emojis 🙂';
+    settings.profiles.push({ ...settings.profiles[1], id: 'other', translationPrompt: '' });
+    const parsed = parseSettings(JSON.parse(JSON.stringify(settings)));
+    expect(parsed.profiles[1].translationPrompt).toBe(settings.profiles[1].translationPrompt);
+    expect(parsed.profiles[3].translationPrompt).toBe('');
+    expect(parsed.profiles[0].translationPrompt).toBeUndefined();
+  });
+  it('rejects invalid types and oversized prompts, including inactive profiles', () => {
+    const settings = structuredClone(defaults);
+    settings.profiles.push({
+      ...settings.profiles[1],
+      id: 'inactive',
+      translationPrompt: '字'.repeat(translationPromptLimit + 1),
+    });
+    expect(() => parseSettings(settings)).toThrow('Prompt');
+    settings.profiles[3].translationPrompt = 42 as unknown as string;
+    expect(() => parseSettings(settings)).toThrow('Prompt');
+    settings.profiles[3].translationPrompt = '字'.repeat(translationPromptLimit);
+    expect(parseSettings(settings).profiles[3].translationPrompt).toHaveLength(
+      translationPromptLimit,
+    );
+  });
 });

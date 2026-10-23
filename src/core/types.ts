@@ -32,6 +32,7 @@ export interface ProviderProfile {
   modelId: string;
   voice: string;
   thinking?: 'enabled' | 'disabled';
+  translationPrompt?: string;
 }
 export interface SubtitleAppearance {
   fontSize: number;

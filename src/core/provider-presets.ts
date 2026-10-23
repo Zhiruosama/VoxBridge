@@ -1,3 +1,4 @@
+import { defaultTranslationPrompt } from './translation-prompt';
 import type { ProviderProfile, Settings } from './types';
 
 // Public connection settings only. Credentials are held separately by the OS.
@@ -21,6 +22,7 @@ export const providerPresets: ProviderProfile[] = [
     voice: '',
   },
   {
+    translationPrompt: defaultTranslationPrompt,
     id: 'provider-deepseek-flash',
     name: 'DeepSeek V4.1 Flash',
     stage: 'translation',

@@ -2,6 +2,7 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
+import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
 import { blankProfile, profileFor } from '../core/settings';
 import { outputDeviceOptions, voxBridgeOutputId } from '../core/audio-routing';
 import {
@@ -748,6 +749,31 @@ export default function SettingsPanel({
               )}
             </div>
           </section>
+          {stage === 'translation' && (
+            <section className="preference-section" aria-labelledby="translation-prompt-heading">
+              <div className="preference-section-title">
+                <h2 id="translation-prompt-heading">前置 Prompt</h2>
+                <button
+                  className="subtle"
+                  onClick={() => update({ translationPrompt: defaultTranslationPrompt })}
+                >
+                  恢复默认
+                </button>
+              </div>
+              <div className="preference-card translation-prompt-editor">
+                <textarea
+                  aria-label="翻译前置 Prompt"
+                  value={profile.translationPrompt ?? defaultTranslationPrompt}
+                  maxLength={translationPromptLimit}
+                  rows={8}
+                  spellCheck={false}
+                  placeholder={defaultTranslationPrompt}
+                  onChange={(event) => update({ translationPrompt: event.target.value })}
+                />
+                <p>调整措辞和语气，目标语言由语言设置决定。留空使用默认提示词。</p>
+              </div>
+            </section>
+          )}
           <section className="preference-section" aria-labelledby="credential-heading">
             <h2 id="credential-heading">访问凭据</h2>
             <div className="preference-card">

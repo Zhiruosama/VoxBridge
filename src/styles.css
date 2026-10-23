@@ -1423,3 +1423,25 @@ input:focus {
   background: var(--hover);
   color: var(--text);
 }
+
+.translation-prompt-editor {
+  padding-block: 18px;
+}
+.translation-prompt-editor textarea {
+  width: 100%;
+  min-height: 180px;
+  max-height: 480px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.translation-prompt-editor p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
