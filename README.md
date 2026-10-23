@@ -1,102 +1,149 @@
 # VoxBridge
 
-面向 macOS 与 Windows 的桌面语音桥接工具：把应用声音转成双语字幕，把文字或自己的语音转成可供聊天软件使用的合成语音。
+应用音频转双语字幕，输入文字转合成语音。
 
-**最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
+[![Check](https://github.com/Zhiruosama/VoxBridge/actions/workflows/check.yml/badge.svg)](https://github.com/Zhiruosama/VoxBridge/actions/workflows/check.yml)
 
-> 当前阶段：**macOS 工作台开发版**。已接入翻译、MiniMax / OpenAI 兼容 TTS、指定设备输出、HTTP 分段 / WebSocket 实时 ASR、双语字幕和悬浮字幕。2026-10-23 已用受控播放进程，通过真实 Core Audio 采集 → Qwen ASR → DeepSeek 翻译 → 关联字幕事件验证，并通过 20 次原生启停 / 静音 / 进程隔离检查；旧零电平测试的播放时序已修正。此结果不代表 Discord / 浏览器、GUI 权限恢复、中文准确率、BlackHole 路由或全屏浮窗已验收。MiniMax TTS 已支持有界 PCM 流式播放和真实耳机停止测试；OpenAI 兼容 TTS 仍完整接收后播放，千问实时 WebSocket ASR 的 partial / final 与定稿翻译已通过受控英文采集验证；已支持监听同时进行文字翻译 / 语音输出、网络与采集异常的有界自动恢复；真实 Discord 路由仍待验收。详见[Mac 音频闭环验证](docs/validation/2026-10-23-capture-loop.md)、[实时 ASR 验证](docs/validation/2026-10-23-realtime-asr.md)及[同时收发与自动恢复](docs/validation/2026-10-23-duplex-recovery.md)。
+VoxBridge 是一款桌面语音桥接工具。选择 Chrome、微信等应用，边听边看翻译；写下想说的话，经翻译和语音合成后，通过 **VoxBridge 虚拟麦克风**送入 Discord。
 
-实时字幕优先按自然句和分句切段，金额与单位等未完成短语可跨识别片段合并；已提交译文保留，最多 3 句并行翻译。监听语言独立设置，默认自动识别并译为中文；模型解释或异常语言会校验重试。详见[字幕自然断句与真实 Flash 验证](docs/validation/2026-10-23-natural-caption-quality.md)。
+**当前为 macOS 开发版**，主要在 Apple Silicon Mac 上验证，需自备模型服务 API Key。Windows 已纳入构建与自动化检查，应用声音采集尚未接入。仓库暂未提供正式发布安装包，可从源码运行或打包。
 
-监听入口已改为按已打开的应用选择（如 Google Chrome、微信），同一应用的声音进程自动归并；进程变化沿用有界自动恢复。详见[按应用监听验证](docs/validation/2026-10-23-application-capture.md)。
+[快速开始](#快速开始) · [接入 Discord](#接入-discord) · [开发与验证](#开发与验证) · [文档](#文档)
 
-![工作台开发版预览](docs/assets/workspace-preview.png)
+![VoxBridge 工作台：按应用监听、双语字幕与底部文字输入](docs/assets/workspace-overview.png)
 
-## 第一版方向
+_使用当前界面组件生成的演示截图，字幕为示例内容。_
 
-先完成 macOS 版本，保留后续 Windows 适配的架构边界。当前已在 Apple Silicon Mac 开始实机开发和验证；Windows 保留构建与测试检查，尚未接入应用声音采集。
+## 可以做什么
 
-两条核心链路：
+- **按应用监听**：选择正在运行的应用，自动归并其音频子进程，减少手动选择 PID 的麻烦。
+- **实时翻译字幕**：支持流式识别、自然短句切分和并发翻译；已提交的字幕保留，异常时尝试有界恢复。
+- **悬浮阅读**：透明置顶字幕窗，支持连续阅读、双语 / 原文 / 译文显示，以及字号、颜色和行距调整。
+- **文字表达**：原文与译文统一进入字幕区；支持直接合成原文，或翻译后输出语音，发送成功后清空输入框。
+- **独立试听**：同一份合成语音可发送到虚拟麦克风，也可同时在耳机播放。关闭试听不会停止发送。
+- **同时收发**：监听对方声音时，也能输入文字并输出自己的合成语音。
 
-```text
-听懂：目标应用声音 → 流式语音识别 → 短句翻译 → 双语字幕 / 悬浮窗
-表达：输入文字 → 可选翻译 → 流式语音合成 → 虚拟音频设备 → Discord 等应用
-扩展表达：真实麦克风 → 语音识别 → 翻译 → 语音合成 → 同一输出链路
-```
+![两条工作流：应用声音经识别和翻译成为字幕；输入文字经可选翻译和语音合成进入聊天软件](docs/assets/audio-workflows.svg)
 
-第一版优先打通“听懂”和“文字表达”；麦克风语音翻译作为随后增量。这里是待评审的默认顺序，不代表用户已确认优先级。
+当前表达入口为**文字输入**；实体麦克风的语音识别、翻译后自动代说尚未实现。
 
-## 功能范围
+## 快速开始
 
-| 能力 | 第一版计划 | 边界 |
-| --- | --- | --- |
-| 系统声音识别 | 选择目标应用，识别其播放声音 | 首测 Discord 与一个浏览器；无法承诺所有应用均兼容 |
-| 翻译字幕 | 显示原文和目标语言译文 | 默认手动选择源语言和目标语言；先验收中英双向 |
-| 悬浮字幕 | 置顶、透明度、字号、拖动、可退出的鼠标穿透 | 全屏和多显示器行为需实机验证 |
-| 文字转语音 | 输入、可选翻译、发送、试听、停止 | 试听和发送为明确分开的动作 |
-| 虚拟麦克风 | 输出到用户安装的虚拟音频设备 | 原型优先 BlackHole 2ch；不自研或捆绑驱动 |
-| 服务设置 | ASR、翻译、TTS 服务及凭据配置 | 首版采用云端服务；本地 ASR 保留接口与评测计划 |
-| 麦克风翻译 | 核心链路稳定后加入 | 不作为首个端到端原型的阻塞项 |
-| Windows | 保留接口与未来适配计划 | 当前不承诺 Windows 成品可用 |
+### 1. 从源码启动
 
-第一版不包含：声纹克隆、自动代答、自研音频驱动、账号计费系统、完整离线模型管理、商店上架、承诺零延迟的同声传译。
-
-## 技术栈
-
-- **TypeScript + React**：主界面、设置、双语字幕与悬浮窗。
-- **Tauri 2 + Rust**：桌面宿主、音频缓冲、会话状态、服务调用与配置管理。
-- **少量 Swift / Objective-C 桥接**：macOS Core Audio taps、设备与权限相关能力；以实际构建验证决定桥接语言和实现细节。
-- **云端流式 ASR + 文本翻译服务 + MiniMax TTS 候选**：通过独立适配器接入，不把供应商绑定到音频核心。
-
-macOS 原型的建议最低版本为 **14.2**，首测 Apple Silicon；Intel 支持需独立验证。采用 Core Audio taps 的依据及限制见[音频设计](docs/03-macos-audio.md)。
-
-## 阅读与评审
-
-完整入口：[文档目录](docs/README.md)。建议依次阅读：
-
-1. [需求、范围与验收](docs/01-requirements.md)：产品要做什么，第一版做到哪一步。
-2. [总体架构与接口](docs/02-architecture.md)：模块边界、数据契约、会话与取消行为。
-3. [macOS 音频与设备路由](docs/03-macos-audio.md)：采集、权限、虚拟麦克风与防回环。
-4. [AI 流水线、延迟与费用](docs/04-ai-pipeline.md)：模型接入、短句策略、指标和预算控制。
-5. [界面与交互](docs/05-product-interaction.md)：页面、操作流程、可恢复错误。
-6. [开发阶段与 Mac 验证计划](docs/06-development-validation.md)：Windows 能验证什么，Mac 必须验证什么。
-7. [决策与待确认项](docs/07-decisions.md)：已确认约束、推荐方案、未决问题。
-
-## 运行与开发状态
-
-需要 Node.js 22.12+（建议 24）、Rust stable 1.96+；桌面开发还需对应平台的 Tauri 前置依赖。macOS 需 Apple Command Line Tools，Windows 需 Microsoft C++ Build Tools 与 WebView2。
+macOS 需要 **14.2+**、Apple Command Line Tools、Node.js **22.12+**（项目 CI 使用 24）和 Rust stable **1.96+**。当前优先验证 Apple Silicon，Intel 尚未单独验收。
 
 ```sh
+git clone https://github.com/Zhiruosama/VoxBridge.git
+cd VoxBridge
 npm ci
-npm start         # 启动桌面开发应用，按当前开发机平台运行
+
+# macOS：先生成 Tauri 所需的驱动安装包资源，此步骤不会安装驱动
+bash native/macos/virtual-mic/build.sh
+
+npm start
 ```
 
-在 Mac 上构建应用及安装镜像：
+`npm start` 启动桌面开发应用。正式打包后的应用内嵌前端资源，使用时不依赖浏览器或开发服务器。
+
+### 2. 配置模型服务
+
+打开设置，分别在“语音识别”“文字翻译”“语音合成”中新增服务配置，填写地址、模型和 API Key。可以从内置预设开始，也可以编辑兼容服务。
+
+| 阶段     | 已接入的协议 / 服务                                          | 用途                           |
+| -------- | ------------------------------------------------------------ | ------------------------------ |
+| 语音识别 | Qwen 实时 WebSocket、Qwen HTTP 短音频                        | 将应用声音转成原文             |
+| 文字翻译 | OpenAI-compatible Chat Completions，内置 DeepSeek Flash 预设 | 将字幕或输入文字翻译为目标语言 |
+| 语音合成 | MiniMax WebSocket、OpenAI-compatible Speech                  | 将原文或译文合成为语音         |
+
+MiniMax 支持 PCM 流式播放；OpenAI-compatible Speech 当前完整接收后播放。兼容性取决于接口协议与能力，不是填写任意 API Key 就能通用。详见[服务配置与兼容边界](docs/08-provider-configuration.md)。
+
+只看字幕时，配置语音识别与翻译即可；要输出合成语音，再配置语音合成和音频设备。云端调用可能产生供应商费用。
+
+### 3. 开始监听
+
+1. 让目标应用播放声音，在工作台选择该应用；未出现时点击“刷新应用”。
+2. 设置听取语言与字幕语言，点击“开始监听”。
+3. 首次使用时，按 macOS 提示授予所需的系统音频录制权限。
+4. 原文与译文会显示在字幕区；点击“悬浮字幕”可放到其他窗口上方阅读。
+
+暂停或结束时点击“停止监听”。关闭悬浮窗不停止监听；关闭主窗口会退出应用并停止任务，黄色窗口按钮用于最小化。
+
+## 接入 Discord
+
+VoxBridge 虚拟麦克风把**合成语音**交给聊天软件，不会自动转发实体麦克风的声音。
+
+1. 在 **设置 → 常规 → 音频**点击“安装虚拟麦克风”，完成系统安装器步骤。驱动安装需要管理员授权，会短暂中断系统音频，请先结束通话。
+2. 安装后刷新设备，将**发送设备**设为 **VoxBridge**，将**试听设备**设为耳机，并保存。
+3. 刷新 Discord 网页，在“语音和视频”中将麦克风设为 **VoxBridge (Virtual)**，扬声器仍使用耳机。`(Virtual)` 是 Discord 的设备类型标注。
+4. 调试时先选“**工作室**”输入配置，排除降噪、回音抵消对合成语音的影响，再打开“麦克风调试”测试。
+5. 在 VoxBridge 输入文字并发送。输入框的**耳机图标**控制本地试听；使用 Discord 调试回放时可先关闭它，避免重复听到两路声音。
+
+> **发送设备决定对方收到什么，试听设备决定自己听到什么。** 如果发送设备选成耳机，声音只会在本地播放，不会进入 VoxBridge 虚拟麦克风。
+
+同一份合成结果用于发送与试听，切换试听不会重新请求合成。正式通话前请关闭 Discord 的麦克风调试。
+
+设备未出现时，先刷新设备列表；仍未刷新可完全退出并重新打开 Chrome。驱动安装、卸载、升级备份和诊断见[虚拟麦克风说明](native/macos/virtual-mic/README.md)。
+
+### 当前兼容性
+
+| 项目                       | 当前状态                                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------- |
+| macOS 应用声音 → 双语字幕  | 已做受控音源闭环与应用监听验证，实际效果受声音、模型和网络影响                                      |
+| VoxBridge → Discord 网页版 | 已验证设备名称、实际语音输入与调试回放；工作室模式改善断续，轻微失真仍待排查                        |
+| QQ for macOS               | 重启后仍未列出虚拟设备，暂缓处理，跟踪 [issue #1](https://github.com/Zhiruosama/VoxBridge/issues/1) |
+| Windows                    | 构建与自动化检查覆盖，应用声音采集与虚拟麦克风尚未实现                                              |
+| 分发与兼容                 | 当前为本机 ad-hoc 签名构建；发布签名、公证、Intel、全屏 / 多屏和长期稳定性仍需独立验收              |
+
+不承诺所有聊天软件兼容，也不将一次成功回放等同于音质或延迟全面验收。当前实测记录见[虚拟麦克风与试听](docs/13-virtual-microphone-and-monitoring.md)。
+
+## 输入与密钥
+
+- **Enter**：默认翻译后输出语音，可在常规设置调整。
+- **Shift + Enter**：换行。
+- **翻译按钮**：只翻译，结果进入上方字幕区。
+- **原文 / 译文**：选择要合成的内容；播放期间可停止当前任务。
+
+手动输入的 API Key 通过“**本次使用**”存入当前应用会话，退出后清除。需要复用时可以选择“**保存为模板**”；模板只在设置中显式解锁，整个应用会话最多尝试一次系统授权。空白配置不会自动切换到已保存模板，普通配置修改不触发凭据读取。
+
+监听的音频会发送到所选识别服务，识别文本会发送到翻译服务，待合成的文字会发送到语音服务。常规运行不自动将原始音频或字幕保存到磁盘；明确执行的开发录音诊断除外。详见[会话密钥与模板](docs/validation/2026-10-23-session-templates.md)。
+
+## 开发与验证
+
+技术栈为 **React + TypeScript、Tauri 2 + Rust、macOS Core Audio**。虚拟麦克风采用 AudioServerPlugIn，基于 Apple 的 MIT 示例改造；驱动许可与来源见[说明](native/macos/virtual-mic/README.md)。
 
 ```sh
+# 前端检查与构建
+npm run format:check
+npm test
+npm run build
+
+# macOS：干净检出后，先生成资源并运行驱动回环 / HAL 接口测试
+bash native/macos/virtual-mic/build.sh
+
+# Rust 检查
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo test --manifest-path src-tauri/Cargo.toml --locked
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+
+# 打包 macOS 应用；自动生成并嵌入驱动安装包
+npm run desktop:build -- --bundles app
+
+# 构建 .app 与 .dmg
 npm run desktop:build:mac
 ```
 
-输出位于 `src-tauri/target/release/bundle/`。2026-10-23 已在 Apple Silicon Mac 完成本地 ad-hoc 签名 `.app` 构建及严格签名校验，桌面主窗 / 浮窗已验证受控英文双语字幕及目标退出自动停止；`.dmg`、发布证书签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
+产物位于 `src-tauri/target/release/bundle/`。`.app` 已在本机构建验证；`.dmg` 命令可用，但发行镜像尚未单独验收。真实服务、付费调用和设备测试默认忽略，需显式执行；常规 CI 不会使用开发者密钥或代替真实通话验收。
 
-浏览器预览可以体验布局和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；设置中的“新增配置”提供 DeepSeek V4.1 Flash 和 MiniMax Speech 2.8 国内服务预设，模型与音色均可编辑。
+`npm run dev` 仅启动界面预览，适合检查布局和普通配置；密钥、真实服务调用与音频设备操作需要桌面版。更多平台依赖、原生探针和历史记录见[开发指南](docs/09-development.md)。
 
-```sh
-npm test
-npm run build
-cargo test --manifest-path src-tauri/Cargo.toml --locked
-```
+## 文档
 
-历史 Windows 验证：前端 9 项测试、Rust 18 项自动测试通过。2026-10-23 Mac 最新验证：前端 65 项测试、Rust 50 项默认测试、格式、严格 Clippy、前端生产构建和 `.app` 构建通过；9 项手动 / 辅助测试默认忽略，其中本轮显式运行了受控音源闭环和 20 次采集启停测试。真实服务测试单独手动运行，不进入默认 CI。真实联调结果见 [2026-10-23 服务验证](docs/validation/2026-10-23-live-providers.md)，不代表实际播放或 Mac 路由通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
-
-开发清单：[TODO.md](TODO.md)。详细启动、验证与限制：[开发指南](docs/09-development.md)。暂无可分发安装包。
-
-## 评审补充：模型配置与界面方向
-
-首轮方案已获用户认可，具体服务和实机表现仍待验证。ASR、翻译、TTS 分别配置服务、模型、地址及凭据；翻译优先支持 OpenAI-compatible Chat Completions。相同协议和能力的服务可通过配置更换；不同的流式音频协议仍需对应适配器，不能只凭 API Key 外形判断兼容。详见[模型服务配置与兼容边界](docs/08-provider-configuration.md)。
-
-前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流和底部输入区；无宣传口号、中央引导海报、平台标识或常驻开发状态栏。诊断收纳在设置中；固定字幕示例已移除，保存反馈使用独立圆角浮层。具体设计见[界面与交互](docs/05-product-interaction.md)。
-
-阶段性提交与推送由开发过程自行执行。下一步验收实际应用声音、GUI 权限恢复、TTS 播放 / 停止和 BlackHole 路由，再优化实时 ASR 与流式播放。
-
-密钥现采用“本次使用 / 保存为模板”：手动输入只进入本次内存；已保存密钥模板需在设置中显式解锁，整个应用会话最多一次系统授权尝试。空白配置不会自动选择已有模板。旧版密钥不会后台迁移，详见[会话与模板说明](docs/validation/2026-10-23-session-templates.md)。
+| 入口                                                             | 内容                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| [文档目录](docs/README.md)                                       | 产品设计、架构与专项说明；部分为早期方案，请结合最新记录阅读 |
+| [配置与协议](docs/08-provider-configuration.md)                  | 服务可替换范围和接口约束                                     |
+| [实时字幕优化记录](docs/12-streamvox-optimization-progress.md)   | 短句、翻译上下文、恢复与诊断进展                             |
+| [虚拟麦克风与试听](docs/13-virtual-microphone-and-monitoring.md) | 当前设备路由、Discord 实测与剩余问题                         |
+| [开发清单](TODO.md)                                              | 后续实现与验收事项                                           |
+| [问题反馈](https://github.com/Zhiruosama/VoxBridge/issues)       | 缺陷、兼容性反馈与功能讨论                                   |
