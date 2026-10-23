@@ -44,6 +44,8 @@ final class State: @unchecked Sendable {
   var nonzero = 0
   var peak: Float = 0
   var energy: Double = 0
+  var capture = [Float](
+    repeating: 0, count: CommandLine.arguments.contains("--record") ? 48000 * 2 * 16 : 0)
   var firstIn: Double = 0
   var firstOut: Double = 0
   func io(
@@ -61,6 +63,7 @@ final class State: @unchecked Sendable {
       for i in 0..<Int(b.mDataByteSize) / 4 {
         let v = p[i]
         if v.isFinite {
+          if read < capture.count { capture[read] = v }
           read += 1
           energy += Double(v * v)
           peak = max(peak, abs(v))
@@ -97,3 +100,32 @@ print(
   "rate=\(rate) written=\(state.written) read=\(state.read) nonzero=\(state.nonzero) peak=\(state.peak) rms=\(sqrt(state.energy/Double(max(1,state.read)))) firstInput=\(state.firstIn) firstOutput=\(state.firstOut)"
 )
 if state.nonzero == 0 { exit(2) }
+
+if CommandLine.arguments.contains("--record") {
+  // Only this device's synthetic loopback; write after IO has stopped.
+  var wav = Data()
+  func text(_ value: String) { wav.append(contentsOf: value.utf8) }
+  func u16(_ value: UInt16) {
+    var v = value.littleEndian
+    withUnsafeBytes(of: &v) { wav.append(contentsOf: $0) }
+  }
+  func u32(_ value: UInt32) {
+    var v = value.littleEndian
+    withUnsafeBytes(of: &v) { wav.append(contentsOf: $0) }
+  }
+  let samples = Array(state.capture.prefix(min(state.read, state.capture.count)))
+  text("RIFF")
+  u32(UInt32(36 + samples.count * 4))
+  text("WAVEfmt ")
+  u32(16)
+  u16(3)
+  u16(2)
+  u32(UInt32(rate))
+  u32(UInt32(rate) * 8)
+  u16(8)
+  u16(32)
+  text("data")
+  u32(UInt32(samples.count * 4))
+  samples.withUnsafeBytes { wav.append(contentsOf: $0) }
+  try wav.write(to: URL(fileURLWithPath: "native/macos/.build/mic-speech-capture.wav"))
+}

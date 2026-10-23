@@ -40,3 +40,5 @@ https://docs-assets.developer.apple.com/published/430ad6501f6f/CreatingAnAudioSe
 2026-10-23 实机：0.1.0 已安装驱动在 Core Audio 与 AVFoundation 均显示 VoxBridge。48kHz 回环测试峰值 0.1、RMS 约 0.07049；修正应用的发送设备后，真实合成语音输入峰值约 0.29514，RMS 约 0.01693。此结果确认应用 → 虚拟设备输入链路，尚不等于 Discord 扬声器回放已验证。
 
 0.1.1 将设备、输入/输出流、数据源名称统一为 VoxBridge。Chromium 显示所选数据源名，0.1.0 因而显示 `Data Source Item 0 (Virtual)`；更新安装包并重新加载设备后才会显示新名称。UID 不变，已有设备选择可保留。QQ 7.0.2 在重启后仍未列出虚拟输入或输出，原因未确认，按用户要求暂缓；未改动系统默认输入或伪装硬件类型。
+
+`--listen --record` 可在工作区根目录运行，将仅虚拟输入的 15 秒 Float32 WAV 保存到 gitignore 的 `native/macos/.build/mic-speech-capture.wav`。缓冲在启动 IO 前分配，回调不写盘；停止 IO 后保存。只在用户明确允许的语音调试中使用。Discord 本地麦克风调试建议先用“工作室”配置排除降噪/回音抵消干扰；它不保证消除所有音质问题。QQ 兼容性后续见 [issue #1](https://github.com/Zhiruosama/VoxBridge/issues/1)。
