@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { focusMain, hideOverlay, readOverlay, stopOverlayListening } from '../bridge';
+import { focusMain, readOverlay, stopOverlayListening } from '../bridge';
 import { newerOverlay, subtitleDefaults } from '../core/overlay';
 import type { OverlaySnapshot } from '../core/types';
 
@@ -55,14 +55,20 @@ export default function SubtitleOverlay() {
         fontSize: snapshot.fontSize,
       }}
     >
-      <header className="subtitle-overlay-toolbar">
-        <span>{active ? '分段双语字幕' : '监听已停止'}</span>
+      <header className="subtitle-overlay-toolbar" data-tauri-drag-region title="拖动字幕窗口">
+        <span data-tauri-drag-region>{active ? '双语字幕' : '监听已停止'}</span>
         <div>
           {active && <button onClick={() => void action(stopOverlayListening)}>停止监听</button>}
-          <button onClick={() => void action(focusMain)}>主窗口</button>
-          <button onClick={() => void action(hideOverlay)}>隐藏</button>
+          <button onClick={() => void action(focusMain)} title="收起字幕窗并返回主窗口，继续监听">
+            返回主窗口
+          </button>
         </div>
       </header>
+      {error && (
+        <div className="subtitle-overlay-error" role="alert">
+          {error}
+        </div>
+      )}
       <main className="subtitle-overlay-content" aria-live="polite">
         {snapshot.lines.length ? (
           snapshot.lines.map((line, index) => (
@@ -74,12 +80,9 @@ export default function SubtitleOverlay() {
             </article>
           ))
         ) : (
-          <p className="subtitle-overlay-empty">
-            {active ? '等待语音识别结果…' : '在主窗口选择进程并开始监听'}
-          </p>
+          <p className="subtitle-overlay-empty">{active ? '等待字幕…' : '暂无字幕'}</p>
         )}
       </main>
-      <footer>{error || '可拖动窗口标题栏；隐藏字幕窗不会停止监听。'}</footer>
     </div>
   );
 }

@@ -141,8 +141,15 @@ pub fn focus_main(window: tauri::WebviewWindow) -> Result<(), String> {
         .get_webview_window("main")
         .ok_or("主窗口不可用。")?;
     main.show()
+        .and_then(|_| main.unminimize())
         .and_then(|_| main.set_focus())
-        .map_err(|_| "无法返回主窗口。".into())
+        .map_err(|_| "无法返回主窗口。".to_string())?;
+    if window.label() == "subtitle" {
+        window
+            .hide()
+            .map_err(|_| "主窗口已打开，但无法收起字幕窗。".to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -211,8 +218,9 @@ mod tests {
         let allowed = [
             "core:event:allow-listen",
             "core:event:allow-unlisten",
+            "core:window:allow-start-dragging",
+            "core:window:allow-internal-toggle-maximize",
             "allow-read-overlay",
-            "allow-hide-overlay",
             "allow-focus-main",
             "allow-stop-overlay-listening",
         ];

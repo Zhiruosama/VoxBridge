@@ -4,7 +4,8 @@
   "description": "Read-only local subtitle window with stop and recovery controls",
   "windows": ["subtitle"],
   "permissions": [
-    "core:event:allow-listen", "core:event:allow-unlisten", "allow-read-overlay",
-    "allow-hide-overlay", "allow-focus-main", "allow-stop-overlay-listening"
+    "core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "allow-read-overlay", "allow-focus-main", "allow-stop-overlay-listening"
   ]
 }

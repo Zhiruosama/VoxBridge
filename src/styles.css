@@ -1214,7 +1214,9 @@ input:focus {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 14px 22px 10px;
+  padding: 14px 20px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
   overflow: hidden;
 }
 .subtitle-overlay-toolbar {
@@ -1224,6 +1226,13 @@ input:focus {
   gap: 12px;
   font-size: 12px;
   color: #bfc5d1;
+  min-height: 32px;
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+}
+.subtitle-overlay-toolbar:active {
+  cursor: grabbing;
 }
 .subtitle-overlay-toolbar > div {
   display: flex;
@@ -1231,15 +1240,18 @@ input:focus {
 }
 .subtitle-overlay button {
   padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.1);
   font-size: 12px;
 }
 .subtitle-overlay button:hover {
   background: rgba(255, 255, 255, 0.22);
 }
 .subtitle-overlay-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   flex: 1;
   overflow: auto;
   padding-block: 12px;
@@ -1261,12 +1273,15 @@ input:focus {
   font-weight: 550;
 }
 .subtitle-overlay-empty {
-  color: #abb3c2;
-  font-size: 0.85em;
-}
-.subtitle-overlay footer {
-  font-size: 11px;
   color: #a8b0bf;
+  font-size: 14px;
+  text-align: center;
+  margin-block: auto !important;
+}
+.subtitle-overlay-error {
+  font-size: 11px;
+  color: #efb9b9;
+  margin-top: 10px;
 }
 
 .composer-box textarea:focus {
