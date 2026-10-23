@@ -1,5 +1,4 @@
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use serde::Serialize;
+use cpal::traits::{DeviceTrait, StreamTrait};
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -11,27 +10,9 @@ use std::{
 #[derive(Default)]
 pub struct ToneState(pub Arc<AtomicU64>);
 
-#[derive(Serialize)]
-pub struct OutputDevice {
-    id: String,
-    name: String,
-}
-
 #[tauri::command]
-pub fn list_outputs() -> Result<Vec<OutputDevice>, String> {
-    let devices = cpal::default_host()
-        .output_devices()
-        .map_err(|_| "无法枚举输出设备。")?;
-    // The diagnostic probe deliberately uses transient IDs; production routing needs platform UIDs.
-    devices
-        .map(|device| {
-            let name = device.name().map_err(|_| "无法读取设备名称。")?;
-            Ok(OutputDevice {
-                id: name.clone(),
-                name,
-            })
-        })
-        .collect()
+pub fn list_outputs() -> Result<Vec<crate::platform::OutputDevice>, String> {
+    crate::platform::list_outputs()
 }
 
 #[tauri::command]
@@ -64,18 +45,11 @@ fn fill<T: cpal::Sample + cpal::FromSample<f32>>(
 }
 
 fn play_tone(device_id: String, token: Arc<AtomicU64>, generation: u64) -> Result<(), String> {
-    let mut matches = cpal::default_host()
-        .output_devices()
-        .map_err(|_| "无法枚举设备。")?
-        .filter(|device| device.name().is_ok_and(|name| name == device_id));
-    let device = matches.next().ok_or("设备已断开，请刷新设备列表。")?;
-    if matches.next().is_some() {
-        return Err("检测到同名设备，诊断版无法区分，请先断开多余同名设备。".into());
-    }
+    let device = crate::platform::resolve_output(&device_id)?;
     let config = device
         .default_output_config()
         .map_err(|_| "设备不支持默认输出格式。")?;
-    let rate = config.sample_rate().0 as f32;
+    let rate = config.sample_rate() as f32;
     let channels = config.channels() as usize;
     let stream_config: cpal::StreamConfig = config.clone().into();
     let failed = Arc::new(std::sync::atomic::AtomicBool::new(false));

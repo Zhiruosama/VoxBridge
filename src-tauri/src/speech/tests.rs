@@ -170,8 +170,8 @@ async fn cancel_after_synthesis_while_waiting_for_playback_reports_stopped() {
 fn decode_generated_mp3_and_reject_invalid_audio_and_cancel() {
     let token = CancellationToken::new();
     let source = decode(MP3.to_vec(), &token).unwrap();
-    assert_eq!(source.channels(), 1);
-    assert_eq!(source.sample_rate(), 32_000);
+    assert_eq!(source.channels().get(), 1);
+    assert_eq!(source.sample_rate().get(), 32_000);
     let samples: Vec<f32> = source.collect();
     assert!(samples.len() >= 3200 && samples.len() < 10000);
     assert!(samples.iter().any(|sample| sample.abs() > 0.01));

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, RefreshCw, Save, Square, Volume2 } from 'lucide-react';
 import { desktop, listOutputs, stopTone, testTone } from '../bridge';
 import type { OutputDevice, RuntimeInfo, Settings } from '../core/types';
+import { outputDeviceOptions } from '../core/audio-routing';
 import Select from './Select';
 import SettingRow from './SettingRow';
 
@@ -48,13 +49,7 @@ export default function Diagnostics({
   }, [settings.audio.previewDeviceId]);
   const available = devices.some((device) => device.id === deviceId);
   const dirty = deviceId !== settings.audio.previewDeviceId;
-  const deviceOptions = [
-    ...new Map(
-      devices.map((device) => [device.id, { value: device.id, label: device.name }]),
-    ).values(),
-  ];
-  if (deviceId && !available)
-    deviceOptions.push({ value: deviceId, label: `${deviceId}（不可用）` });
+  const deviceOptions = outputDeviceOptions(devices, deviceId);
   async function play() {
     if (playingRef.current) return;
     playingRef.current = true;

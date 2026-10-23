@@ -20,9 +20,9 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tokio = { version = "1", features = ["sync", "time", "macros", "net"] }
 tokio-util = "0.7"
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
-cpal = "0.16"
+cpal = "0.17.3"
 url = "2"
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 futures-util = { version = "0.3", features = ["sink"] }
-rodio = { version = "0.21", default-features = false, features = ["playback", "mp3", "wav"] }
+rodio = { version = "0.22.2", default-features = false, features = ["playback", "mp3", "wav"] }
 hex = "0.4"

@@ -2,6 +2,7 @@ mod audio;
 mod credentials;
 #[cfg(test)]
 mod live_tests;
+mod platform;
 mod providers;
 mod speech;
 

@@ -199,7 +199,7 @@ async fn live_provider_smoke() {
                 samples.iter().any(|sample| sample.abs() > 0.001),
                 "decoded audio is silent"
             );
-            let duration = samples.len() as f64 / rate as f64 / channels as f64;
+            let duration = samples.len() as f64 / rate.get() as f64 / channels.get() as f64;
             println!(
                 "TTS: {} ms | {} bytes | {} Hz | {} channels | {:.3} seconds | non-silent",
                 started.elapsed().as_millis(),

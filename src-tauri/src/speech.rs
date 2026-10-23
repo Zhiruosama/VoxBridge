@@ -1,7 +1,6 @@
 //! Bounded, buffered TTS prototype. No audio or credentials are written to disk.
-use cpal::traits::{DeviceTrait, HostTrait};
 use futures_util::{SinkExt, StreamExt};
-use rodio::{buffer::SamplesBuffer, Decoder, OutputStreamBuilder, Sink, Source};
+use rodio::{buffer::SamplesBuffer, Decoder, DeviceSinkBuilder, Player, Source};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -402,10 +401,10 @@ pub(crate) fn decode(audio: Vec<u8>, token: &CancellationToken) -> Result<Sample
         .map_err(|_| "无法解码语音，服务必须返回 MP3 或 WAV。")?;
     let channels = decoder.channels();
     let rate = decoder.sample_rate();
-    if !(1..=2).contains(&channels) || !(8000..=96000).contains(&rate) {
+    if !(1..=2).contains(&channels.get()) || !(8000..=96000).contains(&rate.get()) {
         return Err("语音采样格式不受支持。".into());
     }
-    let limit = (rate as usize * channels as usize * 120).min(12_000_000);
+    let limit = (rate.get() as usize * channels.get() as usize * 120).min(12_000_000);
     let mut samples = Vec::new();
     for sample in &mut decoder {
         if samples.len() % 4096 == 0 && token.is_cancelled() {
@@ -437,16 +436,9 @@ fn playback(
     // The output stream stays on this blocking thread, including on macOS where it is !Send.
     let failed = Arc::new(AtomicBool::new(false));
     let setup = (|| {
-        let mut devices = cpal::default_host()
-            .output_devices()
-            .map_err(|_| "无法枚举音频设备。")?
-            .filter(|device| device.name().is_ok_and(|name| name == device_id));
-        let device = devices.next().ok_or("输出设备已断开，请重新选择。")?;
-        if devices.next().is_some() {
-            return Err("存在同名设备，请断开多余设备后重试。".into());
-        }
+        let device = crate::platform::resolve_output(&device_id)?;
         let error_flag = failed.clone();
-        let stream = OutputStreamBuilder::from_device(device)
+        let stream = DeviceSinkBuilder::from_device(device)
             .map_err(|_| "无法读取设备格式。")?
             .with_error_callback(move |_| {
                 error_flag.store(true, Ordering::SeqCst);
@@ -483,7 +475,7 @@ fn playback(
     if token.is_cancelled() {
         return Err(STOPPED.into());
     }
-    let sink = Sink::connect_new(stream.mixer());
+    let sink = Player::connect_new(stream.mixer());
     sink.append(source);
     progress(&channel, &request_id, "playing");
     let started = Instant::now();

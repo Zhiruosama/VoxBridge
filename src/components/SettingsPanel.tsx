@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, Pencil, Plus, RefreshCw, Save, Trash2 } from 'luci
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { profileFor } from '../core/settings';
+import { outputDeviceOptions } from '../core/audio-routing';
 import { credentialStatus, desktop, listOutputs, removeCredential, setCredential } from '../bridge';
 import Select from './Select';
 import SettingRow from './SettingRow';
@@ -67,14 +68,7 @@ export default function SettingsPanel({
     };
   }, [section]);
   function deviceOptions(value: string) {
-    const options = [
-      ...new Map(
-        devices.map((device) => [device.id, { value: device.id, label: device.name }]),
-      ).values(),
-    ];
-    if (value && !devices.some((device) => device.id === value))
-      options.push({ value, label: `${value}（不可用）` });
-    return options;
+    return outputDeviceOptions(devices, value);
   }
   useEffect(() => {
     setDraft(settings);
