@@ -1,3 +1,4 @@
+import { captureSourceKey, captureSourceLabel } from '../core/capture-sources';
 import { useEffect, useRef, useState } from 'react';
 import { Play, RefreshCw, Square } from 'lucide-react';
 import { captureDiagnostic, listCaptureSources, stopCapture } from '../bridge';
@@ -19,7 +20,7 @@ export default function CaptureDiagnostic({ enabled }: { enabled: boolean }) {
   const stoppingRef = useRef(false);
   const mountedRef = useRef(true);
   const busy = phase !== 'idle';
-  const selected = sources.find((source) => String(source.pid) === sourceId);
+  const selected = sources.find((source) => captureSourceKey(source) === sourceId);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -103,20 +104,20 @@ export default function CaptureDiagnostic({ enabled }: { enabled: boolean }) {
           disabled={!enabled || busy || refreshing}
         >
           <RefreshCw size={14} />
-          {refreshing ? '刷新中…' : '刷新进程'}
+          {refreshing ? '刷新中…' : '刷新应用'}
         </button>
       </div>
       <div className="preference-card">
-        <SettingRow title="目标音频进程">
+        <SettingRow title="目标应用">
           <Select
-            label="目标音频进程"
+            label="目标应用"
             value={sourceId}
             onChange={setSourceId}
             disabled={!enabled || busy || refreshing}
-            placeholder="先让目标应用发声，再刷新进程"
+            placeholder="选择监听应用"
             options={sources.map((source) => ({
-              value: String(source.pid),
-              label: `${source.bundleId || '未命名音频进程'} · PID ${source.pid}`,
+              value: captureSourceKey(source),
+              label: captureSourceLabel(source),
             }))}
           />
         </SettingRow>

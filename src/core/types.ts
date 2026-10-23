@@ -93,6 +93,8 @@ export interface Transcript {
 export interface CaptureSource {
   pid: number;
   bundleId: string;
+  name?: string;
+  appScoped?: boolean;
 }
 export type ListeningEvent =
   | { type: 'recovering'; sessionId: string; attempt: number; delayMs: number; reason: string }

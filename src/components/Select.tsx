@@ -15,6 +15,8 @@ export default function Select({
   placeholder = '请选择',
   disabled = false,
   compact = false,
+  onOpenChange,
+  emptyLabel = '暂无可选项',
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -23,9 +25,16 @@ export default function Select({
   placeholder?: string;
   disabled?: boolean;
   compact?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  emptyLabel?: string;
 }) {
   return (
-    <Primitive.Root value={value} onValueChange={onChange} disabled={disabled}>
+    <Primitive.Root
+      value={value}
+      onValueChange={onChange}
+      onOpenChange={onOpenChange}
+      disabled={disabled}
+    >
       <Primitive.Trigger
         aria-label={label}
         className={`select-trigger ${compact ? 'select-compact' : ''}`}
@@ -47,6 +56,11 @@ export default function Select({
             <ChevronUp size={14} />
           </Primitive.ScrollUpButton>
           <Primitive.Viewport className="select-options">
+            {!options.length && (
+              <Primitive.Item className="select-option" value="__empty__" disabled>
+                <Primitive.ItemText>{emptyLabel}</Primitive.ItemText>
+              </Primitive.Item>
+            )}
             {options.map((option) => (
               <Primitive.Item className="select-option" value={option.value} key={option.value}>
                 <Primitive.ItemText>{option.label}</Primitive.ItemText>

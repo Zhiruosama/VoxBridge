@@ -5,6 +5,12 @@ fn select_source(
     original: &CaptureSource,
     candidates: Vec<CaptureSource>,
 ) -> Result<CaptureSource, String> {
+    if original.app_scoped {
+        return candidates
+            .into_iter()
+            .find(|source| source.app_scoped && source.bundle_id == original.bundle_id)
+            .ok_or_else(|| "正在等待目标应用恢复声音进程。".into());
+    }
     if let Some(source) = candidates
         .iter()
         .find(|s| s.pid == original.pid && s.bundle_id == original.bundle_id)
@@ -46,10 +52,16 @@ pub(super) async fn run(
                     return Ok(());
                 }
                 if generation > 0 {
-                    let candidates =
-                        tauri::async_runtime::spawn_blocking(super::super::native::sources)
-                            .await
-                            .map_err(|_| "读取音频进程失败。".to_string())??;
+                    let app_scoped = attempt.source.app_scoped;
+                    let candidates = tauri::async_runtime::spawn_blocking(move || {
+                        if app_scoped {
+                            super::super::native::sources()
+                        } else {
+                            super::super::native::process_sources()
+                        }
+                    })
+                    .await
+                    .map_err(|_| "读取音频进程失败。".to_string())??;
                     attempt.source = select_source(&attempt.source, candidates)?;
                     if token.is_cancelled() {
                         return Ok(());
@@ -104,8 +116,26 @@ mod tests {
         CaptureSource {
             pid,
             bundle_id: bundle.into(),
+            name: String::new(),
+            app_scoped: false,
         }
     }
+    #[test]
+    fn app_recovery_tracks_bundle_not_pid_and_does_not_cross_scope() {
+        let mut original = source(1, "chrome");
+        original.app_scoped = true;
+        let mut replacement = source(2, "chrome");
+        replacement.app_scoped = true;
+        assert_eq!(
+            select_source(&original, vec![source(1, "other"), replacement])
+                .unwrap()
+                .pid,
+            2
+        );
+        assert!(select_source(&original, vec![source(1, "chrome")]).is_err());
+        assert!(select_source(&original, vec![source(1, "other")]).is_err());
+    }
+
     #[test]
     fn recovery_requires_exact_identity_or_unique_bundle() {
         assert_eq!(

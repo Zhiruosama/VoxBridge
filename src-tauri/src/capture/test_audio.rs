@@ -52,6 +52,8 @@ impl SyntheticPlayer {
             source: CaptureSource {
                 pid: child.id() as i32,
                 bundle_id: String::new(),
+                name: String::new(),
+                app_scoped: false,
             },
             child,
             replies,
@@ -59,7 +61,7 @@ impl SyntheticPlayer {
         player.wait("SYNTHETIC_READY");
         let started = Instant::now();
         loop {
-            if let Some(source) = native::sources()
+            if let Some(source) = native::process_sources()
                 .unwrap()
                 .into_iter()
                 .find(|s| s.pid == player.source.pid)

@@ -54,6 +54,7 @@ import {
   translate,
 } from './bridge';
 
+import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
 import { useTextSelection } from './hooks/useTextSelection';
 
 const languages = ['英语', '简体中文', '日语', '韩语', '西班牙语'];
@@ -209,6 +210,10 @@ export default function App() {
     }
   }
 
+  useEffect(() => {
+    if (desktop && runtime?.platform === 'macos') void refreshCaptureSources();
+  }, [runtime?.platform]);
+
   function receiveListening(event: ListeningEvent) {
     if (listeningRef.current !== event.sessionId || listenStoppingRef.current) return;
     if (!listenEpochRef.current.accept(event)) return;
@@ -225,9 +230,9 @@ export default function App() {
       captureSignalRef.current = new CaptureSignalMonitor();
       setSession(discardUnfinished);
     } else if (event.type === 'sourceChanged') {
-      setCaptureSourceId(String(event.source.pid));
+      setCaptureSourceId(captureSourceKey(event.source));
       setCaptureSources((sources) => [
-        ...sources.filter((source) => source.pid !== event.source.pid),
+        ...sources.filter((source) => captureSourceKey(source) !== captureSourceKey(event.source)),
         event.source,
       ]);
     } else if (event.phase === 'running') {
@@ -240,7 +245,7 @@ export default function App() {
 
   async function beginListening() {
     if (listeningRef.current) return;
-    const source = captureSources.find((item) => String(item.pid) === captureSourceId);
+    const source = captureSources.find((item) => captureSourceKey(item) === captureSourceId);
     const asrProfile = profileFor(settings, 'asr');
     const invalid = validateProfile(asrProfile) || validateProfile(translationProfile);
     if (
@@ -248,7 +253,7 @@ export default function App() {
       invalid ||
       !['qwen_chat_asr', 'qwen_dashscope_asr'].includes(asrProfile.adapter)
     ) {
-      setListenError(invalid || '请刷新并选择目标音频进程，配置语音识别与文字翻译服务。');
+      setListenError(invalid || '请刷新并选择监听应用，配置语音识别与文字翻译服务。');
       return;
     }
     const id = crypto.randomUUID();
@@ -534,22 +539,28 @@ export default function App() {
             <>
               <div className="workspace-toolbar">
                 <Select
-                  label="目标应用音频进程"
+                  label="监听应用"
                   value={captureSourceId}
                   onChange={setCaptureSourceId}
                   disabled={
                     listening || refreshingSources || !desktop || runtime?.platform !== 'macos'
                   }
-                  placeholder="选择音频进程"
+                  placeholder="选择监听应用"
+                  onOpenChange={(open) => {
+                    if (open) void refreshCaptureSources();
+                  }}
+                  emptyLabel={
+                    refreshingSources ? '正在读取应用…' : '没有可监听的应用，请先打开应用'
+                  }
                   compact
                   options={[
                     ...captureSources.map((source) => ({
-                      value: String(source.pid),
-                      label: `${source.bundleId || '音频进程'} · PID ${source.pid}`,
+                      value: captureSourceKey(source),
+                      label: captureSourceLabel(source),
                     })),
                     ...(captureSourceId &&
-                    !captureSources.some((source) => String(source.pid) === captureSourceId)
-                      ? [{ value: captureSourceId, label: '原进程已不可用，请重新选择' }]
+                    !captureSources.some((source) => captureSourceKey(source) === captureSourceId)
+                      ? [{ value: captureSourceId, label: '应用已退出，请重新选择' }]
                       : []),
                   ]}
                 />
@@ -560,7 +571,7 @@ export default function App() {
                   }
                   onClick={() => void refreshCaptureSources()}
                 >
-                  {refreshingSources ? '刷新中…' : '刷新进程'}
+                  {refreshingSources ? '刷新中…' : '刷新应用'}
                 </button>
                 <div className="language-pair">
                   <Select

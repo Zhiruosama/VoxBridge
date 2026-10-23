@@ -122,7 +122,7 @@ export default function ListeningStatus({
               </div>
             </dl>
           ) : (
-            <p>正在连接音频进程，请留意系统权限提示。</p>
+            <p>正在连接应用声音，请留意系统权限提示。</p>
           )}
           {phase === 'running' && health !== 'active' && (
             <p className="signal-explanation">{captureHealthMessage(health)}</p>
@@ -135,7 +135,7 @@ export default function ListeningStatus({
         summary={<Info size={15} aria-hidden="true" />}
       >
         <h3>关于监听</h3>
-        <p>先让目标应用发声，再刷新并选择音频进程。</p>
+        <p>选择要监听的应用，例如 Chrome 或微信；播放声音后开始识别。</p>
         <p>监听会调用所选的语音识别与翻译服务，可能产生费用。</p>
         <p>
           监听期间可同时输入文字并发送语音，翻译方向与字幕相反。请将聊天声音输出到耳机、发送语音输出到独立虚拟设备，避免回环。
@@ -168,7 +168,7 @@ export function ListeningNotice({
     : credential
       ? '需要配置服务密钥'
       : source
-        ? '音频进程已退出'
+        ? '监听应用暂不可用'
         : '监听遇到问题';
   const description = credential
     ? '请在服务设置中添加密钥后重试。'
@@ -189,7 +189,7 @@ export function ListeningNotice({
       )}
       {source && (
         <button className="notice-action" onClick={onRefresh} disabled={refreshing}>
-          {refreshing ? '刷新中…' : '刷新进程'}
+          {refreshing ? '刷新中…' : '刷新应用'}
         </button>
       )}
       <button className="icon-button notice-dismiss" aria-label="关闭监听提示" onClick={onDismiss}>

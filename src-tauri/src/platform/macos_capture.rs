@@ -1,6 +1,7 @@
 use super::CaptureSource;
 use crate::pcm::PcmWriter;
 use objc2::AnyThread;
+use objc2_app_kit::{NSApplicationActivationPolicy, NSWorkspace};
 use objc2_core_audio::*;
 use objc2_core_audio_types::{
     kAudioFormatFlagIsBigEndian, kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonInterleaved,
@@ -8,7 +9,7 @@ use objc2_core_audio_types::{
     AudioTimeStamp,
 };
 use objc2_core_foundation::{CFArray, CFBoolean, CFDictionary, CFRetained, CFString, CFType};
-use objc2_foundation::{NSArray, NSNumber, NSString, NSUUID};
+use objc2_foundation::{NSArray, NSBundle, NSNumber, NSString, NSUUID};
 use std::{
     mem::size_of,
     ptr::{null, NonNull},
@@ -152,7 +153,87 @@ fn process_objects() -> Result<Vec<u32>, String> {
     Err("音频进程列表正在变化，请刷新重试。".into())
 }
 
+#[link(name = "proc")]
+unsafe extern "C" {
+    fn proc_pidpath(pid: i32, buffer: *mut std::ffi::c_void, size: u32) -> i32;
+}
+
+// Use the outer application bundle: Chrome's audio service runs in a nested helper app.
+fn outer_app(path: &std::path::Path) -> Option<&std::path::Path> {
+    path.ancestors()
+        .filter(|part| part.extension().is_some_and(|ext| ext == "app"))
+        .last()
+}
+
+fn application_for_pid(pid: i32) -> Option<(String, String)> {
+    let mut bytes = [0_u8; 4096];
+    // SAFETY: The fixed output buffer is writable for the supplied size; no pointer is retained.
+    let size = unsafe { proc_pidpath(pid, bytes.as_mut_ptr().cast(), bytes.len() as u32) };
+    if size <= 0 {
+        return None;
+    }
+    let end = bytes.iter().position(|byte| *byte == 0)?;
+    let path = std::str::from_utf8(&bytes[..end]).ok()?;
+    let app = outer_app(std::path::Path::new(path))?;
+    let bundle = NSBundle::bundleWithPath(&NSString::from_str(app.to_str()?))?;
+    let id = bundle.bundleIdentifier()?.to_string();
+    let name = ["CFBundleDisplayName", "CFBundleName"]
+        .into_iter()
+        .find_map(|key| {
+            bundle
+                .objectForInfoDictionaryKey(&NSString::from_str(key))?
+                .downcast::<NSString>()
+                .ok()
+                .map(|name| name.to_string())
+        })
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| {
+            app.file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        });
+    Some((id, name))
+}
+
 pub fn sources() -> Result<Vec<CaptureSource>, String> {
+    supported()?;
+    objc2::rc::autoreleasepool(|_| {
+        let own = application_for_pid(std::process::id() as i32).map(|app| app.0);
+        let mut sources = Vec::new();
+        // Include open apps even before they create an audio process.
+        for app in NSWorkspace::sharedWorkspace().runningApplications().iter() {
+            if app.activationPolicy() != NSApplicationActivationPolicy::Regular {
+                continue;
+            }
+            let pid = app.processIdentifier();
+            let Some((bundle_id, fallback)) = application_for_pid(pid) else {
+                continue;
+            };
+            if own.as_ref() == Some(&bundle_id)
+                || sources
+                    .iter()
+                    .any(|source: &CaptureSource| source.bundle_id == bundle_id)
+            {
+                continue;
+            }
+            let name = app
+                .localizedName()
+                .map(|name| name.to_string())
+                .unwrap_or(fallback);
+            sources.push(CaptureSource {
+                pid,
+                bundle_id,
+                name,
+                app_scoped: true,
+            });
+        }
+        sources.sort_by_key(|source| source.name.to_lowercase());
+        Ok(sources)
+    })
+}
+
+pub fn process_sources() -> Result<Vec<CaptureSource>, String> {
     let mut sources = Vec::new();
     for object in process_objects()? {
         let Ok(pid) = property::<i32>(object, kAudioProcessPropertyPID, 0) else {
@@ -168,28 +249,49 @@ pub fn sources() -> Result<Vec<CaptureSource>, String> {
             .iter()
             .any(|source: &CaptureSource| source.pid == pid && source.bundle_id == bundle_id)
         {
-            sources.push(CaptureSource { pid, bundle_id });
+            sources.push(CaptureSource {
+                pid,
+                bundle_id,
+                name: String::new(),
+                app_scoped: false,
+            });
         }
     }
-    sources.sort_by_key(|source| source.pid);
     Ok(sources)
 }
 
 fn matching_objects(source: &CaptureSource) -> Result<Vec<u32>, String> {
-    Ok(process_objects()?
-        .into_iter()
-        .filter(|object| {
-            property::<i32>(*object, kAudioProcessPropertyPID, 0).ok() == Some(source.pid)
-                && copied_string(*object, kAudioProcessPropertyBundleID)
-                    .ok()
-                    .as_deref()
-                    == Some(source.bundle_id.as_str())
-        })
-        .collect())
-}
-
-pub fn source_exists(source: &CaptureSource) -> bool {
-    matching_objects(source).is_ok_and(|objects| !objects.is_empty())
+    objc2::rc::autoreleasepool(|_| {
+        let mut matches = Vec::new();
+        let mut applications = std::collections::HashMap::new();
+        for object in process_objects()? {
+            let Ok(pid) = property::<i32>(object, kAudioProcessPropertyPID, 0) else {
+                continue;
+            };
+            if pid <= 0 || pid as u32 == std::process::id() {
+                continue;
+            }
+            let matched = if source.app_scoped {
+                !source.bundle_id.is_empty()
+                    && applications
+                        .entry(pid)
+                        .or_insert_with(|| application_for_pid(pid))
+                        .as_ref()
+                        .is_some_and(|app| app.0 == source.bundle_id)
+            } else {
+                pid == source.pid
+                    && copied_string(object, kAudioProcessPropertyBundleID)
+                        .ok()
+                        .as_deref()
+                        == Some(source.bundle_id.as_str())
+            };
+            if matched {
+                matches.push(object);
+            }
+        }
+        matches.sort_unstable();
+        Ok(matches)
+    })
 }
 
 fn dictionary(
@@ -306,6 +408,7 @@ unsafe extern "C-unwind" fn input_callback(
 }
 
 pub struct Capture {
+    objects: Vec<u32>,
     io_proc: AudioDeviceIOProcID,
     context: Option<Box<CallbackContext>>,
     aggregate: u32,
@@ -348,10 +451,16 @@ impl Capture {
         ensure_active(token)?;
         let objects = matching_objects(source)?;
         if objects.is_empty() {
-            return Err("目标音频进程已退出，请让目标应用播放声音后刷新。".into());
+            return Err(if source.app_scoped {
+                "目标应用暂未提供声音，请播放声音后重试。"
+            } else {
+                "目标音频进程已退出，请让目标应用播放声音后刷新。"
+            }
+            .into());
         }
         let numbers: Vec<_> = objects
-            .into_iter()
+            .iter()
+            .copied()
             .map(NSNumber::numberWithUnsignedInt)
             .collect();
         let processes = NSArray::from_retained_slice(&numbers);
@@ -369,6 +478,7 @@ impl Capture {
             description.setMuteBehavior(CATapMuteBehavior::Unmuted);
         }
         let mut capture = Self {
+            objects,
             io_proc: None,
             context: None,
             aggregate: kAudioObjectUnknown,
@@ -451,6 +561,10 @@ impl Capture {
         Ok(capture)
     }
 
+    pub fn source_current(&self, source: &CaptureSource) -> bool {
+        matching_objects(source).is_ok_and(|objects| !objects.is_empty() && objects == self.objects)
+    }
+
     pub fn failed(&self) -> bool {
         self.failed.load(Ordering::Relaxed)
     }
@@ -500,9 +614,42 @@ mod tests {
         assert!(sources
             .iter()
             .all(|source| source.pid > 0 && source.pid as u32 != std::process::id()));
+        assert!(sources.iter().all(|source| source.app_scoped
+            && !source.name.is_empty()
+            && !source.bundle_id.is_empty()));
+        let mut unique = std::collections::HashSet::new();
+        for source in &sources {
+            assert!(unique.insert(&source.bundle_id));
+            for object in matching_objects(source).unwrap() {
+                let pid = property::<i32>(object, kAudioProcessPropertyPID, 0).unwrap();
+                assert_eq!(application_for_pid(pid).unwrap().0, source.bundle_id);
+            }
+        }
         println!(
-            "Enumerated {} audio processes without creating taps or opening streams.",
+            "Chrome listed: {}; WeChat listed: {}",
+            sources.iter().any(|s| s.bundle_id == "com.google.Chrome"),
+            sources
+                .iter()
+                .any(|s| s.bundle_id == "com.tencent.xinWeChat")
+        );
+        println!(
+            "Enumerated {} applications without creating taps or opening streams.",
             sources.len()
+        );
+    }
+
+    #[test]
+    fn helpers_resolve_to_outer_app_without_prefix_matching() {
+        use std::path::Path;
+        assert_eq!(outer_app(Path::new("/Applications/Google Chrome.app/Contents/Frameworks/Helper.app/Contents/MacOS/Helper")), Some(Path::new("/Applications/Google Chrome.app")));
+        assert_eq!(
+            outer_app(Path::new("/Applications/WeChat.app/Contents/MacOS/WeChat")),
+            Some(Path::new("/Applications/WeChat.app"))
+        );
+        assert_eq!(outer_app(Path::new("/usr/bin/player")), None);
+        assert_eq!(
+            outer_app(Path::new("/tmp/app.backup/Contents/MacOS/player")),
+            None
         );
     }
 

@@ -67,7 +67,7 @@ fn capture_pcm(
             return Err("监听采集回调中断。".into());
         }
         if reported.elapsed() >= Duration::from_millis(250) {
-            if !super::super::native::source_exists(&source) {
+            if !capture.source_current(&source) {
                 return Err("目标音频进程已退出或改变，请刷新后重新监听。".into());
             }
             send(

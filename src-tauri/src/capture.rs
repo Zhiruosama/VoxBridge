@@ -20,6 +20,10 @@ mod test_audio;
 pub struct CaptureSource {
     pub pid: i32,
     pub bundle_id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub app_scoped: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -203,7 +207,7 @@ fn run_diagnostic(
                 }
             }
             if last_report.elapsed() >= Duration::from_millis(250) {
-                if !native::source_exists(source) {
+                if !capture.source_current(source) {
                     break Err("目标音频进程已退出或改变，请刷新进程列表。".into());
                 }
                 event.frames = meter.frames;
