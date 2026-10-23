@@ -4,13 +4,13 @@
 
 **最终交付为可安装的桌面应用。** macOS 输出 `.app` / `.dmg`，后续 Windows 输出安装程序。正式应用内嵌界面资源，由本机 Rust 后端运行，不需要浏览器或前端开发服务器；网页入口仅用于开发时检查界面。
 
-> 当前阶段：**工作台开发版**。可运行界面、服务配置、文字翻译，以及 MiniMax / OpenAI 兼容 TTS 的试听、指定设备输出与停止。已通过真实 DeepSeek V4.1 Flash 翻译与 MiniMax Speech 2.8 Turbo 合成 / 解码测试。TTS 先完整接收再播放；实际设备播放、听感和 Mac 路由尚未验收。Mac 目标音频进程采集诊断已接入，可显式开始 / 停止并查看本地电平；权限和非零声音采集尚未验收，已接入 Qwen HTTP 短音频 ASR 并通过 `qwen3-asr-flash` 合成语音验证；主窗口已接通目标进程 HTTP 分段 ASR 与双语字幕，需显式开始；新增可隐藏、重开及停止监听的置顶透明悬浮字幕，支持字号和背景透明度；真实声音端到端、低延迟 WebSocket 与 partial 识别仍待验收或接入。下表为完整首版计划。
+> 当前阶段：**macOS 工作台开发版**。已接入翻译、MiniMax / OpenAI 兼容 TTS、指定设备输出、HTTP 分段 ASR、双语字幕和悬浮字幕。2026-10-23 已用受控播放进程，通过真实 Core Audio 采集 → Qwen ASR → DeepSeek 翻译 → 关联字幕事件验证，并通过 20 次原生启停 / 静音 / 进程隔离检查；旧零电平测试的播放时序已修正。此结果不代表 Discord / 浏览器、GUI 权限恢复、中文准确率、BlackHole 路由或全屏浮窗已验收。TTS 仍为完整接收后播放，实时 WebSocket ASR 和增量 TTS 尚未完成。详见[Mac 音频闭环验证](docs/validation/2026-10-23-capture-loop.md)。
 
 ![工作台开发版预览](docs/assets/workspace-preview.png)
 
 ## 第一版方向
 
-先完成 macOS 版本，保留后续 Windows 适配的架构边界。当前在 Windows 开发机上整理设计和准备可跨平台验证的工作；macOS 原生采集、权限、窗口、设备路由与打包须在 Mac 上验证。计划于 **2026-10-23** 开始 Mac 实机适配，实际完成时间由验证结果决定。
+先完成 macOS 版本，保留后续 Windows 适配的架构边界。当前已在 Apple Silicon Mac 开始实机开发和验证；Windows 保留构建与测试检查，尚未接入应用声音采集。
 
 两条核心链路：
 
@@ -73,7 +73,7 @@ npm start         # 启动桌面开发应用，按当前开发机平台运行
 npm run desktop:build:mac
 ```
 
-输出位于 `src-tauri/target/release/bundle/`。2026-10-23 已在 Apple Silicon Mac 完成 `.app` 构建；`.dmg`、应用运行、发布签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
+输出位于 `src-tauri/target/release/bundle/`。2026-10-23 已在 Apple Silicon Mac 完成本地 ad-hoc 签名 `.app` 构建及严格签名校验，桌面主窗 / 浮窗已验证受控英文双语字幕及目标退出自动停止；`.dmg`、发布证书签名与公证尚待验证。`npm run dev` / `npm run build` 仅开发或构建界面资源；`npm run desktop:build` 才构建独立桌面应用。
 
 浏览器预览可以体验布局和非敏感配置；密钥保存、真实翻译与设备测试需桌面版。桌面翻译需自备兼容服务的 API 地址、模型 ID 与密钥；设置中的“新增配置”提供 DeepSeek V4.1 Flash 和 MiniMax Speech 2.8 国内服务预设，模型与音色均可编辑。
 
@@ -83,7 +83,7 @@ npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-历史 Windows 验证：前端 9 项测试、Rust 18 项自动测试通过。2026-10-23 Mac 本批验证：前端 33 项测试、Rust 20 项自动测试、严格 Clippy、前端生产构建和 `.app` 构建通过；3 项真实服务手动测试保持忽略。真实服务测试单独手动运行，不进入默认 CI。真实联调结果见 [2026-10-23 服务验证](docs/validation/2026-10-23-live-providers.md)，不代表实际播放或 Mac 路由通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
+历史 Windows 验证：前端 9 项测试、Rust 18 项自动测试通过。2026-10-23 Mac 最新验证：前端 65 项测试、Rust 50 项默认测试、格式、严格 Clippy、前端生产构建和 `.app` 构建通过；9 项手动 / 辅助测试默认忽略，其中本轮显式运行了受控音源闭环和 20 次采集启停测试。真实服务测试单独手动运行，不进入默认 CI。真实联调结果见 [2026-10-23 服务验证](docs/validation/2026-10-23-live-providers.md)，不代表实际播放或 Mac 路由通过。Mac 原生探针见 [native/macos](native/macos/README.md)。语音配置和实现边界见 [TTS 开发说明](docs/10-speech-backend.md)。
 
 开发清单：[TODO.md](TODO.md)。详细启动、验证与限制：[开发指南](docs/09-development.md)。暂无可分发安装包。
 
@@ -93,4 +93,4 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked
 
 前端按用户要求参考 Cursor Agent / Codex 的简洁工作台风格：窄侧栏、连续字幕流和底部输入区；无宣传口号、中央引导海报、平台标识或常驻开发状态栏。诊断收纳在设置中；固定字幕示例已移除，保存反馈使用独立圆角浮层。具体设计见[界面与交互](docs/05-product-interaction.md)。
 
-阶段性提交与推送由开发过程自行执行。下一步验证实际声音与停止行为、优化流式播放，并在 Mac 验证原生采集及 BlackHole 路由；ASR 协议选定后接入音频流水线。
+阶段性提交与推送由开发过程自行执行。下一步验收实际应用声音、GUI 权限恢复、TTS 播放 / 停止和 BlackHole 路由，再优化实时 ASR 与流式播放。

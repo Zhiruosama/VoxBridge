@@ -4,6 +4,7 @@ import { captureDiagnostic, listCaptureSources, stopCapture } from '../bridge';
 import type { CaptureProgress, CaptureSource } from '../core/types';
 import Select from './Select';
 import SettingRow from './SettingRow';
+import { CaptureSignalMonitor, captureHealthMessage } from '../core/capture-health';
 
 export default function CaptureDiagnostic({ enabled }: { enabled: boolean }) {
   const [sources, setSources] = useState<CaptureSource[]>([]);
@@ -12,6 +13,8 @@ export default function CaptureDiagnostic({ enabled }: { enabled: boolean }) {
   const [phase, setPhase] = useState<'idle' | 'starting' | 'running' | 'stopping'>('idle');
   const [progress, setProgress] = useState<CaptureProgress | null>(null);
   const [error, setError] = useState('');
+  const [signalMessage, setSignalMessage] = useState('');
+  const signalRef = useRef(new CaptureSignalMonitor());
   const sessionRef = useRef<string | null>(null);
   const stoppingRef = useRef(false);
   const mountedRef = useRef(true);
@@ -49,12 +52,17 @@ export default function CaptureDiagnostic({ enabled }: { enabled: boolean }) {
     stoppingRef.current = false;
     setPhase('starting');
     setProgress(null);
+    setSignalMessage('');
+    signalRef.current = new CaptureSignalMonitor();
     setError('');
     try {
       await captureDiagnostic(selected, id, (event) => {
         if (!mountedRef.current || sessionRef.current !== event.sessionId) return;
         setProgress(event);
-        if (event.phase === 'running' && !stoppingRef.current) setPhase('running');
+        if (event.phase === 'running' && !stoppingRef.current) {
+          setPhase('running');
+          setSignalMessage(captureHealthMessage(signalRef.current.update(event)));
+        }
       });
     } catch (error) {
       if (mountedRef.current && sessionRef.current === id) {
@@ -142,6 +150,7 @@ export default function CaptureDiagnostic({ enabled }: { enabled: boolean }) {
         role={error ? 'alert' : 'status'}
       >
         {error ||
+          (busy && phase === 'running' && signalMessage) ||
           (enabled
             ? '只采集选定 PID；其他子进程需单独选择。最长 60 秒，离开此页会停止。不保存、不上传声音；未接入 ASR，零电平不代表权限已通过。'
             : '应用声音采集诊断仅支持 Mac 桌面版。')}

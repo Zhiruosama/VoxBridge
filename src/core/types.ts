@@ -92,6 +92,7 @@ export type ListeningEvent =
       sessionId: string;
       phase: 'starting' | 'running' | 'stopped' | 'failed';
       sampleRate: number;
+      frames: number;
       rms: number;
       droppedFrames: number;
       droppedSegments: number;

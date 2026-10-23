@@ -32,6 +32,7 @@ pub enum ListeningEvent {
         session_id: String,
         phase: &'static str,
         sample_rate: u32,
+        frames: u64,
         rms: f64,
         dropped_frames: u64,
         dropped_segments: u64,
@@ -120,7 +121,7 @@ fn capture_segments(
     session_id: String,
     token: tokio_util::sync::CancellationToken,
     sender: tokio::sync::mpsc::Sender<QueuedSegment>,
-    channel: tauri::ipc::Channel<ListeningEvent>,
+    mut emit: impl FnMut(ListeningEvent) -> Result<(), String>,
     skipped: Arc<AtomicU64>,
 ) -> Result<(), String> {
     if token.is_cancelled() {
@@ -168,18 +169,16 @@ fn capture_segments(
             if !super::native::source_exists(&source) {
                 return Err("目标音频进程已退出或改变，请刷新后重新监听。".into());
             }
-            send(
-                &channel,
-                ListeningEvent::Progress {
-                    session_id: session_id.clone(),
-                    phase: "running",
-                    sample_rate: capture.sample_rate,
-                    rms: meter.rms(),
-                    dropped_frames: dropped.load(Ordering::Relaxed),
-                    dropped_segments: skipped.load(Ordering::Relaxed),
-                    discontinuities: pipeline.discontinuities,
-                },
-            )?;
+            emit(ListeningEvent::Progress {
+                session_id: session_id.clone(),
+                phase: "running",
+                sample_rate: capture.sample_rate,
+                frames: meter.frames,
+                rms: meter.rms(),
+                dropped_frames: dropped.load(Ordering::Relaxed),
+                dropped_segments: skipped.load(Ordering::Relaxed),
+                discontinuities: pipeline.discontinuities,
+            })?;
             reported = Instant::now();
         }
         std::thread::sleep(Duration::from_millis(10));
@@ -226,6 +225,7 @@ pub async fn start_listening(
                 session_id: request.session_id.clone(),
                 phase: "starting",
                 sample_rate: 0,
+                frames: 0,
                 rms: 0.0,
                 dropped_frames: 0,
                 dropped_segments: 0,
@@ -243,7 +243,7 @@ pub async fn start_listening(
                     id,
                     token.clone(),
                     sender,
-                    channel,
+                    |event| send(&channel, event),
                     capture_skipped,
                 )
             }))
@@ -286,6 +286,7 @@ pub async fn start_listening(
                 session_id: request.session_id,
                 phase: if result.is_ok() { "stopped" } else { "failed" },
                 sample_rate: 0,
+                frames: 0,
                 rms: 0.0,
                 dropped_frames: 0,
                 dropped_segments: skipped.load(Ordering::Relaxed),
@@ -327,6 +328,19 @@ mod tests {
         assert_eq!(value["sessionId"], "s");
         assert_eq!(value["final"], true);
         assert_eq!(value["startMs"], 100);
+        let progress = serde_json::to_value(ListeningEvent::Progress {
+            session_id: "s".into(),
+            phase: "running",
+            sample_rate: 48000,
+            frames: 12000,
+            rms: 0.1,
+            dropped_frames: 0,
+            dropped_segments: 0,
+            discontinuities: 0,
+        })
+        .unwrap();
+        assert_eq!(progress["frames"], 12000);
+        assert_eq!(progress["sampleRate"], 48000);
     }
 
     #[cfg(target_os = "macos")]
@@ -486,75 +500,68 @@ mod tests {
     #[tokio::test]
     #[ignore = "manual native capture of generated speech and paid ASR/translation; uses Keychain"]
     async fn live_synthetic_process_to_bilingual_subtitle() {
-        struct Playback(std::process::Child);
-        impl Drop for Playback {
-            fn drop(&mut self) {
-                let _ = self.0.kill();
-                let _ = self.0.wait();
-            }
-        }
-        let audio = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../native/macos/.build/capture-sample.wav");
-        let segment = tauri::async_runtime::spawn_blocking(
-            move || -> Result<crate::audio_pipeline::AudioSegment, String> {
-                let playback = Playback(
-                    std::process::Command::new("/usr/bin/afplay")
-                        .args(["-v", "0.25"])
-                        .arg(audio)
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::null())
-                        .spawn()
-                        .map_err(|_| "无法播放合成样例。")?,
-                );
-                let pid = playback.0.id() as i32;
-                let started = Instant::now();
-                let source = loop {
-                    if let Some(source) = super::super::native::sources()?
-                        .into_iter()
-                        .find(|source| source.pid == pid)
+        let mut player = super::super::test_audio::SyntheticPlayer::start();
+        let token = tokio_util::sync::CancellationToken::new();
+        let _cancel_on_drop = token.clone().drop_guard();
+        let worker_token = token.clone();
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        let (ready_sender, ready) = std::sync::mpsc::sync_channel(1);
+        let source = player.source.clone();
+        let initialized = Instant::now();
+        let worker = std::thread::spawn(move || {
+            let mut ready_sent = false;
+            let mut received = 0;
+            let result = capture_segments(
+                source,
+                "live-synthetic".into(),
+                worker_token,
+                sender,
+                |event| {
+                    if let ListeningEvent::Progress {
+                        frames,
+                        rms,
+                        dropped_frames,
+                        ..
+                    } = event
                     {
-                        break source;
-                    }
-                    if started.elapsed() > Duration::from_secs(3) {
-                        return Err("未发现合成播放进程的音频对象。".into());
-                    }
-                    std::thread::sleep(Duration::from_millis(50));
-                };
-                let token = tokio_util::sync::CancellationToken::new();
-                let (writer, mut reader, _) = crate::pcm::channel(192_000);
-                let capture = super::super::native::Capture::start(&source, writer, &token)?;
-                let mut pipeline = crate::audio_pipeline::AudioPipeline::new(capture.sample_rate)?;
-                let deadline = Instant::now();
-                let mut result = None;
-                let mut received = 0_u64;
-                let mut peak = 0.0_f32;
-                while deadline.elapsed() < Duration::from_secs(10) {
-                    if capture.failed() {
-                        return Err("合成播放进程采集失败。".into());
-                    }
-                    while let Ok(frame) = reader.pop() {
-                        received += 1;
-                        peak = peak.max(frame.samples[0].abs()).max(frame.samples[1].abs());
-                        if let Some(segment) = pipeline.consume(frame) {
-                            result = Some(segment);
-                            break;
+                        received = frames;
+                        assert_eq!(dropped_frames, 0);
+                        if !ready_sent && frames > 0 {
+                            assert_eq!(rms, 0.0, "fixture must start silent");
+                            ready_sender.try_send(()).unwrap();
+                            ready_sent = true;
                         }
                     }
-                    if result.is_some() {
-                        break;
-                    }
-                    std::thread::sleep(Duration::from_millis(10));
-                }
-                println!("SYNTHETIC_CAPTURE_METRICS: {received} frames | peak {peak:.5}");
-                token.cancel();
-                drop(capture);
-                drop(playback);
-                result.ok_or("合成样例未采集到有声段；检查系统音频录制权限。".into())
-            },
-        )
-        .await
-        .expect("原生合成采集验证异常")
-        .expect("native synthetic capture");
+                    Ok(())
+                },
+                Arc::new(AtomicU64::new(0)),
+            );
+            println!("SYNTHETIC_CAPTURE_METRICS: {received} frames delivered through production segment queue");
+            result
+        });
+        // Always cancel and join before unwrapping so failures do not leave a tap running.
+        let captured = async {
+            ready
+                .recv_timeout(Duration::from_secs(20))
+                .map_err(|_| "capture not ready")?;
+            println!(
+                "SYNTHETIC_INITIALIZED: {} ms",
+                initialized.elapsed().as_millis()
+            );
+            player.command("speech");
+            tokio::time::timeout(Duration::from_secs(15), receiver.recv())
+                .await
+                .map_err(|_| "synthetic speech segment timed out")?
+                .ok_or("capture worker exited")
+        }
+        .await;
+        token.cancel();
+        worker
+            .join()
+            .expect("native capture worker")
+            .expect("production capture pipeline");
+        drop(player);
+        let segment = captured.expect("native synthetic capture").audio;
         let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"provider-qwen-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":"https://maas.qianwenaiapi.com/compatible-mode/v1","modelId":"qwen3-asr-flash"})).unwrap();
         let translations = crate::providers::Requests::default();
         let translation_profile = serde_json::from_value(serde_json::json!({"id":"provider-deepseek-flash","stage":"translation","adapter":"openai_chat_completions","baseUrl":"https://api.deepseek.com","modelId":"deepseek-flash","thinking":"disabled"})).unwrap();
@@ -587,6 +594,27 @@ mod tests {
             2,
             "synthetic capture must produce transcript and translation"
         );
+        let transcript = serde_json::to_value(&events[0]).unwrap();
+        let translated = serde_json::to_value(&events[1]).unwrap();
+        println!(
+            "SYNTHETIC_SUBTITLE: {} | {}",
+            transcript["text"], translated["text"]
+        );
+        assert!(
+            transcript["text"]
+                .as_str()
+                .unwrap()
+                .to_lowercase()
+                .contains("meeting"),
+            "synthetic meeting sentence must be recognized"
+        );
+        let chinese = translated["text"].as_str().unwrap();
+        assert!(
+            (chinese.contains("会议") || chinese.contains("开会"))
+                && (chinese.contains('十') || chinese.contains("10")),
+            "meeting time must be translated into Chinese"
+        );
+        assert_eq!(transcript["segmentId"], translated["segmentId"]);
         println!(
             "SYNTHETIC_CAPTURE_TO_SUBTITLE: passed; selected process only, no recording stored."
         );

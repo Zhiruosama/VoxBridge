@@ -12,6 +12,8 @@ use tokio_util::sync::CancellationToken;
 mod native;
 
 pub(crate) mod listening;
+#[cfg(all(test, target_os = "macos"))]
+mod test_audio;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

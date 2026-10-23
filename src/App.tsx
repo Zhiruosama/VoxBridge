@@ -21,6 +21,7 @@ import { defaults, loadSettings, profileFor, saveSettings, validateProfile } fro
 import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
 import { applyTranscript, applyTranslation } from './core/session';
 import { overlaySnapshot } from './core/overlay';
+import { CaptureSignalMonitor, captureHealthMessage } from './core/capture-health';
 import { ComposerController, composerKeyAction, type ComposerPhase } from './core/composer';
 import { listen } from '@tauri-apps/api/event';
 import {
@@ -93,7 +94,7 @@ export default function App() {
   const overlayVersionRef = useRef(0);
   const [overlayReady, setOverlayReady] = useState(!desktop);
   const [overlayError, setOverlayError] = useState('');
-  const zeroLevelSinceRef = useRef<number | null>(null);
+  const captureSignalRef = useRef(new CaptureSignalMonitor());
 
   useEffect(() => {
     if (!desktop) return;
@@ -196,14 +197,10 @@ export default function App() {
       );
     } else if (event.phase === 'running') {
       setListenPhase('running');
-      if (event.rms <= 0.00001) zeroLevelSinceRef.current ??= Date.now();
-      else zeroLevelSinceRef.current = null;
-      const noAudio =
-        zeroLevelSinceRef.current !== null && Date.now() - zeroLevelSinceRef.current > 3000;
+      const health = captureSignalRef.current.update(event);
       setListenStatus(
-        noAudio
-          ? '持续未收到有效声音：请确认目标进程正在发声，并在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中授权 VoxBridge，授权后重启；零样本不能证明权限已通过。'
-          : `分段监听 · RMS ${event.rms.toFixed(4)} · 丢帧 ${event.droppedFrames} · 跳过 ${event.droppedSegments} 段 · 音频断点 ${event.discontinuities}`,
+        captureHealthMessage(health) ||
+          `分段监听 · RMS ${event.rms.toFixed(4)} · ${event.frames} 帧 · 丢帧 ${event.droppedFrames} · 跳过 ${event.droppedSegments} 段 · 音频断点 ${event.discontinuities}`,
       );
     }
   }
@@ -220,7 +217,7 @@ export default function App() {
     const id = crypto.randomUUID();
     listeningRef.current = id;
     listenStoppingRef.current = false;
-    zeroLevelSinceRef.current = null;
+    captureSignalRef.current = new CaptureSignalMonitor();
     setListenPhase('starting');
     setListenStatus('正在准备采集，请留意系统权限提示…');
     setListenError('');
