@@ -17,11 +17,15 @@ import SettingsPanel, { type SettingsSection } from './components/SettingsPanel'
 import Diagnostics from './components/Diagnostics';
 import Select from './components/Select';
 import Toast from './components/Toast';
+import ListeningStatus, {
+  ListeningNotice,
+  type ListeningProgress,
+} from './components/ListeningStatus';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
 import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
 import { applyTranscript, applyTranslation } from './core/session';
 import { overlaySnapshot } from './core/overlay';
-import { CaptureSignalMonitor, captureHealthMessage } from './core/capture-health';
+import { CaptureSignalMonitor, type CaptureHealth } from './core/capture-health';
 import { ComposerController, composerKeyAction, type ComposerPhase } from './core/composer';
 import { listen } from '@tauri-apps/api/event';
 import {
@@ -72,7 +76,8 @@ export default function App() {
   const [listenPhase, setListenPhase] = useState<'idle' | 'starting' | 'running' | 'stopping'>(
     'idle',
   );
-  const [listenStatus, setListenStatus] = useState('');
+  const [listenProgress, setListenProgress] = useState<ListeningProgress | null>(null);
+  const [listenHealth, setListenHealth] = useState<CaptureHealth>('waiting');
   const [listenError, setListenError] = useState('');
   const listeningRef = useRef<string | null>(null);
   const listenStoppingRef = useRef(false);
@@ -197,11 +202,8 @@ export default function App() {
       );
     } else if (event.phase === 'running') {
       setListenPhase('running');
-      const health = captureSignalRef.current.update(event);
-      setListenStatus(
-        captureHealthMessage(health) ||
-          `分段监听 · RMS ${event.rms.toFixed(4)} · ${event.frames} 帧 · 丢帧 ${event.droppedFrames} · 跳过 ${event.droppedSegments} 段 · 音频断点 ${event.discontinuities}`,
-      );
+      setListenHealth(captureSignalRef.current.update(event));
+      setListenProgress(event);
     }
   }
 
@@ -219,7 +221,8 @@ export default function App() {
     listenStoppingRef.current = false;
     captureSignalRef.current = new CaptureSignalMonitor();
     setListenPhase('starting');
-    setListenStatus('正在准备采集，请留意系统权限提示…');
+    setListenProgress(null);
+    setListenHealth('waiting');
     setListenError('');
     setSession({ id, segments: [] });
     try {
@@ -246,7 +249,6 @@ export default function App() {
         listeningRef.current = null;
         setSession((state) => ({ ...state, id: null }));
         setListenPhase('idle');
-        setListenStatus('监听已停止，字幕仅保留在当前窗口。');
       }
     }
   }
@@ -257,7 +259,6 @@ export default function App() {
     listenStoppingRef.current = true;
     setListenPhase('stopping');
     setSession((state) => ({ ...state, id: null }));
-    setListenStatus('正在停止采集与网络请求…');
     try {
       await stopCapture(id);
     } catch (error) {
@@ -536,26 +537,23 @@ export default function App() {
                     compact
                   />
                 </div>
+                <ListeningStatus
+                  phase={listenPhase}
+                  health={listenHealth}
+                  progress={listenProgress}
+                />
               </div>
-              <div className="listening-info">
-                <span className="listening-state">{listening ? '分段监听' : '未监听'}</span>
-                <span>监听调用 ASR 与翻译服务，可能计费</span>
-                <details>
-                  <summary>说明</summary>
-                  <p>
-                    先让目标应用发声，再刷新并选择音频进程。当前使用 HTTP 短句识别，不是实时
-                    WebSocket；监听期间禁用语音输出以避免回环。停止监听后可使用下方文字表达。
-                  </p>
-                </details>
-              </div>
-              {(listenError || overlayError || listenStatus) && (
-                <p
-                  className={`diagnostic-feedback${listenError || overlayError ? ' error-text' : ''}`}
-                  role={listenError || overlayError ? 'alert' : 'status'}
-                >
-                  {listenError || overlayError || listenStatus}
-                </p>
-              )}
+              <ListeningNotice
+                message={listenError || overlayError}
+                overlay={!listenError && !!overlayError}
+                onDismiss={() => {
+                  setListenError('');
+                  setOverlayError('');
+                }}
+                onSettings={() => openSettings('asr')}
+                onRefresh={() => void refreshCaptureSources()}
+                refreshing={refreshingSources}
+              />
               <div
                 className="transcript-scroll"
                 ref={scrollRef}

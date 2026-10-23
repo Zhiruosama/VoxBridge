@@ -324,10 +324,15 @@ nav button[aria-current='page'] {
 }
 .workspace-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   padding: 0 24px 12px;
   min-height: 40px;
+}
+.workspace-toolbar > .select-trigger {
+  min-width: 0;
+  max-width: min(300px, 100%);
 }
 .source-button {
   border: 0;
@@ -497,43 +502,168 @@ nav button[aria-current='page'] {
   color: var(--muted);
   font-size: 11px;
 }
-.listening-info {
+.listening-controls {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 0 28px 8px;
-  font-size: 11px;
-  color: var(--faint);
-}
-.listening-state {
-  color: var(--muted);
-}
-.listening-info details {
-  position: relative;
+  gap: 6px;
   margin-left: auto;
+  flex-shrink: 0;
 }
-.listening-info summary {
-  cursor: pointer;
+.status-popover {
+  position: relative;
+}
+.status-popover > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 8px;
   color: var(--muted);
-  border-radius: 4px;
+  font-size: 11px;
+  list-style: none;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.listening-info summary:focus-visible {
+.status-popover > summary::-webkit-details-marker {
+  display: none;
+}
+.status-popover > summary:hover,
+.status-popover[open] > summary {
+  background: var(--hover);
+  color: var(--text);
+}
+.status-popover > summary:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
-.listening-info details p {
+.signal-popover > summary {
+  background: var(--raised);
+}
+.signal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.signal-dot.is-active {
+  background: var(--good);
+}
+.status-spinner {
+  animation: status-spin 1.2s linear infinite;
+}
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.status-popover-panel {
   position: absolute;
+  top: calc(100% + 8px);
   right: 0;
-  top: 20px;
-  width: min(320px, 65vw);
-  padding: 12px 14px;
+  width: min(288px, calc(100vw - 48px));
+  padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--raised);
   color: var(--muted);
-  box-shadow: 0 6px 24px #0002;
-  z-index: 5;
+  box-shadow: 0 10px 32px #0002;
+  font-size: 12px;
+  line-height: 1.8;
+  z-index: 8;
+}
+.status-popover-panel h3 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.status-popover-panel p + p {
+  margin-top: 10px;
+}
+.signal-metrics {
+  margin: 0;
+}
+.signal-metrics > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 4px;
+}
+.signal-metrics dd {
+  margin: 0;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.signal-explanation {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.listening-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 28px 12px;
+  padding: 12px 14px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.notice-symbol {
+  color: var(--danger);
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 3px;
+}
+.listening-notice-copy {
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.listening-notice-copy strong {
+  color: var(--text);
+  font-weight: 550;
+}
+.listening-notice-copy p {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+  line-height: 1.7;
+}
+.notice-action {
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.notice-dismiss {
+  color: var(--faint);
+  align-self: flex-start;
+}
+@media (max-width: 760px) {
+  .listening-notice {
+    margin-inline: 18px;
+  }
+  .workspace-toolbar {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 540px) {
+  .listening-notice {
+    gap: 8px;
+    padding: 10px;
+    flex-wrap: wrap;
+  }
+  .listening-notice-copy {
+    flex-basis: calc(100% - 65px);
+  }
+  .notice-action {
+    margin-left: 24px;
+    order: 1;
+  }
 }
 .send-button {
   width: 32px;
