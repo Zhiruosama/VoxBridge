@@ -164,7 +164,7 @@ static bool									gMute_Input_Master_Value		= false;
 static bool									gMute_Output_Master_Value		= false;
 
 static const UInt32							kDataSource_NumberItems			= 1;
-#define										kDataSource_ItemNamePattern		"Data Source Item %d"
+
 static UInt32								gDataSource_Input_Master_Value	= 0;
 static UInt32								gDataSource_Output_Master_Value	= 0;
 static UInt32								gDataDestination_PlayThru_Master_Value	= 0;
@@ -2808,7 +2808,7 @@ static OSStatus	VoxBridgeAudio_GetStreamPropertyData(AudioServerPlugInDriverRef 
 		case kAudioObjectPropertyName:
 			//	This is the human readable name of the stream
 			FailWithAction(inDataSize < sizeof(CFStringRef), theAnswer = kAudioHardwareBadPropertySizeError, Done, "VoxBridgeAudio_GetStreamPropertyData: not enough space for the return value of kAudioObjectPropertyName for the stream");
-			*((CFStringRef*)outData) = (inObjectID == kObjectID_Stream_Input) ? CFSTR("InputStreamName") : CFSTR("OutputStreamName");
+			*((CFStringRef*)outData) = CFSTR("VoxBridge");
 			*outDataSize = sizeof(CFStringRef);
 			break;
 
@@ -3717,7 +3717,7 @@ static OSStatus	VoxBridgeAudio_GetControlPropertyData(AudioServerPlugInDriverRef
 					FailWithAction(inDataSize < sizeof(CFStringRef), theAnswer = kAudioHardwareBadPropertySizeError, Done, "VoxBridgeAudio_GetControlPropertyData: not enough space for the return value of kAudioSelectorControlPropertyItemName for the data source control");
 					FailWithAction(inQualifierDataSize != sizeof(UInt32), theAnswer = kAudioHardwareBadPropertySizeError, Done, "VoxBridgeAudio_GetControlPropertyData: wrong size for the qualifier of kAudioSelectorControlPropertyItemName for the data source control");
 					FailWithAction(*((const UInt32*)inQualifierData) >= kDataSource_NumberItems, theAnswer = kAudioHardwareIllegalOperationError, Done, "VoxBridgeAudio_GetControlPropertyData: the item in the qualifier is not valid for kAudioSelectorControlPropertyItemName for the data source control");
-					*((CFStringRef*)outData) = CFStringCreateWithFormat(NULL, NULL, CFSTR(kDataSource_ItemNamePattern), *((const UInt32*)inQualifierData));
+					*((CFStringRef*)outData) = CFRetain(CFSTR("VoxBridge"));
 					*outDataSize = sizeof(CFStringRef);
 					break;
 
@@ -4173,8 +4173,7 @@ Done:
 
 static OSStatus	VoxBridgeAudio_DoIOOperation(AudioServerPlugInDriverRef inDriver, AudioObjectID inDeviceObjectID, AudioObjectID inStreamObjectID, UInt32 inClientID, UInt32 inOperationID, UInt32 inIOBufferFrameSize, const AudioServerPlugInIOCycleInfo* inIOCycleInfo, void* ioMainBuffer, void* ioSecondaryBuffer)
 {
-	//	This is called to actuall perform a given operation. For this device, all we need to do is
-	//	clear the buffer for the ReadInput operation.
+	//	Read and write timestamped PCM through the bounded virtual-device loopback.
 
 	#pragma unused(inClientID, ioSecondaryBuffer)
 

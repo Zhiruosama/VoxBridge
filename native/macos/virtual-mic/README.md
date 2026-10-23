@@ -28,3 +28,15 @@ https://docs-assets.developer.apple.com/published/430ad6501f6f/CreatingAnAudioSe
 `test-loopback.c` 检查环绕、过期数据、重复读取、静音/增益、重置和异常值。`test-driver.c` 检查实际驱动的属性、UID、启动/停止、读写 IO、静音和缓冲边界，不向 coreaudiod 加载测试代码。
 
 本批构建与这些测试已通过；尚未安装进系统，因此真实 HAL 调度、Chrome 枚举、Discord 输入与长时间双路播放仍需安装后验收。不能将源码回环测试视为 Discord 实际收音通过。当前构建仅针对本机架构；公开分发前还需要目标架构、签名/公证与安装兼容性验证。
+
+## 已安装设备诊断
+
+`xcrun swiftc -warnings-as-errors native/macos/virtual-mic/probe.swift -o native/macos/.build/virtual-mic-probe`。
+
+- 默认只列出 Core Audio 设备，不启动录音或输出。
+- `--tone`：明确向 VoxBridge 输出端写入 3 秒、幅度 0.1 的 440Hz 测试音，并读取同一虚拟设备输入；不打开实体麦克风。选择该输入的聊天软件也可能收到测试音，请仅在本地调试或获准的测试通话中使用。
+- `--listen`：15 秒内输出静音，仅统计 VoxBridge 输入的峰值、RMS 和非零样本；可在此期间从应用发送测试语音。不保存音频。
+
+2026-10-23 实机：0.1.0 已安装驱动在 Core Audio 与 AVFoundation 均显示 VoxBridge。48kHz 回环测试峰值 0.1、RMS 约 0.07049；修正应用的发送设备后，真实合成语音输入峰值约 0.29514，RMS 约 0.01693。此结果确认应用 → 虚拟设备输入链路，尚不等于 Discord 扬声器回放已验证。
+
+0.1.1 将设备、输入/输出流、数据源名称统一为 VoxBridge。Chromium 显示所选数据源名，0.1.0 因而显示 `Data Source Item 0 (Virtual)`；更新安装包并重新加载设备后才会显示新名称。UID 不变，已有设备选择可保留。QQ 7.0.2 在重启后仍未列出虚拟输入或输出，原因未确认，按用户要求暂缓；未改动系统默认输入或伪装硬件类型。

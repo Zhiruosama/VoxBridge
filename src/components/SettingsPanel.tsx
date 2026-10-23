@@ -460,7 +460,7 @@ export default function SettingsPanel({
               </button>
             </div>
             <div className="preference-card">
-              <SettingRow title="Discord 麦克风">
+              <SettingRow title="虚拟麦克风">
                 <span className="preference-value">
                   {devices.some((d) => d.id === voxBridgeOutputId)
                     ? 'VoxBridge 已就绪'
