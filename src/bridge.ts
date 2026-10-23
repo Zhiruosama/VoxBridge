@@ -1,6 +1,8 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import type {
   AudioRouting,
+  CaptureProgress,
+  CaptureSource,
   OutputDevice,
   ProviderProfile,
   RuntimeInfo,
@@ -65,4 +67,20 @@ export async function speak(
 }
 export async function stopSpeech(requestId: string) {
   if (desktop) await invoke('stop_speech', { requestId });
+}
+export async function listCaptureSources(): Promise<CaptureSource[]> {
+  return desktop ? invoke('list_capture_sources') : [];
+}
+export async function captureDiagnostic(
+  source: CaptureSource,
+  sessionId: string,
+  onProgress: (event: CaptureProgress) => void,
+): Promise<void> {
+  if (!desktop) throw new Error('应用声音采集诊断需要 Mac 桌面版。');
+  const channel = new Channel<CaptureProgress>();
+  channel.onmessage = onProgress;
+  return invoke('capture_diagnostic', { source, sessionId, onProgress: channel });
+}
+export async function stopCapture(sessionId: string) {
+  if (desktop) await invoke('stop_capture', { sessionId });
 }

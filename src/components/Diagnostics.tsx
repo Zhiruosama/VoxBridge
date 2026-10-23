@@ -5,6 +5,7 @@ import type { OutputDevice, RuntimeInfo, Settings } from '../core/types';
 import { outputDeviceOptions } from '../core/audio-routing';
 import Select from './Select';
 import SettingRow from './SettingRow';
+import CaptureDiagnostic from './CaptureDiagnostic';
 
 export default function Diagnostics({
   runtime,
@@ -160,6 +161,9 @@ export default function Diagnostics({
           </p>
         )}
       </section>
+      <CaptureDiagnostic
+        enabled={desktop && runtime?.platform === 'macos' && runtime.nativeCapture}
+      />
       <section className="preference-section" aria-labelledby="runtime-heading">
         <h2 id="runtime-heading">运行状态</h2>
         <div className="preference-card">
@@ -180,7 +184,11 @@ export default function Diagnostics({
               </SettingRow>
               <SettingRow title="应用声音采集">
                 <span className="preference-value">
-                  {!runtime ? '读取中…' : runtime.nativeCapture ? '已接入，待实测' : '尚未接入'}
+                  {!runtime
+                    ? '读取中…'
+                    : runtime.nativeCapture
+                      ? '采集诊断已接入，ASR 待接入'
+                      : '尚未接入'}
                 </span>
               </SettingRow>
             </div>

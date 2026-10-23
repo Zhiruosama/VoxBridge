@@ -1,7 +1,10 @@
 mod audio;
+mod capture;
 mod credentials;
 #[cfg(test)]
 mod live_tests;
+#[cfg(any(target_os = "macos", test))]
+mod pcm;
 mod platform;
 mod providers;
 mod speech;
@@ -18,8 +21,8 @@ struct RuntimeInfo {
 fn runtime_info() -> RuntimeInfo {
     RuntimeInfo {
         platform: std::env::consts::OS,
-        native_capture: false,
-        message: "工作台开发版 · 支持文字翻译、语音合成及指定设备输出。服务可用性取决于当前配置，macOS 采集与音频路由待实机验证。",
+        native_capture: cfg!(target_os = "macos"),
+        message: "工作台开发版 · 支持文字翻译、语音合成、指定设备输出及 Mac 目标进程采集诊断。采集尚未连接 ASR，实际权限和声音链路待实机验证。",
     }
 }
 
@@ -27,6 +30,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(providers::Requests::default())
         .manage(audio::ToneState::default())
+        .manage(capture::CaptureState::default())
         .manage(speech::SpeechState::default())
         .manage(speech::AudioGate::new())
         .invoke_handler(tauri::generate_handler![
@@ -39,9 +43,21 @@ pub fn run() {
             audio::list_outputs,
             audio::test_tone,
             audio::stop_tone,
+            capture::list_capture_sources,
+            capture::capture_diagnostic,
+            capture::stop_capture,
             speech::speak,
             speech::stop_speech,
         ])
-        .run(tauri::generate_context!())
-        .expect("VoxBridge desktop runtime failed");
+        .build(tauri::generate_context!())
+        .expect("VoxBridge desktop runtime failed")
+        .run(|app, event| {
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
+                use tauri::Manager;
+                app.state::<capture::CaptureState>().stop_all();
+            }
+        });
 }

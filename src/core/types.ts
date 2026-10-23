@@ -59,3 +59,15 @@ export interface OutputDevice {
   id: string;
   name: string;
 }
+export interface CaptureSource {
+  pid: number;
+  bundleId: string;
+}
+export interface CaptureProgress {
+  sessionId: string;
+  phase: 'starting' | 'running' | 'stopped' | 'failed';
+  sampleRate: number;
+  frames: number;
+  droppedFrames: number;
+  rms: number;
+}
