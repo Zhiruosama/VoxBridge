@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { AlertCircle, ChevronDown, Info, LoaderCircle, X } from 'lucide-react';
 import { captureHealthMessage, type CaptureHealth } from '../core/capture-health';
-import type { ListeningEvent, TranslationMetrics } from '../core/types';
+import type { ListeningEvent, TranslationMetrics, RecognitionMetrics } from '../core/types';
 
 export type ListeningPhase = 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
 export type ListeningProgress = Extract<ListeningEvent, { type: 'progress' }>;
@@ -52,12 +52,14 @@ export default function ListeningStatus({
   progress,
   recovery,
   translationMetrics,
+  recognitionMetrics,
 }: {
   phase: ListeningPhase;
   health: CaptureHealth;
   progress: ListeningProgress | null;
   recovery?: Extract<ListeningEvent, { type: 'recovering' }> | null;
   translationMetrics?: TranslationMetrics | null;
+  recognitionMetrics?: RecognitionMetrics | null;
 }) {
   const pending = phase === 'starting' || phase === 'recovering' || phase === 'stopping';
   const label =
@@ -125,6 +127,55 @@ export default function ListeningStatus({
             </dl>
           ) : (
             <p>正在连接应用声音，请留意系统权限提示。</p>
+          )}
+          {recognitionMetrics && (
+            <details>
+              <summary>识别与断句</summary>
+              <dl className="signal-metrics">
+                <div>
+                  <dt>首个临时结果</dt>
+                  <dd>
+                    {recognitionMetrics.firstPartialMs === null
+                      ? '未收到'
+                      : `${recognitionMetrics.firstPartialMs} ms`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>首个供应商句末</dt>
+                  <dd>
+                    {recognitionMetrics.firstFinalMs === null
+                      ? '未收到'
+                      : `${recognitionMetrics.firstFinalMs} ms`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>供应商句末 / 本地提交</dt>
+                  <dd>
+                    {recognitionMetrics.providerFinals} / {recognitionMetrics.committedCaptions}
+                  </dd>
+                </div>
+                <div>
+                  <dt>临时至句末 P50 / P95</dt>
+                  <dd>
+                    {recognitionMetrics.finalizationSamples
+                      ? `${recognitionMetrics.partialToFinalP50Ms} / ${recognitionMetrics.partialToFinalP95Ms} ms`
+                      : '暂无样本'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>更新至提交 P50 / P95</dt>
+                  <dd>
+                    {recognitionMetrics.commitSamples
+                      ? `${recognitionMetrics.commitHoldP50Ms} / ${recognitionMetrics.commitHoldP95Ms} ms`
+                      : '暂无样本'}
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                首个结果从本次连接启动计时，包含连接与等待声音。临时至句末包含说话时长；更新至提交从最近识别更新计时。均非纯
+                ASR 网络延迟，最多保留 128 段样本。
+              </p>
+            </details>
           )}
           {translationMetrics && (
             <>

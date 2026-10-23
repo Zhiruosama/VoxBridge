@@ -34,6 +34,21 @@ pub struct ListeningRequest {
 
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RecognitionMetrics {
+    pub first_partial_ms: Option<u64>,
+    pub first_final_ms: Option<u64>,
+    pub provider_finals: u64,
+    pub committed_captions: u64,
+    pub finalization_samples: usize,
+    pub commit_samples: usize,
+    pub partial_to_final_p50_ms: u64,
+    pub partial_to_final_p95_ms: u64,
+    pub commit_hold_p50_ms: u64,
+    pub commit_hold_p95_ms: u64,
+}
+
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TranslationMetrics {
     pub completed: u64,
     pub failed: u64,
@@ -55,6 +70,11 @@ pub struct TranslationMetrics {
     rename_all_fields = "camelCase"
 )]
 pub enum ListeningEvent {
+    RecognitionMetrics {
+        session_id: String,
+        generation: u32,
+        metrics: RecognitionMetrics,
+    },
     TranslationMetrics {
         session_id: String,
         generation: u32,

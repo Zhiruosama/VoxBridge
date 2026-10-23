@@ -82,4 +82,34 @@ describe('listening recovery', () => {
     });
     expect(state.segments.map((segment) => segment.source)).toEqual(['final', 'new']);
   });
+  it('does not mix old recognition timing or translation statistics into a recovered connection', () => {
+    const epochs = new ListeningEpoch();
+    const metrics: Extract<ListeningEvent, { type: 'recognitionMetrics' }> = {
+      type: 'recognitionMetrics',
+      sessionId: 's',
+      generation: 0,
+      metrics: {
+        firstPartialMs: 500,
+        firstFinalMs: 900,
+        providerFinals: 1,
+        committedCaptions: 2,
+        finalizationSamples: 1,
+        commitSamples: 2,
+        partialToFinalP50Ms: 400,
+        partialToFinalP95Ms: 400,
+        commitHoldP50Ms: 0,
+        commitHoldP95Ms: 900,
+      },
+    };
+    expect(epochs.accept(metrics)).toBe(true);
+    epochs.accept({
+      type: 'recovering',
+      sessionId: 's',
+      attempt: 1,
+      delayMs: 1000,
+      reason: 'offline',
+    });
+    expect(epochs.accept(metrics)).toBe(false);
+    expect(epochs.accept({ ...metrics, generation: 1 })).toBe(true);
+  });
 });

@@ -23,7 +23,7 @@ async fn slow_caption_does_not_block_following_captions_or_get_cancelled_by_them
     translate_chunks(
         &token,
         rx,
-        |s| async move {
+        |s, _| async move {
             tokio::time::sleep(Duration::from_millis(if s.id == 1 { 4000 } else { 200 })).await;
             Ok(format!("译文 {}", s.id))
         },
@@ -54,7 +54,7 @@ async fn concurrency_is_bounded_and_stop_suppresses_all_pending_results() {
     let worker = translate_chunks(
         &token,
         rx,
-        |_| {
+        |_, _| {
             requests.fetch_add(1, Ordering::Relaxed);
             async {
                 tokio::time::sleep(Duration::from_secs(10)).await;
@@ -85,7 +85,7 @@ async fn invalid_model_reply_is_isolated_to_its_caption_and_later_captions_conti
     translate_chunks(
         &token,
         rx,
-        |s| async move {
+        |s, _| async move {
             if s.id == 1 {
                 Err(crate::providers::INVALID_TRANSLATION.into())
             } else {
@@ -133,7 +133,7 @@ async fn measurements_distinguish_queue_wait_from_request_work() {
     translate_chunks(
         &token,
         rx,
-        |_| async {
+        |_, _| async {
             tokio::time::sleep(Duration::from_millis(200)).await;
             Ok("译文".into())
         },
@@ -152,4 +152,48 @@ async fn measurements_distinguish_queue_wait_from_request_work() {
     assert_eq!(last.queue_p95_ms, 300);
     assert_eq!(last.total_p95_ms, 500);
     assert_eq!((last.queued, last.inflight), (0, 0));
+}
+
+#[tokio::test(start_paused = true)]
+async fn enqueued_context_is_fixed_before_concurrent_results_complete() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(32);
+    let mut context = crate::providers::ContextWindow::default();
+    for id in 1..=8 {
+        let sentence = caption(id);
+        let snapshot = context.before(&sentence.text);
+        tx.send(QueuedCaption::new(sentence, snapshot))
+            .await
+            .unwrap();
+    }
+    drop(tx);
+    let observed = Mutex::new(Vec::new());
+    translate_chunks(
+        &token,
+        rx,
+        |sentence, context| async move {
+            let expected: Vec<String> = ((sentence.id.saturating_sub(3).max(1))..sentence.id)
+                .map(|id| format!("Short sentence {id}."))
+                .collect();
+            assert_eq!(context.sources(), expected);
+            tokio::time::sleep(Duration::from_millis(if sentence.id == 1 {
+                2000
+            } else {
+                100
+            }))
+            .await;
+            Ok("定稿".into())
+        },
+        |sentence, result| {
+            result.unwrap();
+            observed.lock().unwrap().push(sentence.id);
+            Ok(())
+        },
+        |_| Ok(()),
+    )
+    .await
+    .unwrap();
+    let observed = observed.into_inner().unwrap();
+    assert_eq!(observed.len(), 8);
+    assert_ne!(observed[0], 1);
 }

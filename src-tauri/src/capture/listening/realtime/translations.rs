@@ -6,12 +6,20 @@ use tokio::time::Instant;
 pub(super) struct QueuedCaption {
     sentence: Sentence,
     queued: Instant,
+    context: crate::providers::TranslationContext,
 }
 impl From<Sentence> for QueuedCaption {
     fn from(sentence: Sentence) -> Self {
+        Self::new(sentence, crate::providers::TranslationContext::default())
+    }
+}
+
+impl QueuedCaption {
+    pub(super) fn new(sentence: Sentence, context: crate::providers::TranslationContext) -> Self {
         Self {
             sentence,
             queued: Instant::now(),
+            context,
         }
     }
 }
@@ -66,7 +74,7 @@ pub(super) async fn translate_chunks<F, Fut, E, M>(
     mut metrics: M,
 ) -> Result<(), String>
 where
-    F: FnMut(Sentence) -> Fut,
+    F: FnMut(Sentence, crate::providers::TranslationContext) -> Fut,
     Fut: Future<Output = Result<String, String>>,
     E: FnMut(Sentence, Result<String, String>) -> Result<(), String>,
     M: FnMut(TranslationMetrics) -> Result<(), String>,
@@ -93,7 +101,7 @@ where
                 if let Some(queued) = next {
                     let queue_ms = queued.queued.elapsed().as_millis() as u64;
                     let sentence = queued.sentence;
-                    let request = translate(sentence.clone());
+                    let request = translate(sentence.clone(), queued.context);
                     pending.push(async move {
                         let started = Instant::now();
                         let text = request.await;

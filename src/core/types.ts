@@ -111,6 +111,18 @@ export interface CaptureSource {
   name?: string;
   appScoped?: boolean;
 }
+export interface RecognitionMetrics {
+  firstPartialMs: number | null;
+  firstFinalMs: number | null;
+  providerFinals: number;
+  committedCaptions: number;
+  finalizationSamples: number;
+  commitSamples: number;
+  partialToFinalP50Ms: number;
+  partialToFinalP95Ms: number;
+  commitHoldP50Ms: number;
+  commitHoldP95Ms: number;
+}
 export interface TranslationMetrics {
   completed: number;
   failed: number;
@@ -125,6 +137,12 @@ export interface TranslationMetrics {
   totalP95Ms: number;
 }
 export type ListeningEvent =
+  | {
+      type: 'recognitionMetrics';
+      sessionId: string;
+      generation: number;
+      metrics: RecognitionMetrics;
+    }
   | {
       type: 'translationMetrics';
       sessionId: string;

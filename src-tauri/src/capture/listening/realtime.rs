@@ -2,6 +2,7 @@ use super::*;
 use crate::asr::realtime::Sentence;
 use tokio::sync::{mpsc, oneshot};
 mod chunks;
+mod metrics;
 mod translations;
 use tokio_util::sync::CancellationToken;
 
@@ -114,6 +115,7 @@ pub(super) async fn run(
             discontinuities: 0,
         },
     )?;
+    let run_started = Instant::now();
     let (audio_tx, audio_rx) = mpsc::channel(100);
     let (final_tx, final_rx) = mpsc::channel::<translations::QueuedCaption>(32);
     let (source_tx, mut source_rx) = mpsc::channel(64);
@@ -165,7 +167,7 @@ pub(super) async fn run(
                     return Ok(());
                 }
                 source_tx
-                    .try_send(sentence)
+                    .try_send((sentence, run_started.elapsed().as_millis() as u64))
                     .map_err(|_| "识别结果处理积压，请重新监听。")?;
                 Ok(())
             },
@@ -176,18 +178,24 @@ pub(super) async fn run(
     };
     let segmented = async {
         let mut chunks = chunks::Chunks::default();
+        let mut context_window = crate::providers::ContextWindow::default();
+        let mut timings = metrics::RecognitionTimings::default();
         let started = Instant::now();
         let mut tick = tokio::time::interval(Duration::from_millis(200));
         let result: Result<(), String> = async {
             loop {
-                let output = tokio::select! { biased;
+                let (output, received_update) = tokio::select! { biased;
                     _ = token.cancelled() => return Ok(()),
                     sentence = source_rx.recv() => match sentence {
-                        Some(sentence) => chunks.push(sentence, started.elapsed().as_millis() as u64),
+                        Some((sentence, received_ms)) => {
+                            timings.received(&sentence, received_ms);
+                            (chunks.push(sentence, started.elapsed().as_millis() as u64), true)
+                        },
                         None => return Ok(()),
                     },
-                    _ = tick.tick() => chunks.flush(started.elapsed().as_millis() as u64),
+                    _ = tick.tick() => (chunks.flush(started.elapsed().as_millis() as u64), false),
                 };
+                let updated = received_update || !output.is_empty();
                 for sentence in output {
                     send(
                         channel,
@@ -206,7 +214,10 @@ pub(super) async fn run(
                         },
                     )?;
                     if sentence.final_text && !sentence.text.trim().is_empty() {
-                        match final_tx.try_send(sentence.into()) {
+                        timings.committed(run_started.elapsed().as_millis() as u64);
+                        let context = context_window.before(&sentence.text);
+                        match final_tx.try_send(translations::QueuedCaption::new(sentence, context))
+                        {
                             Ok(()) => {}
                             Err(mpsc::error::TrySendError::Full(_)) => {
                                 skipped.fetch_add(1, Ordering::Relaxed);
@@ -218,9 +229,19 @@ pub(super) async fn run(
                         }
                     }
                 }
-
+                if updated {
+                    send(
+                        channel,
+                        ListeningEvent::RecognitionMetrics {
+                            session_id: request.session_id.clone(),
+                            generation: request.generation,
+                            metrics: timings.report(),
+                        },
+                    )?;
+                }
             }
-        }.await;
+        }
+        .await;
         token.cancel();
         result
     };
@@ -228,13 +249,14 @@ pub(super) async fn run(
         let result = translations::translate_chunks(
             token,
             final_rx,
-            |sentence| async move {
+            |sentence, context| async move {
                 translation
-                    .translate(
+                    .translate_with_context(
                         &sentence.text,
                         &request.source_language,
                         &request.target_language,
                         token,
+                        &context,
                     )
                     .await
             },

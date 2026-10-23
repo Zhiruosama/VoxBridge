@@ -93,6 +93,9 @@ export default function App() {
   const [listenPhase, setListenPhase] = useState<
     'idle' | 'starting' | 'running' | 'recovering' | 'stopping'
   >('idle');
+  const [recognitionMetrics, setRecognitionMetrics] = useState<
+    Extract<ListeningEvent, { type: 'recognitionMetrics' }>['metrics'] | null
+  >(null);
   const [translationMetrics, setTranslationMetrics] = useState<
     Extract<ListeningEvent, { type: 'translationMetrics' }>['metrics'] | null
   >(null);
@@ -234,6 +237,8 @@ export default function App() {
           event.sourceText,
         ),
       );
+    } else if (event.type === 'recognitionMetrics') {
+      setRecognitionMetrics(event.metrics);
     } else if (event.type === 'translationMetrics') {
       setTranslationMetrics(event.metrics);
     } else if (event.type === 'translationError') {
@@ -245,6 +250,7 @@ export default function App() {
       setRecovery(event);
       setListenProgress(null);
       setTranslationMetrics(null);
+      setRecognitionMetrics(null);
       captureSignalRef.current = new CaptureSignalMonitor();
       setSession(discardUnfinished);
     } else if (event.type === 'sourceChanged') {
@@ -283,6 +289,7 @@ export default function App() {
     setRecovery(null);
     setListenProgress(null);
     setTranslationMetrics(null);
+    setRecognitionMetrics(null);
     setListenHealth('waiting');
     setListenError('');
     setSession({ id, segments: [] });
@@ -633,6 +640,7 @@ export default function App() {
                   health={listenHealth}
                   progress={listenProgress}
                   translationMetrics={translationMetrics}
+                  recognitionMetrics={recognitionMetrics}
                   recovery={recovery}
                 />
               </div>
