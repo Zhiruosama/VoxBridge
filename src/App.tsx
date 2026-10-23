@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import ExpressionReveal from './components/ExpressionReveal';
+import VoiceActivity from './components/VoiceActivity';
 import {
   ArrowDown,
   ArrowRight,
@@ -123,6 +124,7 @@ export default function App() {
   const [voice, setVoice] = useState<{
     phase: 'starting' | 'recording' | 'recognizing' | 'cancelling';
     seconds: number;
+    level: number;
   } | null>(null);
   const [composerPhase, setComposerPhase] = useState<ComposerPhase>('idle');
   const busy = composerPhase !== 'idle';
@@ -453,7 +455,7 @@ export default function App() {
     const previous = text;
     const mode = settings.composer.voiceInputMode || 'dictate';
     voiceRef.current = operation;
-    setVoice({ phase: 'starting', seconds: 0 });
+    setVoice({ phase: 'starting', seconds: 0, level: 0 });
     try {
       const result = await startVoiceInput(
         operation.id,
@@ -482,8 +484,8 @@ export default function App() {
       voiceRef.current = null;
       setVoice(null);
       if (mode === 'send') {
-        if ([...combined].length > 500) {
-          notify('识别内容超过 500 字，请编辑后发送。');
+        if ([...combined].length > 2000) {
+          notify('识别内容超过 2000 字，请编辑后发送。');
           return;
         }
         await runComposer('speak', settings.composer.route, combined);
@@ -824,7 +826,7 @@ export default function App() {
                   </label>
                   <textarea
                     id="speech-input"
-                    maxLength={500}
+                    maxLength={2000}
                     value={text}
                     aria-describedby="composer-hint"
                     title={composerHint}
@@ -885,24 +887,11 @@ export default function App() {
                       options={languages.map((language) => ({ value: language, label: language }))}
                       compact
                     />
-                    {text.length > 450 && <span className="input-count">{text.length}/500</span>}
+                    {text.length > 1800 && <span className="input-count">{text.length}/2000</span>}
                     <div className="composer-actions">
                       {voice ? (
                         <div className="voice-recording" role="status">
-                          <span
-                            className={
-                              voice.phase === 'recording' ? 'recording-dot' : 'voice-spinner'
-                            }
-                          />
-                          <span>
-                            {voice.phase === 'recording'
-                              ? `${Math.floor(voice.seconds)}s / 30s`
-                              : voice.phase === 'starting'
-                                ? '准备录音…'
-                                : voice.phase === 'cancelling'
-                                  ? '取消中…'
-                                  : '识别中…'}
-                          </span>
+                          <VoiceActivity phase={voice.phase} level={voice.level} />
                           <button
                             className="subtle"
                             disabled={voice.phase === 'cancelling'}
@@ -920,32 +909,43 @@ export default function App() {
                         </div>
                       ) : (
                         <>
-                          <Select
-                            label="语音输入模式"
-                            compact
-                            value={settings.composer.voiceInputMode || 'dictate'}
+                          <button
+                            type="button"
+                            role="switch"
+                            className="voice-direct-toggle"
+                            aria-label="录音后直接发送"
+                            aria-checked={settings.composer.voiceInputMode === 'send'}
                             disabled={busy}
-                            options={[
-                              { value: 'dictate', label: '语音转文字' },
-                              { value: 'send', label: '语音消息' },
-                            ]}
-                            onChange={(value) =>
+                            title={
+                              settings.composer.voiceInputMode === 'send'
+                                ? '开启：结束录音后自动翻译并输出语音'
+                                : '关闭：识别结果填入输入框，确认后再发送'
+                            }
+                            onClick={() =>
                               persist(
                                 {
                                   ...settings,
                                   composer: {
                                     ...settings.composer,
-                                    voiceInputMode: value as 'dictate' | 'send',
+                                    voiceInputMode:
+                                      settings.composer.voiceInputMode === 'send'
+                                        ? 'dictate'
+                                        : 'send',
                                   },
                                 },
                                 true,
                               )
                             }
-                          />
+                          >
+                            <span className="voice-switch-track" aria-hidden="true">
+                              <span />
+                            </span>
+                            直接发送
+                          </button>
                           <button
                             className="icon-button"
                             aria-label="开始录音"
-                            title="开始麦克风录音，最长 30 秒"
+                            title="开始麦克风录音，最长 1 分钟"
                             disabled={busy || !desktop}
                             onClick={() => void beginVoice()}
                           >

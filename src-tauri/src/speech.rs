@@ -667,8 +667,8 @@ pub(crate) async fn execute(
 ) -> Result<(), String> {
     let url = endpoint(&profile)?;
     crate::language::speech_language(profile.language.as_deref())?;
-    if text.trim().is_empty() || text.chars().count() > 500 {
-        return Err("语音文字须为 1–500 字。".into());
+    if text.trim().is_empty() || text.chars().count() > 2000 {
+        return Err("语音文字须为 1–2000 字。".into());
     }
     let device = routing.destination(&route)?;
     let job = state.begin_monitor(

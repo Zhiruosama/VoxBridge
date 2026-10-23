@@ -1484,30 +1484,95 @@ input:focus {
   border-radius: 8px;
   padding: 6px 10px;
 }
-.recording-dot,
-.voice-spinner {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f87171;
-  flex-shrink: 0;
+.voice-activity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 28px;
+  color: var(--text);
 }
-.recording-dot {
-  animation: voice-pulse 1.2s ease-in-out infinite;
+.voice-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 42px;
+  height: 26px;
+  color: var(--text);
 }
-.voice-spinner {
-  background: var(--muted);
-  animation: voice-pulse 1.2s ease-in-out infinite;
+.voice-wave i {
+  width: 3px;
+  border-radius: 3px;
+  background: currentColor;
+  height: calc(3px + var(--voice-level, 0) * 22px);
+  transition: height 100ms ease-out;
+  animation: voice-wave 900ms ease-in-out infinite;
+  animation-delay: var(--bar-delay);
 }
-@keyframes voice-pulse {
+.is-processing .voice-wave {
+  color: var(--muted);
+}
+.is-processing .voice-wave i {
+  height: 14px;
+}
+@keyframes voice-wave {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.65;
+  }
   50% {
-    opacity: 0.35;
+    transform: scaleY(1);
+    opacity: 1;
   }
 }
+.voice-direct-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  padding: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.voice-direct-toggle[aria-checked='true'] {
+  color: var(--text);
+}
+.voice-switch-track {
+  width: 26px;
+  height: 16px;
+  padding: 2px;
+  border-radius: 12px;
+  background: var(--border);
+  display: inline-flex;
+  flex-shrink: 0;
+  transition: background 150ms;
+}
+.voice-switch-track > span {
+  width: 12px;
+  height: 12px;
+  background: var(--muted);
+  border-radius: 50%;
+  transition:
+    transform 150ms,
+    background 150ms;
+}
+.voice-direct-toggle[aria-checked='true'] .voice-switch-track {
+  background: var(--muted);
+}
+.voice-direct-toggle[aria-checked='true'] .voice-switch-track > span {
+  transform: translateX(10px);
+  background: var(--bg);
+}
 @media (prefers-reduced-motion: reduce) {
-  .recording-dot,
-  .voice-spinner {
+  .voice-wave i {
     animation: none;
+    transition: none;
+  }
+  .voice-switch-track,
+  .voice-switch-track > span {
+    transition: none;
   }
 }
 .composer-controls,

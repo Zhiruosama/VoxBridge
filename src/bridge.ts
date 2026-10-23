@@ -151,6 +151,7 @@ export async function openVirtualMicInstaller() {
 export interface VoiceProgress {
   phase: 'recording' | 'recognizing';
   seconds: number;
+  level: number;
 }
 export async function listInputs(): Promise<OutputDevice[]> {
   return desktop ? invoke('list_inputs') : [];

@@ -211,11 +211,25 @@ describe('composer operation', () => {
       expect(controller.busy).toBe(false);
     }
   });
+  it('accepts a minute-sized draft and translation above the old 500-character limit', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    input.text = '你好'.repeat(400);
+    dependencies.translate.mockResolvedValue('Hello there. '.repeat(80));
+    await controller.run(input, callbacks);
+    expect(dependencies.speak).toHaveBeenCalledWith(
+      expect.anything(),
+      'Hello there. '.repeat(80),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
   it('keeps long translations visible without invoking TTS', async () => {
     const { controller, input, callbacks, dependencies } = fixture();
-    dependencies.translate.mockResolvedValue('文'.repeat(501));
-    await expect(controller.run(input, callbacks)).rejects.toThrow('超过 500 字');
-    expect(callbacks.translation).toHaveBeenCalledWith('文'.repeat(501));
+    dependencies.translate.mockResolvedValue('文'.repeat(2001));
+    await expect(controller.run(input, callbacks)).rejects.toThrow('超过 2000 字');
+    expect(callbacks.translation).toHaveBeenCalledWith('文'.repeat(2001));
     expect(dependencies.speak).not.toHaveBeenCalled();
   });
   it('rejects double submissions and prevents late translation from starting TTS after cancel', async () => {

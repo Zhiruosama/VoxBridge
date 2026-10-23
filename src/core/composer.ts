@@ -95,7 +95,7 @@ export class ComposerController {
     const output = input.output ?? settings.composer.output;
     const route = input.route ?? settings.composer.route;
     const needsTranslation = input.action === 'translate' || output === 'translation';
-    if (!text || [...text].length > 500) throw new Error('请输入 1–500 字的内容。');
+    if (!text || [...text].length > 2000) throw new Error('请输入 1–2000 字的内容。');
     const translationProfile = profileFor(settings, 'translation');
     const speechProfile = profileFor(settings, 'tts');
     if (input.action === 'speak') {
@@ -146,8 +146,8 @@ export class ComposerController {
       }
       if (operation.cancelled) return 'stopped';
       if (input.action === 'speak') {
-        if ([...content].length > 500)
-          throw new Error('译文超过 500 字，已保留译文但未输出语音，请缩短内容。');
+        if ([...content].length > 2000)
+          throw new Error('译文超过 2000 字，已保留译文但未输出语音，请缩短内容。');
         operation.stage = 'speech';
         callbacks.phase('synthesizing');
         if (operation.cancelled) return 'stopped';

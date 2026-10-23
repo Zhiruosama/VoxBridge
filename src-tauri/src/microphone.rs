@@ -84,6 +84,7 @@ pub struct InputDevice {
 pub struct Progress {
     phase: &'static str,
     seconds: f64,
+    level: f32,
 }
 fn device_id(device: &cpal::Device) -> Result<String, String> {
     device
@@ -174,7 +175,47 @@ async fn permission() -> Result<(), String> {
     Ok(())
 }
 
-const MAX_SAMPLES: usize = 16_000 * 30;
+const MAX_SECONDS: u64 = 60;
+const MAX_SAMPLES: usize = 16_000 * MAX_SECONDS as usize;
+fn meter_level(energy: f64, count: u64) -> f32 {
+    if count == 0 || !energy.is_finite() {
+        return 0.0;
+    }
+    // Map microphone RMS (-60 to -12 dBFS) to a stable visual range.
+    let rms = (energy / count as f64).sqrt();
+    ((20.0 * rms.max(1e-6).log10() + 60.0) / 48.0).clamp(0.0, 1.0) as f32
+}
+fn http_ranges(samples: &[i16]) -> Vec<std::ops::Range<usize>> {
+    // Preserve the short-audio adapter's 30-second/1 MB bound. Split near a quiet
+    // 20 ms window, without overlap or dropping the tiny final tail.
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    while start < samples.len() {
+        let remaining = samples.len() - start;
+        let end = if remaining <= 28 * 16000 + 1600 {
+            samples.len()
+        } else {
+            let search = start + 26 * 16000;
+            let relative = samples[search..start + 28 * 16000]
+                .as_chunks::<320>()
+                .0
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, block)| {
+                    block
+                        .iter()
+                        .map(|sample| i64::from(*sample).pow(2))
+                        .sum::<i64>()
+                })
+                .map(|(index, _)| index * 320 + 160)
+                .unwrap_or(0);
+            search + relative
+        };
+        ranges.push(start..end);
+        start = end;
+    }
+    ranges
+}
 fn audible(samples: &[i16]) -> bool {
     samples.len() >= 1600
         && samples.iter().map(|v| (*v as f64).powi(2)).sum::<f64>() / samples.len() as f64 > 100.0
@@ -244,6 +285,7 @@ fn record(
         .send(Progress {
             phase: "recording",
             seconds: 0.0,
+            level: 0.0,
         })
         .map_err(|_| "录音界面已关闭。")?;
     let mut resampler = crate::audio_pipeline::Resampler::new(rate);
@@ -252,9 +294,11 @@ fn record(
     let mut last = std::time::Instant::now();
     let mut last_audio = last;
     let started = last;
+    let mut energy = 0.0_f64;
+    let mut meter_samples = 0_u64;
     while !finished.load(Ordering::Acquire)
         && samples.len() < MAX_SAMPLES
-        && started.elapsed().as_secs() < 30
+        && started.elapsed().as_secs() < MAX_SECONDS
     {
         if token.is_cancelled() {
             return Err("录音已取消。".into());
@@ -270,6 +314,8 @@ fn record(
                 break;
             }
             last_audio = std::time::Instant::now();
+            energy += f64::from(value).powi(2);
+            meter_samples += 1;
             resampler.push(value, |v| {
                 if samples.len() < MAX_SAMPLES {
                     let sample = (v.clamp(-1.0, 1.0) * 32767.0) as i16;
@@ -290,13 +336,16 @@ fn record(
         if last_audio.elapsed().as_secs() > 3 {
             return Err("麦克风未返回声音，请检查权限。".into());
         }
-        if last.elapsed().as_millis() >= 200 {
+        if last.elapsed().as_millis() >= 50 {
             on_progress
                 .send(Progress {
                     phase: "recording",
                     seconds: samples.len() as f64 / 16000.0,
+                    level: meter_level(energy, meter_samples),
                 })
                 .map_err(|_| "录音界面已关闭。")?;
+            energy = 0.0;
+            meter_samples = 0;
             last = std::time::Instant::now();
         }
         std::thread::sleep(std::time::Duration::from_millis(5));
@@ -324,6 +373,7 @@ fn record(
         .send(Progress {
             phase: "recognizing",
             seconds: samples.len() as f64 / 16000.0,
+            level: 0.0,
         })
         .map_err(|_| "录音界面已关闭。")?;
     Ok(samples)
@@ -393,18 +443,62 @@ pub async fn start_voice_input(
         .await
         .map_err(|_| "录音任务失败。")??
     };
-    crate::asr::recognize(
-        &profile,
-        &crate::audio_pipeline::encode_wav(&samples),
-        &key,
-        &token,
-    )
-    .await
+    let mut parts = Vec::new();
+    for range in http_ranges(&samples) {
+        if token.is_cancelled() {
+            return Err("录音已取消。".into());
+        }
+        parts.push(
+            crate::asr::recognize(
+                &profile,
+                &crate::audio_pipeline::encode_wav(&samples[range]),
+                &key,
+                &token,
+            )
+            .await?
+            .text,
+        );
+    }
+    Ok(Transcript {
+        text: parts.join(" "),
+        audio_seconds: samples.len() as f64 / 16000.0,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn minute_recording_is_split_into_valid_http_audio_without_losing_samples() {
+        for length in [1600, 28 * 16000, 28 * 16000 + 1601, 45 * 16000, MAX_SAMPLES] {
+            let samples = vec![1000_i16; length];
+            let ranges = http_ranges(&samples);
+            let mut end = 0;
+            for range in ranges {
+                assert_eq!(range.start, end);
+                assert!(range.end > range.start);
+                let wav = crate::audio_pipeline::encode_wav(&samples[range.clone()]);
+                let seconds = crate::asr::validate_wav(&wav).unwrap();
+                assert!((0.1..=30.0).contains(&seconds));
+                end = range.end;
+            }
+            assert_eq!(end, length);
+        }
+    }
+    #[test]
+    fn http_audio_split_prefers_a_quiet_boundary() {
+        let mut samples = vec![1000_i16; MAX_SAMPLES];
+        samples[27 * 16000..27 * 16000 + 320].fill(0);
+        assert!((27 * 16000..27 * 16000 + 320).contains(&http_ranges(&samples)[0].end));
+    }
+    #[test]
+    fn audio_meter_tracks_volume_and_handles_silence_or_invalid_samples() {
+        assert_eq!(meter_level(0.0, 1600), 0.0);
+        assert_eq!(meter_level(1.0, 0), 0.0);
+        assert_eq!(meter_level(f64::NAN, 1600), 0.0);
+        assert!(meter_level(0.16, 1600) < meter_level(16.0, 1600));
+        assert_eq!(meter_level(1600.0, 1600), 1.0);
+    }
     #[cfg(target_os = "macos")]
     #[test]
     fn microphone_permission_can_be_queried_without_requesting_access() {
