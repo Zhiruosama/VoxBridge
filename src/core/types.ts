@@ -33,6 +33,11 @@ export interface OverlaySnapshot extends SubtitleAppearance {
   phase: 'idle' | 'starting' | 'running' | 'stopping';
   lines: { source: string; translation?: string; time: string }[];
 }
+export interface ComposerSettings {
+  enterAction: 'speak' | 'translate' | 'newline';
+  output: 'source' | 'translation';
+  route: 'preview' | 'send';
+}
 export interface Settings {
   schemaVersion: 1;
   profiles: ProviderProfile[];
@@ -42,6 +47,7 @@ export interface Settings {
   theme: 'dark' | 'light' | 'system';
   audio: AudioRouting;
   subtitle: SubtitleAppearance;
+  composer: ComposerSettings;
 }
 export interface Segment {
   id: string;

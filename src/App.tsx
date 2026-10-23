@@ -21,6 +21,7 @@ import { defaults, loadSettings, profileFor, saveSettings, validateProfile } fro
 import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
 import { applyTranscript, applyTranslation } from './core/session';
 import { overlaySnapshot } from './core/overlay';
+import { ComposerController, composerKeyAction, type ComposerPhase } from './core/composer';
 import { listen } from '@tauri-apps/api/event';
 import {
   cancelTranslation,
@@ -78,20 +79,17 @@ export default function App() {
   const [text, setText] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [composerPhase, setComposerPhase] = useState<ComposerPhase>('idle');
+  const busy = composerPhase !== 'idle';
+  const [composer] = useState(
+    () => new ComposerController({ translate, speak, cancelTranslation, stopSpeech }),
+  );
+  const mountedRef = useRef(true);
+  const composingRef = useRef(false);
   const [follow, setFollow] = useState(true);
   const [sidebar, setSidebar] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const requestRef = useRef<string | null>(null);
-  const pendingRef = useRef(false);
-  const stoppingRef = useRef(false);
-  const [stopping, setStopping] = useState(false);
   const translationProfile = profileFor(settings, 'translation');
-  const speechProfile = profileFor(settings, 'tts');
-  const speechRef = useRef<string | null>(null);
-  const speechStoppingRef = useRef(false);
-  const [speechPhase, setSpeechPhase] = useState('');
-  const [speechStopping, setSpeechStopping] = useState(false);
   const overlayVersionRef = useRef(0);
   const [overlayReady, setOverlayReady] = useState(!desktop);
   const [overlayError, setOverlayError] = useState('');
@@ -164,16 +162,16 @@ export default function App() {
     if (follow)
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'instant' });
   }, [session.segments, follow]);
-  useEffect(
-    () => () => {
-      if (requestRef.current) void cancelTranslation(requestRef.current);
-      if (speechRef.current) void stopSpeech(speechRef.current);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      void composer.cancel().catch(() => {});
       const id = listeningRef.current;
       listeningRef.current = null;
       if (id) void stopCapture(id).catch(() => {});
-    },
-    [],
-  );
+    };
+  }, [composer]);
 
   async function refreshCaptureSources() {
     if (listeningRef.current || refreshingSources) return;
@@ -211,7 +209,7 @@ export default function App() {
   }
 
   async function beginListening() {
-    if (listeningRef.current || pendingRef.current || speechRef.current) return;
+    if (listeningRef.current || composer.busy) return;
     const source = captureSources.find((item) => String(item.pid) === captureSourceId);
     const asrProfile = profileFor(settings, 'asr');
     const invalid = validateProfile(asrProfile) || validateProfile(translationProfile);
@@ -277,109 +275,74 @@ export default function App() {
   function persist(next: Settings, silent = false) {
     try {
       saveSettings(next);
+      if (
+        next.sourceLanguage !== settings.sourceLanguage ||
+        next.targetLanguage !== settings.targetLanguage ||
+        JSON.stringify(profileFor(next, 'translation')) !== JSON.stringify(translationProfile)
+      )
+        setResult('');
       setSettings(next);
       if (!silent) notify('已保存');
     } catch (e) {
       notify(`保存失败：${String(e)}`);
     }
   }
-  async function runTranslation() {
-    if (pendingRef.current || speechRef.current || listeningRef.current) return;
-    const invalid = validateProfile(translationProfile);
-    if (invalid) {
-      setError(`${invalid} 请到设置页完善文字翻译服务。`);
+  async function runComposer(
+    action: 'speak' | 'translate',
+    route = settings.composer.route,
+    content?: string,
+  ) {
+    if (composer.busy || listeningRef.current) return;
+    if (!desktop) {
+      setError('请通过桌面应用使用翻译和语音输出。');
       return;
     }
-    pendingRef.current = true;
-    stoppingRef.current = false;
-    const requestId = crypto.randomUUID();
-    requestRef.current = requestId;
-    setBusy(true);
     setError('');
-    setResult('');
+    if (
+      content === undefined &&
+      (action === 'translate' || settings.composer.output === 'translation')
+    )
+      setResult('');
     try {
-      const translated = await translate(
-        translationProfile,
-        text,
-        settings.sourceLanguage,
-        settings.targetLanguage,
-        requestId,
+      await composer.run(
+        {
+          id: crypto.randomUUID(),
+          text: content ?? text,
+          settings,
+          action,
+          route,
+          ...(content !== undefined ? { output: 'source' as const } : {}),
+        },
+        {
+          phase: (phase) => {
+            if (mountedRef.current) setComposerPhase(phase);
+          },
+          translation: (translated) => {
+            if (mountedRef.current) setResult(translated);
+          },
+        },
       );
-      if (requestRef.current === requestId && !stoppingRef.current) setResult(translated);
-    } catch (e) {
-      if (requestRef.current === requestId && !stoppingRef.current) setError(String(e));
-    } finally {
-      if (requestRef.current === requestId) {
-        requestRef.current = null;
-        pendingRef.current = false;
-        setBusy(false);
-        setStopping(false);
-      }
+    } catch (error) {
+      if (mountedRef.current) setError(String(error));
     }
   }
 
-  async function runSpeech(route: 'preview' | 'send', content = text) {
-    if (speechRef.current || pendingRef.current || listeningRef.current) return;
-    const invalid = validateProfile(speechProfile);
-    if (invalid) {
-      setError(`${invalid} 请到设置页完善语音合成服务。`);
-      return;
-    }
-    if (!(route === 'preview' ? settings.audio.previewDeviceId : settings.audio.sendDeviceId)) {
-      setError('请先在常规设置中选择对应的音频输出设备。');
-      return;
-    }
-    const id = crypto.randomUUID();
-    speechRef.current = id;
-    speechStoppingRef.current = false;
-    setSpeechStopping(false);
-    setSpeechPhase('正在准备…');
-    setError('');
+  async function stopComposer() {
+    if (!composer.busy || composerPhase === 'stopping') return;
+    setComposerPhase('stopping');
     try {
-      await speak(speechProfile, content, settings.audio, route, id, (event) => {
-        if (speechRef.current !== event.requestId || speechStoppingRef.current) return;
-        const labels: Record<string, string> = {
-          synthesizing: '正在合成…',
-          decoding: '正在准备播放…',
-          playing: route === 'preview' ? '正在试听…' : '正在发送…',
-        };
-        if (labels[event.phase]) setSpeechPhase(labels[event.phase]);
-      });
+      await composer.cancel();
     } catch (error) {
-      if (speechRef.current === id && !speechStoppingRef.current) setError(String(error));
-    } finally {
-      if (speechRef.current === id) {
-        speechRef.current = null;
-        setSpeechPhase('');
-        setSpeechStopping(false);
-      }
-    }
-  }
-  async function cancelSpeech() {
-    const id = speechRef.current;
-    if (!id) return;
-    speechStoppingRef.current = true;
-    setSpeechStopping(true);
-    setSpeechPhase('正在停止…');
-    try {
-      await stopSpeech(id);
-    } catch (error) {
-      setError(String(error));
-    }
-  }
-  async function stopTranslation() {
-    const id = requestRef.current;
-    if (!id) return;
-    stoppingRef.current = true;
-    setStopping(true);
-    try {
-      await cancelTranslation(id);
-    } catch (e) {
-      setError(String(e));
+      if (mountedRef.current) setError(`停止失败：${String(error)} 请等待当前任务结束。`);
     }
   }
 
   function openSettings(section: SettingsSection = 'general') {
+    if (composer.busy) {
+      void stopComposer();
+      notify('正在停止当前操作，结束后可进入设置。');
+      return;
+    }
     if (listeningRef.current) {
       void endListening();
       notify('正在停止监听，结束后可进入设置。');
@@ -490,7 +453,7 @@ export default function App() {
                   !desktop ||
                   runtime?.platform !== 'macos' ||
                   listenPhase === 'stopping' ||
-                  (!listening && (!captureSourceId || busy || !!speechPhase || refreshingSources))
+                  (!listening && (!captureSourceId || busy || refreshingSources))
                 }
                 title="点击开始后，目标声音会按短段发送到 ASR 和翻译服务，可能计费；当前是 HTTP 分段识别，不是实时 WebSocket"
               >
@@ -560,7 +523,7 @@ export default function App() {
                 <div className="language-pair">
                   <Select
                     label="源语言"
-                    disabled={listening}
+                    disabled={listening || busy}
                     value={settings.sourceLanguage}
                     onChange={(value) => persist({ ...settings, sourceLanguage: value }, true)}
                     options={languages.map((language) => ({ value: language, label: language }))}
@@ -569,7 +532,7 @@ export default function App() {
                   <ArrowRight size={12} />
                   <Select
                     label="目标语言"
-                    disabled={listening}
+                    disabled={listening || busy}
                     value={settings.targetLanguage}
                     onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
                     options={languages.map((language) => ({ value: language, label: language }))}
@@ -577,19 +540,25 @@ export default function App() {
                   />
                 </div>
               </div>
-              <p
-                className={
-                  listenError || overlayError
-                    ? 'diagnostic-feedback error-text'
-                    : 'diagnostic-feedback'
-                }
-                role={listenError || overlayError ? 'alert' : 'status'}
-              >
-                {listenError ||
-                  overlayError ||
-                  listenStatus ||
-                  '先让目标应用发声，再刷新进程。点击监听后音频会发送到 ASR 与翻译服务，可能计费；当前为 HTTP 分段识别。监听期间暂禁用 TTS。'}
-              </p>
+              <div className="listening-info">
+                <span className="listening-state">{listening ? '分段监听' : '未监听'}</span>
+                <span>监听调用 ASR 与翻译服务，可能计费</span>
+                <details>
+                  <summary>说明</summary>
+                  <p>
+                    先让目标应用发声，再刷新并选择音频进程。当前使用 HTTP 短句识别，不是实时
+                    WebSocket；监听期间禁用语音输出以避免回环。停止监听后可使用下方文字表达。
+                  </p>
+                </details>
+              </div>
+              {(listenError || overlayError || listenStatus) && (
+                <p
+                  className={`diagnostic-feedback${listenError || overlayError ? ' error-text' : ''}`}
+                  role={listenError || overlayError ? 'alert' : 'status'}
+                >
+                  {listenError || overlayError || listenStatus}
+                </p>
+              )}
               <div
                 className="transcript-scroll"
                 ref={scrollRef}
@@ -640,12 +609,51 @@ export default function App() {
                     id="speech-input"
                     maxLength={500}
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    disabled={busy}
+                    aria-describedby="composer-hint"
+                    onChange={(event) => {
+                      setText(event.target.value);
+                      setResult('');
+                      setError('');
+                    }}
+                    onCompositionStart={() => {
+                      composingRef.current = true;
+                    }}
+                    onCompositionEnd={() => {
+                      composingRef.current = false;
+                    }}
+                    onKeyDown={(event) => {
+                      const action = composerKeyAction(
+                        {
+                          ...event.nativeEvent,
+                          key: event.key,
+                          shiftKey: event.shiftKey,
+                          ctrlKey: event.ctrlKey,
+                          metaKey: event.metaKey,
+                          altKey: event.altKey,
+                          repeat: event.repeat,
+                          isComposing: composingRef.current || event.nativeEvent.isComposing,
+                          keyCode: event.nativeEvent.keyCode,
+                        },
+                        settings.composer.enterAction,
+                      );
+                      if (
+                        action === 'newline' ||
+                        event.key !== 'Enter' ||
+                        composingRef.current ||
+                        event.nativeEvent.isComposing ||
+                        event.nativeEvent.keyCode === 229
+                      )
+                        return;
+                      event.preventDefault();
+                      if (action !== 'ignore') void runComposer(action);
+                    }}
                     placeholder="输入要说的话…"
                   />
                   <div className="composer-controls">
                     <button
                       className="model-button"
+                      disabled={busy || listening}
                       onClick={() => openSettings('translation')}
                       title="配置翻译模型"
                     >
@@ -655,59 +663,112 @@ export default function App() {
                     </button>
                     {text.length > 450 && <span className="input-count">{text.length}/500</span>}
                     <div className="composer-actions">
-                      {speechPhase ? (
+                      <button
+                        className="output-mode"
+                        aria-label="输出译文"
+                        aria-pressed={settings.composer.output === 'translation'}
+                        disabled={busy || listening}
+                        title="切换原文或译文语音；译文模式会自动翻译"
+                        onClick={() =>
+                          persist(
+                            {
+                              ...settings,
+                              composer: {
+                                ...settings.composer,
+                                output:
+                                  settings.composer.output === 'translation'
+                                    ? 'source'
+                                    : 'translation',
+                              },
+                            },
+                            true,
+                          )
+                        }
+                      >
+                        <Languages size={12} />
+                        {settings.composer.output === 'translation' ? '译文' : '原文'}
+                      </button>
+                      {busy ? (
                         <>
-                          <span role="status" className="input-count">
-                            {speechPhase}
+                          <span role="status" className="composer-phase">
+                            {
+                              {
+                                translating: '翻译中…',
+                                synthesizing: '合成中…',
+                                decoding: '准备播放…',
+                                playing: '输出中…',
+                                stopping: '停止中…',
+                                idle: '',
+                              }[composerPhase]
+                            }
                           </span>
                           <button
-                            className="icon-button"
-                            aria-label="停止语音"
-                            disabled={speechStopping}
-                            onClick={() => void cancelSpeech()}
+                            className="send-button"
+                            aria-label="停止当前操作"
+                            disabled={composerPhase === 'stopping'}
+                            onClick={() => void stopComposer()}
                           >
                             <Square size={13} />
                           </button>
                         </>
-                      ) : busy ? (
-                        <button
-                          className="icon-button"
-                          aria-label="停止翻译"
-                          disabled={stopping}
-                          onClick={() => void stopTranslation()}
-                        >
-                          <Square size={13} />
-                        </button>
                       ) : (
-                        <button
-                          className="subtle"
-                          disabled={!text.trim() || !desktop || listening}
-                          onClick={() => void runTranslation()}
-                          title={desktop ? '翻译输入的文字' : '请通过桌面应用使用翻译'}
-                        >
-                          翻译
-                        </button>
+                        <>
+                          <button
+                            className="subtle"
+                            disabled={!text.trim() || !desktop || listening}
+                            onClick={() => void runComposer('translate')}
+                            title="仅翻译，不输出语音"
+                          >
+                            翻译
+                          </button>
+                          <button
+                            className="icon-button"
+                            aria-label={
+                              settings.composer.output === 'translation'
+                                ? '翻译并试听译文'
+                                : '试听原文'
+                            }
+                            title={
+                              settings.composer.output === 'translation'
+                                ? '自动翻译后在试听设备播放'
+                                : '在试听设备播放原文'
+                            }
+                            disabled={!desktop || !text.trim() || listening}
+                            onClick={() => void runComposer('speak', 'preview')}
+                          >
+                            <Headphones size={16} />
+                          </button>
+                          <button
+                            disabled={!desktop || !text.trim() || listening}
+                            title={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
+                            aria-label="输出合成语音"
+                            className="send-button"
+                            onClick={() => void runComposer('speak')}
+                          >
+                            <ArrowRight size={16} />
+                          </button>
+                        </>
                       )}
-                      <button
-                        className="icon-button"
-                        aria-label="试听输入文字"
-                        title="试听输入文字"
-                        disabled={!desktop || !text.trim() || busy || !!speechPhase || listening}
-                        onClick={() => void runSpeech('preview')}
-                      >
-                        <Headphones size={16} />
-                      </button>
-                      <button
-                        disabled={!desktop || !text.trim() || busy || !!speechPhase || listening}
-                        title="将输入文字合成为语音并发送到所选设备"
-                        aria-label="发送合成语音"
-                        className="send-button"
-                        onClick={() => void runSpeech('send')}
-                      >
-                        <ArrowRight size={16} />
-                      </button>
                     </div>
                   </div>
+                </div>
+                <div id="composer-hint" className="composer-hint">
+                  <span>
+                    {settings.composer.enterAction === 'newline'
+                      ? 'Enter 换行'
+                      : settings.composer.enterAction === 'translate'
+                        ? 'Enter 仅翻译 · Shift + Enter 换行'
+                        : `Enter ${settings.composer.output === 'translation' ? '翻译后输出' : '输出原文'} · Shift + Enter 换行`}
+                    {settings.composer.enterAction === 'speak' &&
+                      ` · ${settings.composer.route === 'preview' ? '试听' : '发送'}设备`}
+                  </span>
+                  <button
+                    className="subtle"
+                    disabled={busy || listening}
+                    onClick={() => openSettings()}
+                  >
+                    发送设置 · 服务可能计费
+                  </button>
                 </div>
                 {error && (
                   <p className="error-text" role="alert">
@@ -720,19 +781,15 @@ export default function App() {
                     <div className="composer-actions">
                       <button
                         className="subtle"
-                        disabled={
-                          !desktop || busy || !!speechPhase || listening || result.length > 500
-                        }
-                        onClick={() => void runSpeech('preview', result)}
+                        disabled={!desktop || busy || listening || result.length > 500}
+                        onClick={() => void runComposer('speak', 'preview', result)}
                       >
                         试听译文
                       </button>
                       <button
                         className="subtle"
-                        disabled={
-                          !desktop || busy || !!speechPhase || listening || result.length > 500
-                        }
-                        onClick={() => void runSpeech('send', result)}
+                        disabled={!desktop || busy || listening || result.length > 500}
+                        onClick={() => void runComposer('speak', 'send', result)}
                       >
                         发送译文
                       </button>

@@ -137,6 +137,35 @@ describe('provider profiles', () => {
     expect(parsed.subtitle).toEqual({ fontSize: 40, backgroundOpacity: 0.82 });
     expect(JSON.stringify(parsed)).not.toContain('private-transcript');
   });
+  it('migrates composer preferences and strips unknown fields', () => {
+    expect(parseSettings({ ...defaults, composer: undefined }).composer).toEqual(defaults.composer);
+    expect(
+      parseSettings({ ...defaults, composer: { enterAction: 'bad', output: 'bad', route: 'bad' } })
+        .composer,
+    ).toEqual(defaults.composer);
+    expect(
+      parseSettings({
+        ...defaults,
+        composer: {
+          enterAction: 'newline',
+          output: 'source',
+          route: 'preview',
+          apiKey: 'never-save',
+        },
+      }).composer,
+    ).toEqual({ enterAction: 'newline', output: 'source', route: 'preview' });
+  });
+  it('round-trips composer preferences through storage', () => {
+    const stored = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    });
+    const input = structuredClone(defaults);
+    input.composer = { enterAction: 'translate', output: 'source', route: 'preview' };
+    saveSettings(input);
+    expect(loadSettings().composer).toEqual(input.composer);
+  });
   it('allows local endpoints but rejects unsafe or credential-bearing URLs', () => {
     const p = { ...defaults.profiles[1], modelId: 'custom', baseUrl: 'http://127.0.0.1:1234/v1' };
     expect(validateProfile(p)).toBeNull();

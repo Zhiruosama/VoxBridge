@@ -140,7 +140,7 @@ export default function SettingsPanel({
       <header className="preferences-heading">
         <div className="preferences-title">
           <h1>{sectionTitles[section]}</h1>
-          {section === 'asr' && <span className="tag">接入中</span>}
+          {section === 'asr' && <span className="tag">HTTP 短句</span>}
         </div>
         <div className="preferences-save">
           {dirty && <span role="status">未保存</span>}
@@ -172,6 +172,72 @@ export default function SettingsPanel({
               </SettingRow>
             </div>
           </section>
+          <section className="preference-section" aria-labelledby="composer-heading">
+            <h2 id="composer-heading">文字表达</h2>
+            <div className="preference-card">
+              <SettingRow title="Enter 操作">
+                <Select
+                  label="Enter 操作"
+                  value={draft.composer.enterAction}
+                  options={[
+                    { value: 'speak', label: '输出语音' },
+                    { value: 'translate', label: '仅翻译' },
+                    { value: 'newline', label: '换行' },
+                  ]}
+                  onChange={(value) =>
+                    setDraft({
+                      ...draft,
+                      composer: {
+                        ...draft.composer,
+                        enterAction: value as Settings['composer']['enterAction'],
+                      },
+                    })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title="语音内容">
+                <Select
+                  label="语音内容"
+                  value={draft.composer.output}
+                  options={[
+                    { value: 'translation', label: '译文 · 自动翻译后输出' },
+                    { value: 'source', label: '原文 · 直接输出' },
+                  ]}
+                  onChange={(value) =>
+                    setDraft({
+                      ...draft,
+                      composer: {
+                        ...draft.composer,
+                        output: value as Settings['composer']['output'],
+                      },
+                    })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title="默认语音输出">
+                <Select
+                  label="默认语音输出"
+                  value={draft.composer.route}
+                  options={[
+                    { value: 'send', label: '发送设备' },
+                    { value: 'preview', label: '试听设备' },
+                  ]}
+                  onChange={(value) =>
+                    setDraft({
+                      ...draft,
+                      composer: {
+                        ...draft.composer,
+                        route: value as Settings['composer']['route'],
+                      },
+                    })
+                  }
+                />
+              </SettingRow>
+            </div>
+            <p className="preference-help">
+              Shift + Enter 换行。翻译和语音合成会调用所选服务，可能计费。
+            </p>
+          </section>
           <section className="preference-section" aria-labelledby="subtitle-heading">
             <h2 id="subtitle-heading">悬浮字幕</h2>
             <div className="preference-card">
@@ -192,7 +258,7 @@ export default function SettingsPanel({
                 />
                 <span className="preference-value">{draft.subtitle.fontSize} px</span>
               </SettingRow>
-              <SettingRow title="背景透明度">
+              <SettingRow title="背景不透明度">
                 <input
                   type="range"
                   aria-label="悬浮字幕背景不透明度"

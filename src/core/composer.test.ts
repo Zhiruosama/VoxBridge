@@ -1,0 +1,213 @@
+import { describe, expect, it, vi } from 'vitest';
+import { ComposerController, composerKeyAction } from './composer';
+import { defaults } from './settings';
+
+function fixture() {
+  const settings = structuredClone(defaults);
+  settings.audio = { previewDeviceId: 'headphones', sendDeviceId: 'virtual' };
+  settings.profiles[1] = {
+    ...settings.profiles[1],
+    baseUrl: 'https://example.com/v1',
+    modelId: 'translation-model',
+  };
+  settings.profiles[2] = { ...settings.profiles[2], modelId: 'speech-model', voice: 'voice' };
+  const dependencies = {
+    translate: vi.fn<typeof import('../bridge').translate>(async () => 'Hello'),
+    speak: vi.fn<typeof import('../bridge').speak>(async () => {}),
+    cancelTranslation: vi.fn(async () => {}),
+    stopSpeech: vi.fn(async () => {}),
+  };
+  const controller = new ComposerController(dependencies);
+  const callbacks = { phase: vi.fn(), translation: vi.fn() };
+  const input = { id: 'request', text: '你好', settings, action: 'speak' as const };
+  return { settings, dependencies, controller, callbacks, input };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((ok, fail) => {
+    resolve = ok;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+describe('composer operation', () => {
+  it('translates then speaks the returned text with the exact selected route', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    expect(await controller.run(input, callbacks)).toBe('completed');
+    expect(dependencies.speak).toHaveBeenCalledWith(
+      input.settings.profiles[2],
+      'Hello',
+      input.settings.audio,
+      'send',
+      'request',
+      expect.any(Function),
+    );
+    expect(callbacks.phase.mock.calls.map(([phase]) => phase)).toEqual([
+      'translating',
+      'synthesizing',
+      'idle',
+    ]);
+    expect(callbacks.translation).toHaveBeenCalledWith('Hello');
+    expect(controller.busy).toBe(false);
+  });
+  it('source mode bypasses translation even without a translation service', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    input.settings.composer.output = 'source';
+    input.settings.profiles[1].modelId = '';
+    await controller.run({ ...input, route: 'preview' }, callbacks);
+    expect(dependencies.translate).not.toHaveBeenCalled();
+    expect(dependencies.speak.mock.calls[0]?.[1]).toBe('你好');
+  });
+  it('translate-only does not require a TTS profile or output device', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    input.settings.audio.sendDeviceId = '';
+    input.settings.profiles[2].modelId = '';
+    await controller.run({ ...input, action: 'translate' }, callbacks);
+    expect(dependencies.translate).toHaveBeenCalledOnce();
+    expect(dependencies.speak).not.toHaveBeenCalled();
+  });
+  it('rejects missing output before making any service request', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    input.settings.audio.sendDeviceId = '';
+    await expect(controller.run(input, callbacks)).rejects.toThrow('发送设备');
+    expect(dependencies.translate).not.toHaveBeenCalled();
+    expect(dependencies.speak).not.toHaveBeenCalled();
+  });
+  it('does not speak after failed or empty translation', async () => {
+    for (const failure of [true, false]) {
+      const { controller, input, callbacks, dependencies } = fixture();
+      dependencies.translate.mockImplementation(async () => {
+        if (failure) throw new Error('offline');
+        return '';
+      });
+      await expect(controller.run(input, callbacks)).rejects.toThrow();
+      expect(dependencies.speak).not.toHaveBeenCalled();
+      expect(controller.busy).toBe(false);
+    }
+  });
+  it('keeps long translations visible without invoking TTS', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    dependencies.translate.mockResolvedValue('文'.repeat(501));
+    await expect(controller.run(input, callbacks)).rejects.toThrow('超过 500 字');
+    expect(callbacks.translation).toHaveBeenCalledWith('文'.repeat(501));
+    expect(dependencies.speak).not.toHaveBeenCalled();
+  });
+  it('rejects double submissions and prevents late translation from starting TTS after cancel', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    const pending = deferred<string>();
+    dependencies.translate.mockReturnValue(pending.promise);
+    const first = controller.run(input, callbacks);
+    expect(await controller.run({ ...input, id: 'second' }, callbacks)).toBe('busy');
+    await controller.cancel();
+    expect(dependencies.cancelTranslation).toHaveBeenCalledWith('request');
+    expect(controller.busy).toBe(true);
+    pending.resolve('late');
+    expect(await first).toBe('stopped');
+    expect(callbacks.translation).not.toHaveBeenCalled();
+    expect(dependencies.speak).not.toHaveBeenCalled();
+    expect(controller.busy).toBe(false);
+  });
+  it('keeps cancellation effective even when cancellation IPC fails', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    const pending = deferred<string>();
+    dependencies.translate.mockReturnValue(pending.promise);
+    dependencies.cancelTranslation.mockRejectedValue(new Error('IPC failed'));
+    const running = controller.run(input, callbacks);
+    await expect(controller.cancel()).rejects.toThrow('IPC failed');
+    pending.resolve('late');
+    expect(await running).toBe('stopped');
+    expect(dependencies.speak).not.toHaveBeenCalled();
+  });
+  it('cancels at the phase boundary without leaving an idle gap', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    callbacks.translation.mockImplementation(() => {
+      void controller.cancel();
+    });
+    expect(await controller.run(input, callbacks)).toBe('stopped');
+    expect(dependencies.speak).not.toHaveBeenCalled();
+  });
+  it('uses an immutable snapshot while translation is pending', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    const pending = deferred<string>();
+    dependencies.translate.mockReturnValue(pending.promise);
+    const running = controller.run(input, callbacks);
+    input.settings.audio.sendDeviceId = 'changed';
+    input.settings.profiles[2].modelId = 'changed';
+    input.settings.composer.output = 'source';
+    pending.resolve('Hello');
+    await running;
+    expect(dependencies.speak.mock.calls[0]?.[2].sendDeviceId).toBe('virtual');
+    expect(dependencies.speak.mock.calls[0]?.[0].modelId).toBe('speech-model');
+  });
+  it('ignores stale progress and cancels playback by the current operation ID', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    input.settings.composer.output = 'source';
+    const pending = deferred<void>();
+    dependencies.speak.mockImplementation(
+      async (_profile, _text, _audio, _route, _id, progress) => {
+        progress({ requestId: 'old', phase: 'playing' });
+        progress({ requestId: 'request', phase: 'playing' });
+        await pending.promise;
+        progress({ requestId: 'request', phase: 'playing' });
+      },
+    );
+    const running = controller.run(input, callbacks);
+    await controller.cancel();
+    pending.resolve();
+    expect(await running).toBe('stopped');
+    expect(dependencies.stopSpeech).toHaveBeenCalledWith('request');
+    expect(callbacks.phase.mock.calls.map(([phase]) => phase)).toEqual([
+      'synthesizing',
+      'playing',
+      'idle',
+    ]);
+  });
+});
+
+it('ignores completed-operation progress both when idle and during another operation', async () => {
+  const { controller, input, callbacks, dependencies } = fixture();
+  input.settings.composer.output = 'source';
+  let oldProgress!: Parameters<typeof import('../bridge').speak>[5];
+  dependencies.speak.mockImplementationOnce(async (_p, _t, _a, _r, _id, progress) => {
+    oldProgress = progress;
+  });
+  await controller.run(input, callbacks);
+  callbacks.phase.mockClear();
+  oldProgress({ requestId: 'request', phase: 'playing' });
+  expect(callbacks.phase).not.toHaveBeenCalled();
+  const pending = deferred<void>();
+  dependencies.speak.mockReturnValueOnce(pending.promise);
+  const second = controller.run({ ...input, id: 'second' }, callbacks);
+  oldProgress({ requestId: 'request', phase: 'playing' });
+  expect(callbacks.phase.mock.calls).toEqual([['synthesizing']]);
+  pending.resolve();
+  await second;
+  expect(controller.busy).toBe(false);
+});
+
+const enter = {
+  key: 'Enter',
+  shiftKey: false,
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  isComposing: false,
+  repeat: false,
+};
+describe('composer keyboard', () => {
+  it('submits with configured Enter action and preserves Shift+Enter', () => {
+    expect(composerKeyAction(enter, 'speak')).toBe('speak');
+    expect(composerKeyAction(enter, 'translate')).toBe('translate');
+    expect(composerKeyAction(enter, 'newline')).toBe('newline');
+    expect(composerKeyAction({ ...enter, shiftKey: true }, 'speak')).toBe('newline');
+  });
+  it('does not submit an IME confirmation, repeated key or other key', () => {
+    expect(composerKeyAction({ ...enter, isComposing: true }, 'speak')).toBe('ignore');
+    expect(composerKeyAction({ ...enter, keyCode: 229 }, 'speak')).toBe('ignore');
+    expect(composerKeyAction({ ...enter, repeat: true }, 'speak')).toBe('ignore');
+    expect(composerKeyAction({ ...enter, key: 'a' }, 'speak')).toBe('ignore');
+  });
+});

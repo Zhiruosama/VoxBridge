@@ -1,4 +1,4 @@
-import type { ProviderProfile, Settings, Stage } from './types';
+import type { ComposerSettings, ProviderProfile, Settings, Stage } from './types';
 import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
 
 export const defaults: Settings = {
@@ -8,6 +8,7 @@ export const defaults: Settings = {
   theme: 'dark',
   audio: { previewDeviceId: '', sendDeviceId: '' },
   subtitle: { ...subtitleDefaults },
+  composer: { enterAction: 'speak', output: 'translation', route: 'send' },
   active: { asr: 'asr-default', translation: 'translation-default', tts: 'tts-default' },
   profiles: [
     {
@@ -90,6 +91,17 @@ export function profileFor(settings: Settings, stage: Stage): ProviderProfile {
   );
 }
 
+function parseComposerSettings(value: unknown): ComposerSettings {
+  const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return {
+    enterAction: ['speak', 'translate', 'newline'].includes(input.enterAction as string)
+      ? (input.enterAction as ComposerSettings['enterAction'])
+      : defaults.composer.enterAction,
+    output: input.output === 'source' ? 'source' : 'translation',
+    route: input.route === 'preview' ? 'preview' : 'send',
+  };
+}
+
 /** Parse only known fields: never persist an imported credential or arbitrary extra fields. */
 export function parseSettings(value: unknown): Settings {
   if (!value || typeof value !== 'object') throw new Error('设置文件无效。');
@@ -140,6 +152,7 @@ export function parseSettings(value: unknown): Settings {
   return {
     schemaVersion: 1,
     subtitle: parseSubtitleAppearance(input.subtitle),
+    composer: parseComposerSettings(input.composer),
     audio: {
       previewDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.previewDeviceId === 'string'
