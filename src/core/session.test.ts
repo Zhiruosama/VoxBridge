@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTranscript, applyTranslation } from './session';
+import { appendExpression, applyTranscript, applyTranslation, discardUnfinished } from './session';
 import type { Session, TranscriptEvent } from './types';
 
 const event: TranscriptEvent = {
@@ -64,5 +64,31 @@ describe('transcript session isolation', () => {
       state = applyTranscript(state, { ...event, segmentId: String(i), final: true });
     expect(state.segments).toHaveLength(500);
     expect(state.segments.at(-1)?.id).toBe('500');
+  });
+});
+
+describe('expression subtitles', () => {
+  const expression = { id: 'one', source: '你好', translation: 'Hello', time: '12:30:00' };
+  it('keeps a bilingual snapshot alongside live audio and survives audio recovery', () => {
+    let state = applyTranscript({ id: 'a', segments: [] }, { ...event, final: true });
+    state = appendExpression(state, expression);
+    state = applyTranslation(state, 'a', 'one', 1, '音频译文');
+    state = applyTranscript(state, { ...event, segmentId: 'partial' });
+    state = discardUnfinished(state);
+    expect(state.id).toBe('a');
+    expect(state.segments).toHaveLength(2);
+    expect(state.segments[0].translation).toBe('音频译文');
+    expect(state.segments[1]).toMatchObject({ ...expression, id: 'expression:one', final: true });
+    expect(expression.id).toBe('one');
+  });
+  it('displays completed expressions without listening and bounds the shared feed', () => {
+    let state: Session = { id: null, segments: [] };
+    for (let i = 0; i < 501; i++) state = appendExpression(state, { ...expression, id: String(i) });
+    expect(state.id).toBeNull();
+    expect(state.segments).toHaveLength(500);
+    expect(state.segments.at(-1)?.id).toBe('expression:500');
+    state = appendExpression(state, { ...expression, id: '500', translation: 'Updated' });
+    expect(state.segments).toHaveLength(500);
+    expect(state.segments.at(-1)?.translation).toBe('Updated');
   });
 });

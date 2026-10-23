@@ -23,7 +23,12 @@ import ListeningStatus, {
 } from './components/ListeningStatus';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
 import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
-import { applyTranscript, applyTranslation, discardUnfinished } from './core/session';
+import {
+  appendExpression,
+  applyTranscript,
+  applyTranslation,
+  discardUnfinished,
+} from './core/session';
 import { overlaySnapshot } from './core/overlay';
 import { ListeningEpoch } from './core/listening';
 import { CaptureSignalMonitor, type CaptureHealth } from './core/capture-health';
@@ -94,8 +99,6 @@ export default function App() {
   const listenEpochRef = useRef(new ListeningEpoch());
   const listening = listenPhase !== 'idle';
   const [text, setText] = useState('');
-  const [result, setResult] = useState('');
-  const [error, setError] = useState('');
   const [composerPhase, setComposerPhase] = useState<ComposerPhase>('idle');
   const busy = composerPhase !== 'idle';
   const [composer] = useState(
@@ -107,9 +110,6 @@ export default function App() {
   const [sidebar, setSidebar] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const translationProfile = profileFor(settings, 'translation');
-  useEffect(() => {
-    setResult('');
-  }, [settings.sourceLanguage, settings.targetLanguage, translationProfile]);
   const overlayVersionRef = useRef(0);
   const [overlayReady, setOverlayReady] = useState(!desktop);
   const [overlayError, setOverlayError] = useState('');
@@ -307,12 +307,6 @@ export default function App() {
   function persist(next: Settings, silent = false) {
     try {
       saveSettings(next);
-      if (
-        next.sourceLanguage !== settings.sourceLanguage ||
-        next.targetLanguage !== settings.targetLanguage ||
-        JSON.stringify(profileFor(next, 'translation')) !== JSON.stringify(translationProfile)
-      )
-        setResult('');
       setSettings(next);
       setSavedSettings(next);
       if (!silent) notify('已保存');
@@ -320,44 +314,39 @@ export default function App() {
       notify(`保存失败：${String(e)}`);
     }
   }
-  async function runComposer(
-    action: 'speak' | 'translate',
-    route = settings.composer.route,
-    content?: string,
-  ) {
+  async function runComposer(action: 'speak' | 'translate', route = settings.composer.route) {
     if (composer.busy) return;
     if (!desktop) {
-      setError('请通过桌面应用使用翻译和语音输出。');
+      notify('请通过桌面应用使用翻译和语音输出。');
       return;
     }
-    setError('');
-    if (
-      content === undefined &&
-      (action === 'translate' || settings.composer.output === 'translation')
-    )
-      setResult('');
+    const id = crypto.randomUUID();
+    const source = text;
+    const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
     try {
       await composer.run(
         {
-          id: crypto.randomUUID(),
-          text: content ?? text,
+          id,
+          text: source,
           settings,
           action,
           route,
           listening: Boolean(listeningRef.current),
-          ...(content !== undefined ? { output: 'source' as const } : {}),
         },
         {
           phase: (phase) => {
             if (mountedRef.current) setComposerPhase(phase);
           },
           translation: (translated) => {
-            if (mountedRef.current) setResult(translated);
+            if (mountedRef.current)
+              setSession((state) =>
+                appendExpression(state, { id, source, translation: translated, time }),
+              );
           },
         },
       );
     } catch (error) {
-      if (mountedRef.current) setError(String(error));
+      if (mountedRef.current) notify(String(error));
     }
   }
 
@@ -367,7 +356,7 @@ export default function App() {
     try {
       await composer.cancel();
     } catch (error) {
-      if (mountedRef.current) setError(`停止失败：${String(error)} 请等待当前任务结束。`);
+      if (mountedRef.current) notify(`停止失败：${String(error)} 请等待当前任务结束。`);
     }
   }
 
@@ -660,8 +649,6 @@ export default function App() {
                     title={composerHint}
                     onChange={(event) => {
                       setText(event.target.value);
-                      setResult('');
-                      setError('');
                     }}
                     onCompositionStart={() => {
                       composingRef.current = true;
@@ -803,32 +790,6 @@ export default function App() {
                 <span id="composer-hint" className="sr-only">
                   {composerHint}
                 </span>
-                {error && (
-                  <p className="error-text" role="alert">
-                    {error}
-                  </p>
-                )}
-                {result && (
-                  <div className="translation-result">
-                    <p>{result}</p>
-                    <div className="composer-actions">
-                      <button
-                        className="subtle"
-                        disabled={!desktop || busy || result.length > 500}
-                        onClick={() => void runComposer('speak', 'preview', result)}
-                      >
-                        试听译文
-                      </button>
-                      <button
-                        className="subtle"
-                        disabled={!desktop || busy || result.length > 500}
-                        onClick={() => void runComposer('speak', 'send', result)}
-                      >
-                        发送译文
-                      </button>
-                    </div>
-                  </div>
-                )}
               </section>
             </>
           )}

@@ -425,8 +425,7 @@ nav button[aria-current='page'] {
 .composer-box textarea {
   display: block;
   width: 100%;
-  min-height: 76px;
-  max-height: 160px;
+  height: 76px;
   resize: none;
   padding: 16px 16px 6px;
   background: transparent;
@@ -659,16 +658,6 @@ nav button[aria-current='page'] {
   font-size: 10px;
   color: var(--faint);
   margin-left: auto;
-}
-.translation-result {
-  padding: 12px 4px 0;
-  max-height: 140px;
-  overflow: auto;
-}
-.translation-result p {
-  font-size: 14px;
-  line-height: 1.8;
-  overflow-wrap: anywhere;
 }
 .tag {
   display: inline-flex;

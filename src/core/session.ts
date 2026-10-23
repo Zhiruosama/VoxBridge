@@ -49,3 +49,13 @@ export function applyTranslation(
 export function discardUnfinished(state: Session): Session {
   return { ...state, segments: state.segments.filter((segment) => segment.final) };
 }
+
+/** Expression results share the subtitle feed without changing the active audio session. */
+export function appendExpression(
+  state: Session,
+  expression: { id: string; source: string; translation: string; time: string },
+): Session {
+  const segment = { ...expression, id: `expression:${expression.id}`, revision: 1, final: true };
+  const segments = state.segments.filter((item) => item.id !== segment.id);
+  return { ...state, segments: [...segments, segment].slice(-500) };
+}
