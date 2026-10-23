@@ -64,6 +64,7 @@ pub fn run() {
             capture::list_capture_sources,
             capture::capture_diagnostic,
             capture::stop_capture,
+            capture::finish_listening,
             capture::listening::start_listening,
             speech::speak,
             speech::stop_speech,

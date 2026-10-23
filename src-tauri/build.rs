@@ -18,6 +18,7 @@ fn main() {
             "list_capture_sources",
             "capture_diagnostic",
             "stop_capture",
+            "finish_listening",
             "start_listening",
             "speak",
             "stop_speech",

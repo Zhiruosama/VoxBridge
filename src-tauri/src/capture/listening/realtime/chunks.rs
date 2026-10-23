@@ -117,6 +117,11 @@ impl Chunks {
         output
     }
 
+    /// Only a provider-final tail may be committed after a clean end-of-stream.
+    pub fn finish(&mut self) -> Vec<Sentence> {
+        self.flush(u64::MAX)
+    }
+
     /// A brief final pause lets a following provider fragment complete a price or phrase.
     pub fn flush(&mut self, now_ms: u64) -> Vec<Sentence> {
         let Some(live) = self.live.as_ref() else {

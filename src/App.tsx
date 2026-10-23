@@ -29,9 +29,10 @@ import {
   applyTranslation,
   applyTranslationError,
   discardUnfinished,
+  endSession,
 } from './core/session';
 import { overlaySnapshot } from './core/overlay';
-import { ListeningEpoch } from './core/listening';
+import { ListeningEpoch, acceptDuringDrain } from './core/listening';
 import { CaptureSignalMonitor, type CaptureHealth } from './core/capture-health';
 import {
   ComposerController,
@@ -51,6 +52,7 @@ import {
   speak,
   startListening,
   stopCapture,
+  finishListening,
   stopSpeech,
   translate,
 } from './bridge';
@@ -222,7 +224,8 @@ export default function App() {
   }, [runtime?.platform]);
 
   function receiveListening(event: ListeningEvent) {
-    if (listeningRef.current !== event.sessionId || listenStoppingRef.current) return;
+    if (listeningRef.current !== event.sessionId) return;
+    if (listenStoppingRef.current && !acceptDuringDrain(event)) return;
     if (!listenEpochRef.current.accept(event)) return;
     if (event.type === 'transcript') {
       setSession((state) => applyTranscript(state, event));
@@ -315,7 +318,7 @@ export default function App() {
     } finally {
       if (listeningRef.current === id) {
         listeningRef.current = null;
-        setSession((state) => ({ ...discardUnfinished(state), id: null }));
+        setSession(endSession);
         setListenPhase('idle');
       }
     }
@@ -326,9 +329,8 @@ export default function App() {
     if (!id || listenStoppingRef.current) return;
     listenStoppingRef.current = true;
     setListenPhase('stopping');
-    setSession((state) => ({ ...discardUnfinished(state), id: null }));
     try {
-      await stopCapture(id);
+      await finishListening(id);
     } catch (error) {
       if (listeningRef.current !== id) return;
       setListenError(String(error));

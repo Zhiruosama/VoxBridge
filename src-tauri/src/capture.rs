@@ -41,6 +41,7 @@ pub struct CaptureProgress {
 struct Registry {
     active: Option<(String, CancellationToken)>,
     cancelled: VecDeque<String>,
+    finish: Option<CancellationToken>,
 }
 
 #[derive(Default)]
@@ -49,6 +50,7 @@ pub struct CaptureState(Arc<Mutex<Registry>>);
 struct Job {
     id: String,
     token: CancellationToken,
+    finish: CancellationToken,
     registry: Arc<Mutex<Registry>>,
 }
 
@@ -62,6 +64,7 @@ impl Drop for Job {
                 .is_some_and(|(id, _)| id == &self.id)
             {
                 registry.active = None;
+                registry.finish = None;
             }
         }
     }
@@ -69,6 +72,10 @@ impl Drop for Job {
 
 impl CaptureState {
     fn begin(&self, id: &str) -> Result<Job, String> {
+        self.begin_mode(id, false)
+    }
+
+    fn begin_mode(&self, id: &str, drainable: bool) -> Result<Job, String> {
         if id.is_empty() || id.len() > 128 {
             return Err("采集会话标识无效。".into());
         }
@@ -81,10 +88,13 @@ impl CaptureState {
             return Err("已有采集任务，请先停止。".into());
         }
         let token = CancellationToken::new();
+        let finish = CancellationToken::new();
+        registry.finish = drainable.then(|| finish.clone());
         registry.active = Some((id.into(), token.clone()));
         Ok(Job {
             id: id.into(),
             token,
+            finish,
             registry: self.0.clone(),
         })
     }
@@ -107,6 +117,36 @@ impl CaptureState {
             }
         }
         Ok(())
+    }
+
+    fn finish(&self, id: &str) -> Result<(), String> {
+        if id.is_empty() || id.len() > 128 {
+            return Err("采集会话标识无效。".into());
+        }
+        {
+            let registry = self.0.lock().map_err(|_| "采集状态不可用。")?;
+            if registry
+                .active
+                .as_ref()
+                .is_some_and(|(active, _)| active == id)
+            {
+                if let Some(finish) = &registry.finish {
+                    finish.cancel();
+                    return Ok(());
+                }
+            }
+        }
+        self.cancel(id)
+    }
+
+    pub(crate) fn finish_active(&self) {
+        if let Ok(registry) = self.0.lock() {
+            if let Some(finish) = &registry.finish {
+                finish.cancel();
+            } else if let Some((_, token)) = &registry.active {
+                token.cancel();
+            }
+        }
     }
 
     pub fn stop_all(&self) {
@@ -136,6 +176,14 @@ pub fn stop_capture(
     state: tauri::State<'_, CaptureState>,
 ) -> Result<(), String> {
     state.cancel(&session_id)
+}
+
+#[tauri::command]
+pub fn finish_listening(
+    session_id: String,
+    state: tauri::State<'_, CaptureState>,
+) -> Result<(), String> {
+    state.finish(&session_id)
 }
 
 #[tauri::command]
@@ -257,5 +305,29 @@ mod tests {
         assert!(state.begin("").is_err());
         assert!(state.begin(&"x".repeat(129)).is_err());
         assert!(state.begin("new").is_ok());
+    }
+    #[test]
+    fn graceful_finish_is_separate_from_force_exit_and_stale_ids() {
+        let state = CaptureState::default();
+        let old = state.begin_mode("listening", true).unwrap();
+        state.finish("listening").unwrap();
+        assert!(old.finish.is_cancelled());
+        assert!(!old.token.is_cancelled());
+        state.stop_all();
+        assert!(old.token.is_cancelled());
+        drop(old);
+        let next = state.begin_mode("next", true).unwrap();
+        state.finish("listening").unwrap();
+        assert!(!next.finish.is_cancelled());
+        assert!(!next.token.is_cancelled());
+        state.finish_active();
+        assert!(next.finish.is_cancelled());
+        drop(next);
+        let diagnostic = state.begin("diagnostic").unwrap();
+        state.finish("diagnostic").unwrap();
+        assert!(diagnostic.token.is_cancelled());
+        drop(diagnostic);
+        state.finish("early").unwrap();
+        assert!(state.begin_mode("early", true).is_err());
     }
 }

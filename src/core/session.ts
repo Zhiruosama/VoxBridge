@@ -96,3 +96,13 @@ export function applyTranslationError(
     ),
   };
 }
+
+/** Closed sessions keep completed text, discard hypotheses and mark unfinished translations. */
+export function endSession(state: Session): Session {
+  return {
+    id: null,
+    segments: state.segments
+      .filter((segment) => segment.final)
+      .map((segment) => (segment.translation ? segment : { ...segment, translationError: true })),
+  };
+}

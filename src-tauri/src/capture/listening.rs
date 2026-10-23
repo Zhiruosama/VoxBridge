@@ -307,7 +307,7 @@ pub async fn start_listening(
             return Err("监听进程或语言参数无效。".into());
         }
         crate::asr::endpoint(&request.asr_profile)?;
-        let job = state.begin(&request.session_id)?;
+        let job = state.begin_mode(&request.session_id, request.asr_profile.is_realtime())?;
         let asr_job = asr_state.begin(&request.session_id)?;
         let translation = tokio::select! { biased;
             _ = job.token.cancelled() => return Ok(()),
@@ -324,6 +324,7 @@ pub async fn start_listening(
             &request,
             &on_event,
             &job.token,
+            &job.finish,
             &asr_job.token,
             &translation,
             &key,

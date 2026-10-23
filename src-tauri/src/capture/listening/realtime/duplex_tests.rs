@@ -83,8 +83,16 @@ async fn live_duplex_capture_survives_stopping_speech_output() {
         Ok(())
     });
     let asr_stop = CancellationToken::new();
-    let listening =
-        super::super::recovery::run(&request, &channel, &token, &asr_stop, &translation, &key);
+    let finish = CancellationToken::new();
+    let listening = super::super::recovery::run(
+        &request,
+        &channel,
+        &token,
+        &finish,
+        &asr_stop,
+        &translation,
+        &key,
+    );
     let output = async {
         tokio::time::timeout(Duration::from_secs(25), ready_rx)
             .await

@@ -40,6 +40,11 @@ fn capture_pcm(
         }
         last_poll = now;
         if token.is_cancelled() || sender.is_closed() {
+            if !block.is_empty() && !sender.is_closed() {
+                sender
+                    .try_send(block)
+                    .map_err(|_| "实时识别发送积压或已断开，请重新监听。".to_string())?;
+            }
             return Ok(());
         }
         if capture.failed() {
@@ -47,7 +52,7 @@ fn capture_pcm(
         }
         for _ in 0..48_000 {
             if token.is_cancelled() {
-                return Ok(());
+                break;
             }
             let Ok(frame) = reader.pop() else {
                 break;
@@ -97,10 +102,14 @@ pub(super) async fn run(
     request: &ListeningRequest,
     channel: &tauri::ipc::Channel<ListeningEvent>,
     token: &CancellationToken,
+    finish: &CancellationToken,
     asr_token: &CancellationToken,
     translation: &crate::providers::TranslationSession<'_>,
     key: &str,
 ) -> Result<(), String> {
+    if finish.is_cancelled() {
+        return Ok(());
+    }
     send(
         channel,
         ListeningEvent::Progress {
@@ -115,16 +124,16 @@ pub(super) async fn run(
             discontinuities: 0,
         },
     )?;
-    let run_started = Instant::now();
     let (audio_tx, audio_rx) = mpsc::channel(100);
-    let (final_tx, final_rx) = mpsc::channel::<translations::QueuedCaption>(32);
-    let (source_tx, mut source_rx) = mpsc::channel(64);
     let (ready_tx, ready_rx) = oneshot::channel();
     let skipped = Arc::new(AtomicU64::new(0));
     let source = request.source.clone();
     let generation = request.generation;
     let id = request.session_id.clone();
-    let capture_token = token.clone();
+    let capture_token = token.child_token();
+    let capture_finish = capture_token.clone();
+    let capture_ready = std::sync::atomic::AtomicBool::new(false);
+    let ready_flag = &capture_ready;
     let capture_channel = channel.clone();
     let capture_skipped = skipped.clone();
     let captured = async move {
@@ -132,7 +141,8 @@ pub(super) async fn run(
             _ = capture_token.cancelled() => return Ok(()),
             ready = ready_rx => if ready.is_err() { return Ok(()); },
         }
-        let cancel = capture_token.clone();
+        ready_flag.store(true, Ordering::Relaxed);
+        let cancel = token.clone();
         let result = tauri::async_runtime::spawn_blocking(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 capture_pcm(
@@ -146,15 +156,59 @@ pub(super) async fn run(
                 )
             }))
             .unwrap_or_else(|_| Err("监听采集任务异常退出。".into()));
-            cancel.cancel();
+            if result.is_err() {
+                cancel.cancel();
+            }
             result
         })
         .await
         .map_err(|_| "监听采集任务异常退出。".to_string())
         .and_then(|result| result);
-        token.cancel();
+        if result.is_err() {
+            token.cancel();
+        }
         result
     };
+    let processing = process_stream(
+        request,
+        channel,
+        token,
+        asr_token,
+        translation,
+        key,
+        audio_rx,
+        ready_tx,
+        &skipped,
+    );
+    let stopped = async {
+        tokio::select! {
+            _ = token.cancelled() => {},
+            _ = finish.cancelled() => {
+                capture_finish.cancel();
+                if !capture_ready.load(Ordering::Relaxed) { token.cancel(); }
+                token.cancelled().await;
+            },
+        }
+    };
+    let (capture, process, ()) = tokio::join!(captured, processing, stopped);
+    capture.and(process)
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn process_stream(
+    request: &ListeningRequest,
+    channel: &tauri::ipc::Channel<ListeningEvent>,
+    token: &CancellationToken,
+    asr_token: &CancellationToken,
+    translation: &crate::providers::TranslationSession<'_>,
+    key: &str,
+    audio_rx: mpsc::Receiver<Vec<u8>>,
+    ready_tx: oneshot::Sender<()>,
+    skipped: &AtomicU64,
+) -> Result<(), String> {
+    let run_started = Instant::now();
+    let (final_tx, final_rx) = mpsc::channel::<translations::QueuedCaption>(32);
+    let (source_tx, mut source_rx) = mpsc::channel(64);
     let recognized = async {
         let result = crate::asr::realtime::recognize_stream(
             &request.asr_profile,
@@ -173,7 +227,10 @@ pub(super) async fn run(
             },
         )
         .await;
-        token.cancel();
+        drop(source_tx);
+        if result.is_err() {
+            token.cancel();
+        }
         result
     };
     let segmented = async {
@@ -184,16 +241,16 @@ pub(super) async fn run(
         let mut tick = tokio::time::interval(Duration::from_millis(200));
         let result: Result<(), String> = async {
             loop {
-                let (output, received_update) = tokio::select! { biased;
+                let (output, received_update, ended) = tokio::select! { biased;
                     _ = token.cancelled() => return Ok(()),
                     sentence = source_rx.recv() => match sentence {
                         Some((sentence, received_ms)) => {
                             timings.received(&sentence, received_ms);
-                            (chunks.push(sentence, started.elapsed().as_millis() as u64), true)
+                            (chunks.push(sentence, started.elapsed().as_millis() as u64), true, false)
                         },
-                        None => return Ok(()),
+                        None => (chunks.finish(), false, true),
                     },
-                    _ = tick.tick() => (chunks.flush(started.elapsed().as_millis() as u64), false),
+                    _ = tick.tick() => (chunks.flush(started.elapsed().as_millis() as u64), false, false),
                 };
                 let updated = received_update || !output.is_empty();
                 for sentence in output {
@@ -239,10 +296,14 @@ pub(super) async fn run(
                         },
                     )?;
                 }
+                if ended { return Ok(()); }
             }
         }
         .await;
-        token.cancel();
+        drop(final_tx);
+        if result.is_err() {
+            token.cancel();
+        }
         result
     };
     let translated = async {
@@ -316,9 +377,9 @@ pub(super) async fn run(
         };
         token.cancel();
     };
-    let (capture, recognition, segmentation, translation, ()) =
-        tokio::join!(captured, recognized, segmented, translated, stopped);
-    capture.and(recognition).and(segmentation).and(translation)
+    let (recognition, segmentation, translation, ()) =
+        tokio::join!(recognized, segmented, translated, stopped);
+    recognition.and(segmentation).and(translation)
 }
 
 #[cfg(test)]
@@ -376,7 +437,16 @@ mod tests {
             .unwrap();
         let key = crate::credentials::read_for_test("provider-qwen-asr").unwrap();
         let asr_token = CancellationToken::new();
-        let listening = run(&request, &channel, &token, &asr_token, &translation, &key);
+        let finish = CancellationToken::new();
+        let listening = run(
+            &request,
+            &channel,
+            &token,
+            &finish,
+            &asr_token,
+            &translation,
+            &key,
+        );
         let play = async {
             tokio::time::timeout(Duration::from_secs(20), ready_rx)
                 .await
@@ -420,3 +490,6 @@ mod tests {
 
 #[cfg(test)]
 mod duplex_tests;
+
+#[cfg(test)]
+mod drain_tests;

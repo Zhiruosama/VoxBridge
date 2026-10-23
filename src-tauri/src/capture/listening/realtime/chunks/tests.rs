@@ -256,3 +256,33 @@ fn screenshot_house_excerpt_replays_as_coherent_captions() {
     assert_eq!(captions[2].text, "Are you pushing it?");
     println!("CAPTION_REPLAY:{}",serde_json::to_string(&captions.iter().map(|s|serde_json::json!({"id":s.id,"revision":s.revision,"source":s.text,"startMs":s.start_ms})).collect::<Vec<_>>()).unwrap());
 }
+
+#[test]
+fn clean_eof_commits_only_provider_final_tail_once() {
+    let mut chunks = Chunks::default();
+    let source = Sentence {
+        id: 1,
+        revision: 1,
+        text: "Fifteen million".into(),
+        final_text: true,
+        start_ms: 0,
+    };
+    chunks.push(source, 100);
+    let final_tail = chunks.finish();
+    assert_eq!(final_tail.len(), 1);
+    assert!(final_tail[0].final_text);
+    assert_eq!(final_tail[0].text, "Fifteen million");
+    assert!(chunks.finish().is_empty());
+    let mut unconfirmed = Chunks::default();
+    unconfirmed.push(
+        Sentence {
+            id: 1,
+            revision: 1,
+            text: "unfinished hypothesis".into(),
+            final_text: false,
+            start_ms: 0,
+        },
+        100,
+    );
+    assert!(unconfirmed.finish().is_empty());
+}

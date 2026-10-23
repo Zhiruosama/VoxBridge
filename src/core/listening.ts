@@ -12,3 +12,12 @@ export class ListeningEpoch {
     return (event.generation ?? 0) === this.generation;
   }
 }
+
+/** Stop admits only final text and matching translations for the existing generation. */
+export function acceptDuringDrain(event: ListeningEvent): boolean {
+  return (
+    event.type === 'translation' ||
+    event.type === 'translationError' ||
+    (event.type === 'transcript' && event.final)
+  );
+}

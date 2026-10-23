@@ -100,6 +100,9 @@ export async function captureDiagnostic(
 export async function stopCapture(sessionId: string) {
   if (desktop) await invoke('stop_capture', { sessionId });
 }
+export async function finishListening(sessionId: string) {
+  if (desktop) await invoke('finish_listening', { sessionId });
+}
 export async function transcribeWav(
   profile: ProviderProfile,
   audio: Uint8Array,

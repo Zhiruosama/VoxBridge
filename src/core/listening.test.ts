@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ListeningEpoch } from './listening';
+import { ListeningEpoch, acceptDuringDrain } from './listening';
 import { applyTranscript, applyTranslation, discardUnfinished } from './session';
 import type { ListeningEvent, Session } from './types';
 
@@ -111,5 +111,38 @@ describe('listening recovery', () => {
     });
     expect(epochs.accept(metrics)).toBe(false);
     expect(epochs.accept({ ...metrics, generation: 1 })).toBe(true);
+  });
+  it('drains final captions and translations without admitting new partials or recovery', () => {
+    const event: ListeningEvent = {
+      type: 'transcript',
+      sessionId: 's',
+      generation: 0,
+      segmentId: 's-1',
+      revision: 2,
+      text: 'tail',
+      startMs: 0,
+      final: true,
+    };
+    expect(acceptDuringDrain(event)).toBe(true);
+    expect(acceptDuringDrain({ ...event, final: false })).toBe(false);
+    expect(
+      acceptDuringDrain({
+        type: 'translation',
+        sessionId: 's',
+        generation: 0,
+        segmentId: 's-1',
+        revision: 2,
+        text: '尾句',
+      }),
+    ).toBe(true);
+    expect(
+      acceptDuringDrain({
+        type: 'recovering',
+        sessionId: 's',
+        attempt: 1,
+        delayMs: 1000,
+        reason: 'offline',
+      }),
+    ).toBe(false);
   });
 });

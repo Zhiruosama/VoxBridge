@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendExpression,
+  endSession,
   applyTranscript,
   applyTranslation,
   discardUnfinished,
@@ -183,4 +184,28 @@ it('keeps invalid translation feedback local and never replaces a completed tran
   state = applyTranslationError(state, 'a', 'one', 1);
   expect(state.segments[0].translation).toBe('有效译文');
   expect(state.segments[0].translationError).toBe(false);
+});
+
+it('ending a session keeps finished results and marks cancelled translations without reviving late text', () => {
+  const state: Session = {
+    id: 's',
+    segments: [
+      {
+        id: 'done',
+        revision: 1,
+        source: 'done',
+        translation: '完成',
+        final: true,
+        time: '00:00:00',
+      },
+      { id: 'pending', revision: 2, source: 'pending', final: true, time: '00:00:01' },
+      { id: 'partial', revision: 3, source: 'partial', final: false, time: '00:00:02' },
+    ],
+  };
+  const ended = endSession(state);
+  expect(ended.id).toBeNull();
+  expect(ended.segments.map((s) => s.id)).toEqual(['done', 'pending']);
+  expect(ended.segments[0].translation).toBe('完成');
+  expect(ended.segments[1].translationError).toBe(true);
+  expect(applyTranslation(ended, 's', 'pending', 2, 'late')).toBe(ended);
 });

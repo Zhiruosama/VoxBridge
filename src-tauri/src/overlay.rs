@@ -208,7 +208,7 @@ pub fn stop_overlay_listening(
     window: tauri::WebviewWindow,
     capture: tauri::State<'_, crate::capture::CaptureState>,
 ) -> Result<(), String> {
-    capture.stop_all();
+    capture.finish_active();
     window
         .app_handle()
         .emit_to("main", "overlay-stop-request", ())

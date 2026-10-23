@@ -99,10 +99,12 @@ async fn live_native_capture_reconnects_and_releases_old_attempt() {
         Ok(())
     });
     let asr_stop = CancellationToken::new();
+    let finish = CancellationToken::new();
     let result = run(
         &request,
         &channel,
         &stop,
+        &finish,
         &asr_stop,
         &translation,
         "test-key",

@@ -7,7 +7,7 @@
     "core:default", "allow-runtime-info", "allow-credential-status", "allow-template-status", "allow-unlock-templates", "allow-save-template-credential", "allow-set-credential",
     "allow-remove-credential", "allow-translate", "allow-cancel-translation", "allow-transcribe-wav",
     "allow-stop-asr", "allow-list-outputs", "allow-test-tone", "allow-stop-tone",
-    "allow-list-capture-sources", "allow-capture-diagnostic", "allow-stop-capture", "allow-start-listening",
+    "allow-list-capture-sources", "allow-capture-diagnostic", "allow-stop-capture", "allow-finish-listening", "allow-start-listening",
     "allow-speak", "allow-stop-speech", "allow-publish-overlay", "allow-read-overlay",
     "allow-show-overlay", "allow-hide-overlay", "allow-focus-main", "allow-stop-overlay-listening"
   ]
