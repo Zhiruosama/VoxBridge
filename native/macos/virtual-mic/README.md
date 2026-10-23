@@ -4,7 +4,7 @@
 
 ## 构建、安装与使用
 
-要求 macOS 14.2+、Xcode command line tools。执行 `bash native/macos/virtual-mic/build.sh`，先运行环形缓冲和 HAL 接口测试，再生成 `native/macos/.build/VoxBridgeAudio.pkg`。桌面打包会自动构建并嵌入该安装包。
+要求 macOS 14.2+、Xcode command line tools。执行 `bash native/macos/virtual-mic/build.sh`，先运行环形缓冲和 HAL 接口测试，再生成 `native/macos/.build/VoxBridgeAudio.pkg`。桌面打包会自动构建并嵌入该安装包。干净检出后直接运行 macOS `cargo test` 前也需要先执行此脚本，因为 Tauri 构建脚本会验证资源路径；CI 已在 Rust 检查之前执行它。
 
 1. 在 VoxBridge 的设置 → 常规 → 音频点击“安装虚拟麦克风”，由系统安装器申请管理员授权。仅这次安装需要管理员权限，不涉及服务密钥或配置模板。
 2. 安装位置为 `/Library/Audio/Plug-Ins/HAL/VoxBridge.driver`。安装器重启 CoreAudio，会短暂中断本机音频。请先结束通话。驱动为本机构建的 ad-hoc 签名，尚未公证。

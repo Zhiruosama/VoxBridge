@@ -39,6 +39,9 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm run build
+      - name: Build macOS virtual microphone resource
+        if: runner.os == 'macOS'
+        run: bash native/macos/virtual-mic/build.sh
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - if: runner.os == 'macOS'
