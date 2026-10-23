@@ -327,7 +327,7 @@ export default function App() {
     const source = text;
     const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
     try {
-      await composer.run(
+      const outcome = await composer.run(
         {
           id,
           text: source,
@@ -348,6 +348,8 @@ export default function App() {
           },
         },
       );
+      if (mountedRef.current && outcome === 'completed' && action === 'speak' && route === 'send')
+        setText((current) => (current === source ? '' : current));
     } catch (error) {
       if (mountedRef.current) notify(String(error));
     }
