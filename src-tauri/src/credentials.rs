@@ -1,122 +1,137 @@
+mod vault;
+use std::sync::OnceLock;
+use tauri::Manager;
+use vault::{Master, Vault};
+use zeroize::Zeroizing;
 const SERVICE: &str = "com.voxbridge.desktop";
-
-fn entry(id: &str) -> Result<keyring::Entry, String> {
+fn session() -> &'static Vault {
+    static SESSION: OnceLock<Vault> = OnceLock::new();
+    SESSION.get_or_init(Vault::default)
+}
+fn validate_id(id: &str) -> Result<(), String> {
     if id.is_empty() || id.len() > 128 || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
     {
-        return Err("服务标识无效。".into());
+        Err("服务标识无效。".into())
+    } else {
+        Ok(())
     }
+}
+fn validate_secret(secret: &str) -> Result<(), String> {
+    if secret.trim().is_empty() || secret.len() > 8192 {
+        Err("密钥为空或长度超出限制。".into())
+    } else {
+        Ok(())
+    }
+}
+fn entry(id: &str) -> Result<keyring::Entry, String> {
+    validate_id(id)?;
     keyring::Entry::new(SERVICE, id).map_err(|_| "无法访问系统凭据存储。".into())
 }
-
+// Service calls are memory-only. Never fall back to Keychain, including after denial or restart.
 pub fn read(id: &str) -> Result<String, String> {
-    entry(id)?
-        .get_password()
-        .map_err(|_| "未找到密钥，请在设置中配置。".into())
+    session().read(id)
 }
-
-/// Security.framework can block for seconds; keep it off the network / UI runtime.
 pub async fn read_async(id: &str) -> Result<String, String> {
-    let id = id.to_owned();
-    tauri::async_runtime::spawn_blocking(move || read(&id))
+    read(id)
+}
+pub fn clear_session() {
+    session().clear();
+}
+fn path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join("credentials.v1.enc"))
+        .map_err(|_| "无法定位模板目录。".into())
+}
+fn os_master(id: Option<&str>) -> Result<Master, String> {
+    match id {
+        Some(id) => {
+            let encoded = Zeroizing::new(
+                entry(id)?
+                    .get_password()
+                    .map_err(|_| "模板授权未完成；本次不再请求，可手动输入密钥使用。")?,
+            );
+            let key =
+                Zeroizing::new(hex::decode(encoded.as_str()).map_err(|_| "模板加密密钥无效。")?);
+            if key.len() != 32 {
+                return Err("模板加密密钥无效。".into());
+            }
+            Ok(Master { id: id.into(), key })
+        }
+        None => {
+            let id = format!("vault-{}", hex::encode(vault::random(16)?));
+            let key = Zeroizing::new(vault::random(32)?);
+            let encoded = Zeroizing::new(hex::encode(&key));
+            entry(&id)?
+                .set_password(encoded.as_str())
+                .map_err(|_| "无法授权保存模板；本次仍可手动输入密钥使用。")?;
+            Ok(Master { id, key })
+        }
+    }
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateStatus {
+    unlocked: bool,
+    can_unlock: bool,
+    has_saved: bool,
+}
+#[tauri::command]
+pub fn template_status(app: tauri::AppHandle) -> Result<TemplateStatus, String> {
+    let (unlocked, can_unlock) = session().flags()?;
+    Ok(TemplateStatus {
+        unlocked,
+        can_unlock,
+        has_saved: path(&app)?.exists(),
+    })
+}
+#[tauri::command]
+pub async fn unlock_templates(app: tauri::AppHandle) -> Result<(), String> {
+    let path = path(&app)?;
+    tauri::async_runtime::spawn_blocking(move || session().unlock(&path, false, os_master))
         .await
-        .map_err(|_| "读取系统凭据任务失败。".to_string())?
+        .map_err(|_| "模板解锁任务失败。".to_string())?
 }
-
-// This path must never read secret data, including through keyring::get_attributes(),
-// whose macOS default implementation internally calls get_secret().
-fn status(id: &str) -> Result<bool, String> {
-    let _ = entry(id)?;
-    #[cfg(target_os = "macos")]
-    {
-        use security_framework::item::{ItemClass, ItemSearchOptions, Limit};
-        let mut query = ItemSearchOptions::new();
-        query
-            .class(ItemClass::generic_password())
-            .service(SERVICE)
-            .account(id)
-            .limit(Limit::Max(1))
-            .load_attributes(true)
-            .load_data(false)
-            .load_refs(false)
-            .skip_authenticated_items(true);
-        match query.search() {
-            Ok(items) => Ok(!items.is_empty()),
-            Err(error) if error.code() == -25300 => Ok(false), // errSecItemNotFound
-            Err(_) => Err("无法检查密钥状态；可在使用服务时验证。".into()),
-        }
+#[tauri::command]
+pub async fn save_template_credential(
+    app: tauri::AppHandle,
+    id: String,
+    secret: String,
+) -> Result<(), String> {
+    // Validate an actual key before any disk / authorization work.
+    if !secret.trim().is_empty() {
+        session().set(&id, &secret)?;
+    } else {
+        session().read(&id)?;
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        match entry(id)?.get_password() {
-            Ok(_) => Ok(true),
-            Err(keyring::Error::NoEntry) => Ok(false),
-            Err(_) => Err("无法检查密钥状态；可在使用服务时验证。".into()),
-        }
-    }
+    let path = path(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        session().unlock(&path, true, os_master)?;
+        session().save(&path, &id)
+    })
+    .await
+    .map_err(|_| "模板保存任务失败。".to_string())?
 }
-
 #[tauri::command]
 pub async fn credential_status(id: String) -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(move || status(&id))
-        .await
-        .map_err(|_| "检查密钥状态失败。".to_string())?
+    validate_id(&id)?;
+    Ok(session().read(&id).is_ok())
 }
-
 #[tauri::command]
 pub fn set_credential(id: String, secret: String) -> Result<(), String> {
-    if secret.trim().is_empty() || secret.len() > 8192 {
-        return Err("密钥为空或长度超出限制。".into());
-    }
-    entry(&id)?
-        .set_password(secret.trim())
-        .map_err(|_| "保存密钥失败，请检查系统凭据存储。".into())
+    session().set(&id, &secret)
 }
-
 #[tauri::command]
 pub fn remove_credential(id: String) -> Result<(), String> {
-    match entry(&id)?.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(_) => Err("删除密钥失败。".into()),
-    }
+    session().remove(&id)
 }
-
+// Historical paid fixtures opt in to the legacy test credentials explicitly; never linked into production.
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[tokio::test]
-    async fn invalid_identifiers_are_rejected_before_keychain_lookup() {
-        for id in ["", "invalid/id", "wild*card", "中文", &"a".repeat(129)] {
-            assert_eq!(
-                credential_status(id.into()).await.unwrap_err(),
-                "服务标识无效。"
-            );
-        }
+pub(crate) fn read_for_test(id: &str) -> Result<String, String> {
+    if let Ok(secret) = read(id) {
+        return Ok(secret);
     }
-
-    #[cfg(target_os = "macos")]
-    #[tokio::test]
-    #[ignore = "manual: read-only metadata queries for known user-provided test credentials; never reads passwords"]
-    async fn live_metadata_status_is_promptless_and_does_not_read_secrets() {
-        for _ in 0..5 {
-            for id in [
-                "provider-qwen-asr",
-                "provider-qwen-realtime",
-                "provider-deepseek-flash",
-                "provider-minimax-cn",
-            ] {
-                assert!(
-                    credential_status(id.into()).await.unwrap(),
-                    "expected existing metadata for {id}"
-                );
-            }
-            assert!(
-                !credential_status(format!("voxbridge-missing-status-{}", std::process::id()))
-                    .await
-                    .unwrap()
-            );
-        }
-        println!(
-            "METADATA_STATUS: 20 existing + 5 missing lookups passed; no secret data requested"
-        );
-    }
+    let secret = entry(id)?.get_password().map_err(|_| "测试密钥不可用。")?;
+    session().set(id, &secret)?;
+    Ok(secret)
 }

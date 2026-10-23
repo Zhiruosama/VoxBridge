@@ -262,7 +262,7 @@ async fn live_minimax_streaming_physical_output_and_stop() {
             url::Url::parse("wss://api.minimax.cn/ws/v1/t2a_v2").unwrap(),
             text.into(),
             id.clone(),
-            crate::credentials::read("provider-minimax-cn").unwrap(),
+            crate::credentials::read_for_test("provider-minimax-cn").unwrap(),
             job,
             permit,
             channel,

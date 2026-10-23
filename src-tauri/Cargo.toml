@@ -28,9 +28,10 @@ rodio = { version = "0.22.2", default-features = false, features = ["playback", 
 hex = "0.4"
 base64 = "0.22.1"
 rtrb = "=0.3.2"
+ring = "0.17.14"
+zeroize = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "3.7.0"
 objc2 = { version = "0.6.5", default-features = false, features = ["std"] }
 objc2-core-audio = { version = "0.3.2", default-features = false, features = ["std", "AudioHardware", "objc2", "objc2-foundation", "objc2-core-audio-types"] }
 objc2-core-audio-types = { version = "0.3.2", default-features = false, features = ["std", "CoreAudioBaseTypes"] }

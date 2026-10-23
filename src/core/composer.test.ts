@@ -10,7 +10,12 @@ function fixture() {
     baseUrl: 'https://example.com/v1',
     modelId: 'translation-model',
   };
-  settings.profiles[2] = { ...settings.profiles[2], modelId: 'speech-model', voice: 'voice' };
+  settings.profiles[2] = {
+    ...settings.profiles[2],
+    baseUrl: 'wss://tts.example.com',
+    modelId: 'speech-model',
+    voice: 'voice',
+  };
   const dependencies = {
     translate: vi.fn<typeof import('../bridge').translate>(async () => 'Hello'),
     speak: vi.fn<typeof import('../bridge').speak>(async () => {}),

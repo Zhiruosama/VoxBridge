@@ -1,5 +1,7 @@
 # 2026-10-23 设置页重复钥匙串提示修复
 
+> 此记录为前一版修复。当前已进一步改为会话内存与一次显式模板授权，连状态查询也不再访问 OS。见[新说明](2026-10-23-session-templates.md)。
+
 问题：设置页每次切换服务分类 / 配置都会调用 `credential_status`。旧实现通过 `keyring::Entry::get_password()` 判断是否已配置，实际请求了密钥内容，触发 macOS 钥匙串访问授权。普通设置保存本身不需要读取密钥。
 
 修复：macOS 改用 Security.framework 的精确 service / account 元数据查询，明确关闭密码数据和引用返回，并设置跳过需要认证的条目。状态查询不触发授权界面，也不使用 `keyring::get_attributes()`；本机该库的 macOS 默认实现仍会间接读取 secret。查询放在后台线程，UI 未完成检查 / 检查失败时不再直接显示“未配置”。

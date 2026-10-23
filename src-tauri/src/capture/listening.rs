@@ -500,6 +500,9 @@ mod tests {
     #[tokio::test]
     #[ignore = "manual native capture of generated speech and paid ASR/translation; uses Keychain"]
     async fn live_synthetic_process_to_bilingual_subtitle() {
+        crate::credentials::read_for_test("provider-deepseek-flash")
+            .expect("explicit legacy fixture setup");
+
         let mut player = super::super::test_audio::SyntheticPlayer::start();
         let token = tokio_util::sync::CancellationToken::new();
         let _cancel_on_drop = token.clone().drop_guard();
@@ -570,7 +573,7 @@ mod tests {
             .listening_session(translation_profile, "live-synthetic")
             .await
             .unwrap();
-        let key = crate::credentials::read("provider-qwen-asr").unwrap();
+        let key = crate::credentials::read_for_test("provider-qwen-asr").unwrap();
         let processor = SegmentProcessor {
             profile: &profile,
             key: &key,

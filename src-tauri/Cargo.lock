@@ -4394,9 +4394,9 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-foundation",
  "reqwest 0.12.28",
+ "ring",
  "rodio",
  "rtrb",
- "security-framework 3.7.0",
  "serde",
  "serde_json",
  "tauri",
@@ -4405,6 +4405,7 @@ dependencies = [
  "tokio-tungstenite",
  "tokio-util",
  "url",
+ "zeroize",
 ]
 
 [[package]]

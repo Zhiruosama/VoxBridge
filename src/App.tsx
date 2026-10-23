@@ -64,6 +64,7 @@ export default function App() {
     }
   });
   const [settings, setSettings] = useState<Settings>(initial.settings);
+  const [savedSettings, setSavedSettings] = useState<Settings>(initial.settings);
   const [page, setPage] = useState<Page>('workspace');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
   const [settingsBusy, setSettingsBusy] = useState(false);
@@ -106,6 +107,9 @@ export default function App() {
   const [sidebar, setSidebar] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const translationProfile = profileFor(settings, 'translation');
+  useEffect(() => {
+    setResult('');
+  }, [settings.sourceLanguage, settings.targetLanguage, translationProfile]);
   const overlayVersionRef = useRef(0);
   const [overlayReady, setOverlayReady] = useState(!desktop);
   const [overlayError, setOverlayError] = useState('');
@@ -310,6 +314,7 @@ export default function App() {
       )
         setResult('');
       setSettings(next);
+      setSavedSettings(next);
       if (!silent) notify('已保存');
     } catch (e) {
       notify(`保存失败：${String(e)}`);
@@ -521,6 +526,8 @@ export default function App() {
               section={settingsSection}
               onBusyChange={setSettingsBusy}
               settings={settings}
+              savedSettings={savedSettings}
+              onDraftChange={setSettings}
               onSave={persist}
               notify={notify}
               onDiagnostics={() => setPage('diagnostics')}

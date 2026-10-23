@@ -237,6 +237,9 @@ mod tests {
     #[tokio::test]
     #[ignore = "manual: native generated process capture and real Qwen/DeepSeek services"]
     async fn live_realtime_capture_to_bilingual_subtitles() {
+        crate::credentials::read_for_test("provider-deepseek-flash")
+            .expect("explicit legacy fixture setup");
+
         let mut player = crate::capture::test_audio::SyntheticPlayer::start();
         let request: ListeningRequest = serde_json::from_value(json!({
             "source": player.source, "sessionId":"live-realtime",
@@ -279,7 +282,7 @@ mod tests {
             .listening_session(request.translation_profile.clone(), &request.session_id)
             .await
             .unwrap();
-        let key = crate::credentials::read("provider-qwen-asr").unwrap();
+        let key = crate::credentials::read_for_test("provider-qwen-asr").unwrap();
         let asr_token = CancellationToken::new();
         let listening = run(&request, &channel, &token, &asr_token, &translation, &key);
         let play = async {

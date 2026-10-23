@@ -172,7 +172,7 @@ async fn live_qwen_realtime_generated_audio() {
     let data = wav.windows(4).position(|w| w == b"data").unwrap();
     let size = u32::from_le_bytes(wav[data + 4..data + 8].try_into().unwrap()) as usize;
     let audio = wav[data + 8..data + 8 + size].to_vec();
-    let key = crate::credentials::read("provider-qwen-asr").unwrap();
+    let key = crate::credentials::read_for_test("provider-qwen-asr").unwrap();
     let config = profile("wss://maas.qianwenaiapi.com/api-ws/v1/inference");
     let (tx, rx) = mpsc::channel(10);
     let (ready_tx, ready_rx) = oneshot::channel();
@@ -203,13 +203,6 @@ async fn live_qwen_realtime_generated_audio() {
         final_text.to_lowercase().contains("meeting"),
         "final transcript missing expected fixture content"
     );
-    // Explicit live setup only: independent profile ID, same user-provided gateway credential.
-    if !crate::credentials::credential_status("provider-qwen-realtime".into())
-        .await
-        .unwrap()
-    {
-        crate::credentials::set_credential("provider-qwen-realtime".into(), key).unwrap();
-    }
     eprintln!(
         "Qwen realtime passed: revisions={revisions}, final_chars={}",
         final_text.chars().count()

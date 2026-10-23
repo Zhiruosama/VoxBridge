@@ -1,10 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
-import { profileFor } from '../core/settings';
+import { blankProfile, profileFor } from '../core/settings';
 import { outputDeviceOptions } from '../core/audio-routing';
-import { credentialStatus, desktop, listOutputs, removeCredential, setCredential } from '../bridge';
+import {
+  credentialStatus,
+  desktop,
+  listOutputs,
+  removeCredential,
+  setCredential,
+  templateStatus,
+  unlockTemplates,
+  saveTemplateCredential,
+  type TemplateStatus,
+} from '../bridge';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import { applyProviderPreset, providerPresets } from '../core/provider-presets';
@@ -19,6 +29,8 @@ const sectionTitles: Record<SettingsSection, string> = {
 
 export default function SettingsPanel({
   settings,
+  savedSettings,
+  onDraftChange,
   onSave,
   notify,
   onDiagnostics,
@@ -26,19 +38,27 @@ export default function SettingsPanel({
   onBusyChange,
 }: {
   settings: Settings;
+  savedSettings: Settings;
+  onDraftChange: Dispatch<SetStateAction<Settings>>;
   onSave: (settings: Settings) => void;
   notify: (message: string) => void;
   onDiagnostics: () => void;
   section: SettingsSection;
   onBusyChange: (busy: boolean) => void;
 }) {
-  const [draft, setDraft] = useState(settings);
+  const draft = settings;
+  const setDraft = onDraftChange;
   const stage: Stage = section === 'general' ? 'translation' : section;
   const profile = profileFor(draft, stage);
   const [secret, setSecret] = useState('');
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [keyError, setKeyError] = useState('');
+  const [vaultStatus, setVaultStatus] = useState<TemplateStatus>({
+    unlocked: false,
+    canUnlock: true,
+    hasSaved: false,
+  });
   const [renaming, setRenaming] = useState(false);
   const [previousName, setPreviousName] = useState('');
   const [devices, setDevices] = useState<OutputDevice[]>([]);
@@ -71,18 +91,18 @@ export default function SettingsPanel({
     return outputDeviceOptions(devices, value);
   }
   useEffect(() => {
-    setDraft(settings);
-  }, [settings]);
-  useEffect(() => {
     let active = true;
     setSecret('');
     setHasKey(null);
     setKeyError('');
     setRenaming(false);
     if (section === 'general') return;
-    credentialStatus(profile.id)
-      .then((exists) => {
-        if (active) setHasKey(exists);
+    Promise.all([credentialStatus(profile.id), templateStatus()])
+      .then(([exists, status]) => {
+        if (active) {
+          setHasKey(exists);
+          setVaultStatus(status);
+        }
       })
       .catch((error) => {
         if (active) setKeyError(String(error));
@@ -102,31 +122,60 @@ export default function SettingsPanel({
       profiles: current.profiles.map((p) => (p.id === profile.id ? { ...p, ...change } : p)),
     }));
   }
-  async function saveKey(remove = false) {
+  async function refreshKeyState() {
+    const [exists, status] = await Promise.all([credentialStatus(profile.id), templateStatus()]);
+    setHasKey(exists);
+    setVaultStatus(status);
+  }
+  async function saveKey(mode: 'session' | 'template' | 'clear' = 'session') {
     setBusy(true);
     setKeyError('');
     try {
-      if (remove) await removeCredential(profile.id);
-      else await setCredential(profile.id, secret);
+      if (mode === 'clear') await removeCredential(profile.id);
+      else if (mode === 'template') {
+        await saveTemplateCredential(profile.id, secret);
+        onSave(draft);
+      } else {
+        await setCredential(profile.id, secret);
+        onSave(draft);
+      }
       setSecret('');
-      setHasKey(!remove);
-      notify(remove ? '此配置的密钥已删除。' : '密钥已保存到系统凭据存储。');
+      await refreshKeyState();
+      notify(
+        mode === 'clear'
+          ? '已清除本次密钥。'
+          : mode === 'template'
+            ? '已保存加密模板，本次运行无需再次授权。'
+            : '本次已可使用，关闭应用后清除。',
+      );
     } catch (error) {
       setKeyError(String(error));
+      await refreshKeyState();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function unlockSavedTemplates() {
+    setBusy(true);
+    setKeyError('');
+    try {
+      await unlockTemplates();
+      await refreshKeyState();
+      notify('模板已解锁，本次运行无需再次授权。');
+    } catch (error) {
+      setKeyError(String(error));
+      await refreshKeyState();
     } finally {
       setBusy(false);
     }
   }
   function addProfile() {
+    if (draft.profiles.length >= 30) {
+      notify('配置数量已达上限。');
+      return;
+    }
     const id = crypto.randomUUID();
-    const next = {
-      ...profile,
-      id,
-      name: `${sectionTitles[stage]} ${draft.profiles.filter((p) => p.stage === stage).length + 1}`,
-      baseUrl: '',
-      modelId: '',
-      voice: '',
-    };
+    const next = blankProfile(stage, id);
     setDraft({
       ...draft,
       profiles: [...draft.profiles, next],
@@ -134,7 +183,23 @@ export default function SettingsPanel({
     });
   }
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
+  async function saveCurrent() {
+    if (secret.trim()) {
+      setBusy(true);
+      setKeyError('');
+      try {
+        await setCredential(profile.id, secret);
+        setSecret('');
+        await refreshKeyState();
+        onSave(draft);
+      } catch (error) {
+        setKeyError(String(error));
+      } finally {
+        setBusy(false);
+      }
+    } else onSave(draft);
+  }
+  const dirty = JSON.stringify(draft) !== JSON.stringify(savedSettings) || Boolean(secret.trim());
   return (
     <div className="settings-page preferences-page">
       <header className="preferences-heading">
@@ -145,7 +210,7 @@ export default function SettingsPanel({
           {dirty && <span role="status">未保存</span>}
           <button
             disabled={busy || !dirty || (renaming && !profile.name.trim())}
-            onClick={() => onSave(draft)}
+            onClick={() => void saveCurrent()}
           >
             <Save size={14} />
             保存更改
@@ -403,11 +468,16 @@ export default function SettingsPanel({
                         disabled={busy}
                         value={profile.id}
                         onChange={(value) =>
-                          setDraft({ ...draft, active: { ...draft.active, [stage]: value } })
+                          value === '__blank__'
+                            ? addProfile()
+                            : setDraft({ ...draft, active: { ...draft.active, [stage]: value } })
                         }
-                        options={draft.profiles
-                          .filter((p) => p.stage === stage)
-                          .map((p) => ({ value: p.id, label: p.name }))}
+                        options={[
+                          { value: '__blank__', label: '新建空白配置' },
+                          ...draft.profiles
+                            .filter((p) => p.stage === stage)
+                            .map((p) => ({ value: p.id, label: p.name })),
+                        ]}
                       />
                       <button
                         className="icon-button"
@@ -518,9 +588,19 @@ export default function SettingsPanel({
               <SettingRow title="API Key">
                 <span className={`credential-status ${hasKey ? 'positive' : ''}`}>
                   {hasKey && <Check size={13} />}
-                  {hasKey === null ? '尚未确认' : hasKey ? '已配置' : '未检测到密钥'}
+                  {hasKey === null ? '检查本次状态…' : hasKey ? '本次已可使用' : '本次未设置'}
                 </span>
               </SettingRow>
+              {vaultStatus.hasSaved && !vaultStatus.unlocked && (
+                <SettingRow title="已保存模板">
+                  <button
+                    disabled={busy || !desktop || !vaultStatus.canUnlock}
+                    onClick={() => void unlockSavedTemplates()}
+                  >
+                    {vaultStatus.canUnlock ? '解锁模板 · 本次一次' : '本次未解锁，可手动输入'}
+                  </button>
+                </SettingRow>
+              )}
               <div className="credential-editor">
                 <div className="credential-input-row">
                   <input
@@ -536,14 +616,25 @@ export default function SettingsPanel({
                     onClick={() => void saveKey()}
                     disabled={!desktop || !secret.trim() || busy}
                   >
-                    {busy ? '处理中…' : '保存密钥'}
+                    {busy ? '处理中…' : '本次使用'}
+                  </button>
+                  <button
+                    onClick={() => void saveKey('template')}
+                    disabled={
+                      !desktop ||
+                      busy ||
+                      (!secret.trim() && !hasKey) ||
+                      (!vaultStatus.unlocked && !vaultStatus.canUnlock)
+                    }
+                  >
+                    保存为模板
                   </button>
                   {hasKey && (
                     <button
                       className="icon-button"
-                      aria-label="删除当前配置密钥"
-                      title="删除当前配置密钥"
-                      onClick={() => void saveKey(true)}
+                      aria-label="清除本次密钥"
+                      title="清除本次密钥"
+                      onClick={() => void saveKey('clear')}
                       disabled={busy}
                     >
                       <Trash2 size={15} />

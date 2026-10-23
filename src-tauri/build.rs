@@ -3,6 +3,9 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "runtime_info",
             "credential_status",
+            "template_status",
+            "unlock_templates",
+            "save_template_credential",
             "set_credential",
             "remove_credential",
             "translate",

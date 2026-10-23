@@ -14,8 +14,9 @@ use tokio_util::sync::CancellationToken;
 async fn live_minimax_handshake_probe() {
     use futures_util::StreamExt;
     use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Error, Message};
-    let key = credentials::read("tts-default").expect("current speech profile credential");
-    let known = credentials::read("provider-minimax-cn").expect("previously verified credential");
+    let key = credentials::read_for_test("tts-default").expect("current speech profile credential");
+    let known =
+        credentials::read_for_test("provider-minimax-cn").expect("previously verified credential");
     println!("CURRENT_CREDENTIAL_MATCHES_VERIFIED: {}", key == known);
     for host in ["api.minimax.io", "api.minimax.cn"] {
         let probe = async {
@@ -84,7 +85,7 @@ async fn live_minimax_current_credential_cn_smoke() {
         &profile,
         speech::endpoint(&profile).unwrap(),
         "你好，语音连接测试。",
-        &credentials::read("tts-default").unwrap(),
+        &credentials::read_for_test("tts-default").unwrap(),
         &token,
     )
     .await
@@ -141,7 +142,7 @@ async fn live_provider_smoke() {
         let started = Instant::now();
         match providers::request_translation(
             url::Url::parse("https://api.deepseek.com/chat/completions").unwrap(),
-            credentials::read("provider-deepseek-flash").unwrap(),
+            credentials::read_for_test("provider-deepseek-flash").unwrap(),
             "deepseek-flash",
             text,
             source,
@@ -180,7 +181,7 @@ async fn live_provider_smoke() {
         &profile,
         speech::endpoint(&profile).unwrap(),
         text,
-        &credentials::read("provider-minimax-cn").unwrap(),
+        &credentials::read_for_test("provider-minimax-cn").unwrap(),
         &token,
     )
     .await
@@ -224,7 +225,7 @@ async fn live_provider_smoke() {
             &profile,
             speech::endpoint(&profile).unwrap(),
             "cancelled",
-            &credentials::read("provider-minimax-cn").unwrap(),
+            &credentials::read_for_test("provider-minimax-cn").unwrap(),
             &cancelled,
         ),
     )

@@ -259,7 +259,7 @@ async fn live_qwen_asr_short_audio() {
         .read_line(&mut key)
         .expect("credential stdin unavailable");
     if key.trim().is_empty() {
-        key = crate::credentials::read("provider-qwen-asr")
+        key = crate::credentials::read_for_test("provider-qwen-asr")
             .expect("save ASR credential before live validation");
     } else {
         crate::credentials::set_credential("provider-qwen-asr".into(), key.trim().into())

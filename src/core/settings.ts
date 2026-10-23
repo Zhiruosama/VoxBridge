@@ -13,7 +13,7 @@ export const defaults: Settings = {
   profiles: [
     {
       id: 'asr-default',
-      name: '流式语音识别',
+      name: '空白配置',
       stage: 'asr',
       adapter: 'pending_asr',
       baseUrl: '',
@@ -22,7 +22,7 @@ export const defaults: Settings = {
     },
     {
       id: 'translation-default',
-      name: 'OpenAI 兼容服务',
+      name: '空白配置',
       stage: 'translation',
       adapter: 'openai_chat_completions',
       baseUrl: '',
@@ -31,15 +31,26 @@ export const defaults: Settings = {
     },
     {
       id: 'tts-default',
-      name: 'MiniMax',
+      name: '空白配置',
       stage: 'tts',
       adapter: 'minimax_tts_ws',
-      baseUrl: 'wss://api.minimax.cn/ws/v1/t2a_v2',
+      baseUrl: '',
       modelId: '',
       voice: '',
     },
   ],
 };
+
+export function blankProfile(stage: Stage, id: string): ProviderProfile {
+  return {
+    ...defaults.profiles.find((profile) => profile.stage === stage)!,
+    id,
+    name: '空白配置',
+    baseUrl: '',
+    modelId: '',
+    voice: '',
+  };
+}
 
 function validateEndpoint(baseUrl: string, adapter: ProviderProfile['adapter']): string | null {
   if (!baseUrl.trim()) return null;
@@ -86,8 +97,13 @@ export function validateProfile(profile: ProviderProfile): string | null {
 
 export function profileFor(settings: Settings, stage: Stage): ProviderProfile {
   return (
-    settings.profiles.find((p) => p.id === settings.active[stage]) ??
-    settings.profiles.find((p) => p.stage === stage)!
+    settings.profiles.find((p) => p.id === settings.active[stage] && p.stage === stage) ?? {
+      ...defaults.profiles.find((p) => p.stage === stage)!,
+      id: `${stage}-empty`,
+      baseUrl: '',
+      modelId: '',
+      voice: '',
+    }
   );
 }
 
@@ -141,14 +157,29 @@ export function parseSettings(value: unknown): Settings {
   });
   if (profiles.length > 30 || new Set(profiles.map((p) => p.id)).size !== profiles.length)
     throw new Error('服务数量过多或标识重复。');
-  const active = input.active as Record<Stage, unknown> | undefined;
-  if (
-    !active ||
-    !(['asr', 'translation', 'tts'] as Stage[]).every((stage) =>
-      profiles.some((p) => p.stage === stage && p.id === active[stage]),
-    )
-  )
-    throw new Error('活动服务配置缺失。');
+  const suppliedActive =
+    input.active && typeof input.active === 'object'
+      ? (input.active as Record<Stage, unknown>)
+      : ({} as Record<Stage, unknown>);
+  const active = {} as Record<Stage, string>;
+  for (const stage of ['asr', 'translation', 'tts'] as Stage[]) {
+    const selected = profiles.find((profile) => profile.id === suppliedActive[stage]);
+    if (selected && selected.stage !== stage) throw new Error('活动服务配置类型不匹配。');
+    if (selected) active[stage] = selected.id;
+    else {
+      let id = `${stage}-empty`;
+      while (profiles.some((p) => p.id === id)) id += '-new';
+      if (profiles.length >= 30) throw new Error('配置数量已达上限，无法创建空白配置。');
+      profiles.push({
+        ...defaults.profiles.find((p) => p.stage === stage)!,
+        id,
+        baseUrl: '',
+        modelId: '',
+        voice: '',
+      });
+      active[stage] = id;
+    }
+  }
   return {
     schemaVersion: 1,
     subtitle: parseSubtitleAppearance(input.subtitle),

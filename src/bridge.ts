@@ -25,6 +25,19 @@ export async function runtimeInfo(): Promise<RuntimeInfo> {
 export async function credentialStatus(id: string): Promise<boolean> {
   return desktop ? invoke('credential_status', { id }) : false;
 }
+export type TemplateStatus = { unlocked: boolean; canUnlock: boolean; hasSaved: boolean };
+export async function templateStatus(): Promise<TemplateStatus> {
+  return desktop
+    ? invoke('template_status')
+    : { unlocked: false, canUnlock: true, hasSaved: false };
+}
+export async function unlockTemplates(): Promise<void> {
+  if (desktop) return invoke('unlock_templates');
+}
+export async function saveTemplateCredential(id: string, secret: string): Promise<void> {
+  if (!desktop) throw new Error('请在桌面应用中保存模板。');
+  return invoke('save_template_credential', { id, secret });
+}
 export async function setCredential(id: string, secret: string): Promise<void> {
   if (!desktop) throw new Error('请在桌面版保存密钥，浏览器不会持久化 API Key。');
   return invoke('set_credential', { id, secret });

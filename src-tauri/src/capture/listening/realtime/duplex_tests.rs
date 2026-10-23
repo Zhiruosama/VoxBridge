@@ -6,6 +6,11 @@ use std::sync::Mutex;
 #[tokio::test]
 #[ignore = "manual: generated-process capture plus real Qwen/DeepSeek and MiniMax physical output"]
 async fn live_duplex_capture_survives_stopping_speech_output() {
+    crate::credentials::read_for_test("provider-deepseek-flash")
+        .expect("explicit legacy fixture setup");
+    crate::credentials::read_for_test("provider-minimax-cn")
+        .expect("explicit legacy fixture setup");
+
     let mut player = crate::capture::test_audio::SyntheticPlayer::start();
     let device = cpal::default_host()
         .default_output_device()
@@ -57,7 +62,7 @@ async fn live_duplex_capture_survives_stopping_speech_output() {
         .listening_session(request.translation_profile.clone(), &request.session_id)
         .await
         .unwrap();
-    let key = crate::credentials::read("provider-qwen-realtime").unwrap();
+    let key = crate::credentials::read_for_test("provider-qwen-realtime").unwrap();
     let speech_state = crate::speech::SpeechState::default();
     let gate = crate::speech::AudioGate::new();
     let (playing_tx, playing_rx) = oneshot::channel();

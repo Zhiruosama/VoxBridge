@@ -49,6 +49,9 @@ pub fn run() {
             overlay::focus_main,
             overlay::stop_overlay_listening,
             credentials::credential_status,
+            credentials::template_status,
+            credentials::unlock_templates,
+            credentials::save_template_credential,
             credentials::set_credential,
             credentials::remove_credential,
             providers::translate,
@@ -101,6 +104,7 @@ pub fn run() {
                 app.state::<asr::AsrState>().stop_all();
                 app.state::<providers::Requests>().stop_all();
                 app.state::<speech::SpeechState>().stop_all();
+                credentials::clear_session();
                 app.state::<audio::ToneState>()
                     .0
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst);

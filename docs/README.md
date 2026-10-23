@@ -48,6 +48,8 @@
 
 ## 最新实机记录
 
+- [显式模板授权与本次密钥](validation/2026-10-23-session-templates.md)
+
 - [设置页重复钥匙串提示修复](validation/2026-10-23-keychain-status.md)
 
 - [同时收发与自动恢复](validation/2026-10-23-duplex-recovery.md)

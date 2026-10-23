@@ -174,3 +174,34 @@ describe('provider profiles', () => {
     expect(validateProfile({ ...p, baseUrl: 'https://example.com/v1?key=secret' })).toBeTruthy();
   });
 });
+
+describe('empty current configuration isolation', () => {
+  it('never selects an existing template when the current selection is empty or missing', async () => {
+    const { profileFor } = await import('./settings');
+    const input = structuredClone(defaults);
+    input.profiles.push({
+      ...input.profiles[1],
+      id: 'saved-provider',
+      name: 'saved template',
+      baseUrl: 'https://example.com',
+      modelId: 'saved-model',
+    });
+    input.active.translation = '';
+    const parsed = parseSettings(input);
+    const current = profileFor(parsed, 'translation');
+    expect(current.id).not.toBe('saved-provider');
+    expect(current.baseUrl).toBe('');
+    expect(current.modelId).toBe('');
+    expect(parsed.profiles.find((p) => p.id === 'saved-provider')?.modelId).toBe('saved-model');
+    expect(profileFor(input, 'translation').modelId).toBe('');
+  });
+  it('creates blank stages for a fresh empty configuration and preserves hand-entered incomplete fields', () => {
+    const parsed = parseSettings({ ...structuredClone(defaults), profiles: [], active: {} });
+    expect(parsed.profiles).toHaveLength(3);
+    expect(
+      parsed.profiles.every((profile) => !profile.baseUrl && !profile.modelId && !profile.voice),
+    ).toBe(true);
+    parsed.profiles[1].baseUrl = 'https://my-api.example.com';
+    expect(parseSettings(parsed)).toEqual(parsed);
+  });
+});
