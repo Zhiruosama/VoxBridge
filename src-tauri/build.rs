@@ -1,3 +1,30 @@
 fn main() {
-    tauri_build::build()
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
+        tauri_build::AppManifest::new().commands(&[
+            "runtime_info",
+            "credential_status",
+            "set_credential",
+            "remove_credential",
+            "translate",
+            "cancel_translation",
+            "transcribe_wav",
+            "stop_asr",
+            "list_outputs",
+            "test_tone",
+            "stop_tone",
+            "list_capture_sources",
+            "capture_diagnostic",
+            "stop_capture",
+            "start_listening",
+            "speak",
+            "stop_speech",
+            "publish_overlay",
+            "read_overlay",
+            "show_overlay",
+            "hide_overlay",
+            "focus_main",
+            "stop_overlay_listening",
+        ]),
+    ))
+    .expect("Tauri build failed");
 }

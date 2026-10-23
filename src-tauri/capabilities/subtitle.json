@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "subtitle",
+  "description": "Read-only local subtitle window with stop and recovery controls",
+  "windows": ["subtitle"],
+  "permissions": [
+    "core:event:allow-listen", "core:event:allow-unlisten", "allow-read-overlay",
+    "allow-hide-overlay", "allow-focus-main", "allow-stop-overlay-listening"
+  ]
+}

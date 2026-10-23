@@ -126,6 +126,17 @@ describe('provider profiles', () => {
     input.profiles[1].adapter = 'qwen_chat_asr';
     expect(() => parseSettings(input)).toThrow();
   });
+  it('migrates subtitle appearance and never stores subtitle snapshots', () => {
+    const input = { ...structuredClone(defaults), subtitle: undefined };
+    expect(parseSettings(input).subtitle).toEqual({ fontSize: 22, backgroundOpacity: 0.82 });
+    const imported = {
+      ...input,
+      subtitle: { fontSize: 100, backgroundOpacity: NaN, lines: ['private-transcript'] },
+    };
+    const parsed = parseSettings(imported);
+    expect(parsed.subtitle).toEqual({ fontSize: 40, backgroundOpacity: 0.82 });
+    expect(JSON.stringify(parsed)).not.toContain('private-transcript');
+  });
   it('allows local endpoints but rejects unsafe or credential-bearing URLs', () => {
     const p = { ...defaults.profiles[1], modelId: 'custom', baseUrl: 'http://127.0.0.1:1234/v1' };
     expect(validateProfile(p)).toBeNull();

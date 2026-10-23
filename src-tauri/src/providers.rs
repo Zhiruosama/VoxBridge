@@ -103,6 +103,14 @@ impl Drop for TranslationSession<'_> {
 }
 
 impl Requests {
+    pub fn stop_all(&self) {
+        if let Ok(registry) = self.0.lock() {
+            for token in registry.active.values() {
+                token.cancel();
+            }
+        }
+    }
+
     pub(crate) fn listening_session(
         &self,
         profile: TranslationProfile,

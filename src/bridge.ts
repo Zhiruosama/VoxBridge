@@ -5,6 +5,7 @@ import type {
   CaptureSource,
   ListeningEvent,
   OutputDevice,
+  OverlaySnapshot,
   ProviderProfile,
   RuntimeInfo,
   SpeechProgress,
@@ -112,4 +113,23 @@ export async function startListening(
   const channel = new Channel<ListeningEvent>();
   channel.onmessage = onEvent;
   return invoke('start_listening', { request, onEvent: channel });
+}
+export async function publishOverlay(snapshot: OverlaySnapshot): Promise<void> {
+  if (desktop) await invoke('publish_overlay', { snapshot });
+}
+export async function readOverlay(): Promise<OverlaySnapshot> {
+  return invoke('read_overlay');
+}
+export async function showOverlay(): Promise<void> {
+  if (!desktop) throw new Error('悬浮字幕需要桌面应用。');
+  await invoke('show_overlay');
+}
+export async function hideOverlay(): Promise<void> {
+  await invoke('hide_overlay');
+}
+export async function focusMain(): Promise<void> {
+  await invoke('focus_main');
+}
+export async function stopOverlayListening(): Promise<void> {
+  await invoke('stop_overlay_listening');
 }

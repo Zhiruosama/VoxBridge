@@ -20,10 +20,15 @@ import Toast from './components/Toast';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
 import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
 import { applyTranscript, applyTranslation } from './core/session';
+import { overlaySnapshot } from './core/overlay';
+import { listen } from '@tauri-apps/api/event';
 import {
   cancelTranslation,
   desktop,
   listCaptureSources,
+  publishOverlay,
+  readOverlay,
+  showOverlay,
   runtimeInfo,
   speak,
   startListening,
@@ -87,6 +92,58 @@ export default function App() {
   const speechStoppingRef = useRef(false);
   const [speechPhase, setSpeechPhase] = useState('');
   const [speechStopping, setSpeechStopping] = useState(false);
+  const overlayVersionRef = useRef(0);
+  const [overlayReady, setOverlayReady] = useState(!desktop);
+  const [overlayError, setOverlayError] = useState('');
+  const zeroLevelSinceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!desktop) return;
+    let disposed = false;
+    void readOverlay()
+      .then((snapshot) => {
+        if (!disposed) {
+          overlayVersionRef.current = Math.max(overlayVersionRef.current, snapshot.version);
+          setOverlayReady(true);
+        }
+      })
+      .catch(() => {
+        if (!disposed) setOverlayError('悬浮字幕初始化失败，请重启应用。');
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+  useEffect(() => {
+    if (!desktop || !overlayReady) return;
+    let disposed = false;
+    const version = ++overlayVersionRef.current;
+    void publishOverlay(overlaySnapshot(session, listenPhase, settings.subtitle, version)).catch(
+      () => {
+        if (!disposed) setOverlayError('悬浮字幕同步失败，请返回主窗口测试。');
+      },
+    );
+    return () => {
+      disposed = true;
+    };
+  }, [session, listenPhase, settings.subtitle, overlayReady]);
+  useEffect(() => {
+    if (!desktop) return;
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    void listen('overlay-stop-request', () => {
+      void endListening();
+    })
+      .then((unlisten) => {
+        if (disposed) unlisten();
+        else unsubscribe = unlisten;
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+    };
+  }, []);
 
   useEffect(() => {
     runtimeInfo()
@@ -141,8 +198,14 @@ export default function App() {
       );
     } else if (event.phase === 'running') {
       setListenPhase('running');
+      if (event.rms <= 0.00001) zeroLevelSinceRef.current ??= Date.now();
+      else zeroLevelSinceRef.current = null;
+      const noAudio =
+        zeroLevelSinceRef.current !== null && Date.now() - zeroLevelSinceRef.current > 3000;
       setListenStatus(
-        `分段监听 · RMS ${event.rms.toFixed(4)} · 丢帧 ${event.droppedFrames} · 跳过 ${event.droppedSegments} 段 · 音频断点 ${event.discontinuities}`,
+        noAudio
+          ? '持续未收到有效声音：请确认目标进程正在发声，并在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中授权 VoxBridge，授权后重启；零样本不能证明权限已通过。'
+          : `分段监听 · RMS ${event.rms.toFixed(4)} · 丢帧 ${event.droppedFrames} · 跳过 ${event.droppedSegments} 段 · 音频断点 ${event.discontinuities}`,
       );
     }
   }
@@ -159,6 +222,7 @@ export default function App() {
     const id = crypto.randomUUID();
     listeningRef.current = id;
     listenStoppingRef.current = false;
+    zeroLevelSinceRef.current = null;
     setListenPhase('starting');
     setListenStatus('正在准备采集，请留意系统权限提示…');
     setListenError('');
@@ -414,6 +478,13 @@ export default function App() {
           {page === 'workspace' && (
             <div className="toolbar-actions">
               <button
+                disabled={!desktop || !overlayReady}
+                onClick={() => void showOverlay().catch(() => notify('无法打开悬浮字幕窗。'))}
+                title="隐藏字幕窗不会停止监听；可在悬浮窗返回主窗口或停止"
+              >
+                悬浮字幕
+              </button>
+              <button
                 onClick={() => void (listening ? endListening() : beginListening())}
                 disabled={
                   !desktop ||
@@ -507,10 +578,15 @@ export default function App() {
                 </div>
               </div>
               <p
-                className={listenError ? 'diagnostic-feedback error-text' : 'diagnostic-feedback'}
-                role={listenError ? 'alert' : 'status'}
+                className={
+                  listenError || overlayError
+                    ? 'diagnostic-feedback error-text'
+                    : 'diagnostic-feedback'
+                }
+                role={listenError || overlayError ? 'alert' : 'status'}
               >
                 {listenError ||
+                  overlayError ||
                   listenStatus ||
                   '先让目标应用发声，再刷新进程。点击监听后音频会发送到 ASR 与翻译服务，可能计费；当前为 HTTP 分段识别。监听期间暂禁用 TTS。'}
               </p>

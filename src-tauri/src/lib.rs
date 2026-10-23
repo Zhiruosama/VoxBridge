@@ -6,6 +6,7 @@ mod capture;
 mod credentials;
 #[cfg(test)]
 mod live_tests;
+mod overlay;
 #[cfg(any(target_os = "macos", test))]
 mod pcm;
 mod platform;
@@ -35,10 +36,17 @@ pub fn run() {
         .manage(audio::ToneState::default())
         .manage(capture::CaptureState::default())
         .manage(asr::AsrState::default())
+        .manage(overlay::OverlayState::default())
         .manage(speech::SpeechState::default())
         .manage(speech::AudioGate::new())
         .invoke_handler(tauri::generate_handler![
             runtime_info,
+            overlay::publish_overlay,
+            overlay::read_overlay,
+            overlay::show_overlay,
+            overlay::hide_overlay,
+            overlay::focus_main,
+            overlay::stop_overlay_listening,
             credentials::credential_status,
             credentials::set_credential,
             credentials::remove_credential,
@@ -56,6 +64,30 @@ pub fn run() {
             speech::speak,
             speech::stop_speech,
         ])
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "subtitle" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                } else if window.label() == "main" {
+                    window
+                        .app_handle()
+                        .state::<capture::CaptureState>()
+                        .stop_all();
+                    window.app_handle().state::<asr::AsrState>().stop_all();
+                    window
+                        .app_handle()
+                        .state::<providers::Requests>()
+                        .stop_all();
+                    window
+                        .app_handle()
+                        .state::<speech::SpeechState>()
+                        .stop_all();
+                    window.app_handle().exit(0);
+                }
+            }
+        })
         .build(tauri::generate_context!())
         .expect("VoxBridge desktop runtime failed")
         .run(|app, event| {
@@ -66,6 +98,11 @@ pub fn run() {
                 use tauri::Manager;
                 app.state::<capture::CaptureState>().stop_all();
                 app.state::<asr::AsrState>().stop_all();
+                app.state::<providers::Requests>().stop_all();
+                app.state::<speech::SpeechState>().stop_all();
+                app.state::<audio::ToneState>()
+                    .0
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             }
         });
 }

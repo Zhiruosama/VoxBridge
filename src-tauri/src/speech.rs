@@ -56,6 +56,14 @@ impl Drop for Job {
     }
 }
 impl SpeechState {
+    pub fn stop_all(&self) {
+        if let Ok(registry) = self.0.lock() {
+            if let Some((_, token)) = &registry.active {
+                token.cancel();
+            }
+        }
+    }
+
     fn begin(&self, id: &str) -> Result<Job, String> {
         if id.is_empty() || id.len() > 128 {
             return Err("请求标识无效。".into());

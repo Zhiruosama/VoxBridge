@@ -1,4 +1,5 @@
 import type { ProviderProfile, Settings, Stage } from './types';
+import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
 
 export const defaults: Settings = {
   schemaVersion: 1,
@@ -6,6 +7,7 @@ export const defaults: Settings = {
   targetLanguage: '简体中文',
   theme: 'dark',
   audio: { previewDeviceId: '', sendDeviceId: '' },
+  subtitle: { ...subtitleDefaults },
   active: { asr: 'asr-default', translation: 'translation-default', tts: 'tts-default' },
   profiles: [
     {
@@ -137,6 +139,7 @@ export function parseSettings(value: unknown): Settings {
     throw new Error('活动服务配置缺失。');
   return {
     schemaVersion: 1,
+    subtitle: parseSubtitleAppearance(input.subtitle),
     audio: {
       previewDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.previewDeviceId === 'string'

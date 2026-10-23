@@ -172,6 +172,50 @@ export default function SettingsPanel({
               </SettingRow>
             </div>
           </section>
+          <section className="preference-section" aria-labelledby="subtitle-heading">
+            <h2 id="subtitle-heading">悬浮字幕</h2>
+            <div className="preference-card">
+              <SettingRow title="字号">
+                <input
+                  type="range"
+                  aria-label="悬浮字幕字号"
+                  min={14}
+                  max={40}
+                  step={1}
+                  value={draft.subtitle.fontSize}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      subtitle: { ...draft.subtitle, fontSize: Number(event.target.value) },
+                    })
+                  }
+                />
+                <span className="preference-value">{draft.subtitle.fontSize} px</span>
+              </SettingRow>
+              <SettingRow title="背景透明度">
+                <input
+                  type="range"
+                  aria-label="悬浮字幕背景不透明度"
+                  min={20}
+                  max={100}
+                  step={1}
+                  value={Math.round(draft.subtitle.backgroundOpacity * 100)}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      subtitle: {
+                        ...draft.subtitle,
+                        backgroundOpacity: Number(event.target.value) / 100,
+                      },
+                    })
+                  }
+                />
+                <span className="preference-value">
+                  {Math.round(draft.subtitle.backgroundOpacity * 100)}%
+                </span>
+              </SettingRow>
+            </div>
+          </section>
           <section className="preference-section" aria-labelledby="audio-heading">
             <div className="preference-section-title">
               <h2 id="audio-heading">音频</h2>

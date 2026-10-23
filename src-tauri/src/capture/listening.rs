@@ -484,6 +484,116 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[tokio::test]
+    #[ignore = "manual native capture of generated speech and paid ASR/translation; uses Keychain"]
+    async fn live_synthetic_process_to_bilingual_subtitle() {
+        struct Playback(std::process::Child);
+        impl Drop for Playback {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let audio = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../native/macos/.build/capture-sample.wav");
+        let segment = tauri::async_runtime::spawn_blocking(
+            move || -> Result<crate::audio_pipeline::AudioSegment, String> {
+                let playback = Playback(
+                    std::process::Command::new("/usr/bin/afplay")
+                        .args(["-v", "0.25"])
+                        .arg(audio)
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .spawn()
+                        .map_err(|_| "无法播放合成样例。")?,
+                );
+                let pid = playback.0.id() as i32;
+                let started = Instant::now();
+                let source = loop {
+                    if let Some(source) = super::super::native::sources()?
+                        .into_iter()
+                        .find(|source| source.pid == pid)
+                    {
+                        break source;
+                    }
+                    if started.elapsed() > Duration::from_secs(3) {
+                        return Err("未发现合成播放进程的音频对象。".into());
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                };
+                let token = tokio_util::sync::CancellationToken::new();
+                let (writer, mut reader, _) = crate::pcm::channel(192_000);
+                let capture = super::super::native::Capture::start(&source, writer, &token)?;
+                let mut pipeline = crate::audio_pipeline::AudioPipeline::new(capture.sample_rate)?;
+                let deadline = Instant::now();
+                let mut result = None;
+                let mut received = 0_u64;
+                let mut peak = 0.0_f32;
+                while deadline.elapsed() < Duration::from_secs(10) {
+                    if capture.failed() {
+                        return Err("合成播放进程采集失败。".into());
+                    }
+                    while let Ok(frame) = reader.pop() {
+                        received += 1;
+                        peak = peak.max(frame.samples[0].abs()).max(frame.samples[1].abs());
+                        if let Some(segment) = pipeline.consume(frame) {
+                            result = Some(segment);
+                            break;
+                        }
+                    }
+                    if result.is_some() {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                println!("SYNTHETIC_CAPTURE_METRICS: {received} frames | peak {peak:.5}");
+                token.cancel();
+                drop(capture);
+                drop(playback);
+                result.ok_or("合成样例未采集到有声段；检查系统音频录制权限。".into())
+            },
+        )
+        .await
+        .expect("原生合成采集验证异常")
+        .expect("native synthetic capture");
+        let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"provider-qwen-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":"https://maas.qianwenaiapi.com/compatible-mode/v1","modelId":"qwen3-asr-flash"})).unwrap();
+        let translations = crate::providers::Requests::default();
+        let translation_profile = serde_json::from_value(serde_json::json!({"id":"provider-deepseek-flash","stage":"translation","adapter":"openai_chat_completions","baseUrl":"https://api.deepseek.com","modelId":"deepseek-flash","thinking":"disabled"})).unwrap();
+        let translation = translations
+            .listening_session(translation_profile, "live-synthetic")
+            .unwrap();
+        let key = crate::credentials::read("provider-qwen-asr").unwrap();
+        let processor = SegmentProcessor {
+            profile: &profile,
+            key: &key,
+            translation: &translation,
+            session_id: "live-synthetic",
+            source: "英语",
+            target: "简体中文",
+        };
+        let mut events = Vec::new();
+        processor
+            .process(
+                segment,
+                &tokio_util::sync::CancellationToken::new(),
+                |event| {
+                    events.push(event);
+                    Ok(())
+                },
+            )
+            .await
+            .expect("live ASR and translation");
+        assert_eq!(
+            events.len(),
+            2,
+            "synthetic capture must produce transcript and translation"
+        );
+        println!(
+            "SYNTHETIC_CAPTURE_TO_SUBTITLE: passed; selected process only, no recording stored."
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
     async fn full_queue_rejects_new_segments_without_blocking() {
         let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
         let segment = || QueuedSegment {

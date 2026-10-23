@@ -23,6 +23,16 @@ export interface ProviderProfile {
   voice: string;
   thinking?: 'enabled' | 'disabled';
 }
+export interface SubtitleAppearance {
+  fontSize: number;
+  backgroundOpacity: number;
+}
+export interface OverlaySnapshot extends SubtitleAppearance {
+  version: number;
+  sessionId: string | null;
+  phase: 'idle' | 'starting' | 'running' | 'stopping';
+  lines: { source: string; translation?: string; time: string }[];
+}
 export interface Settings {
   schemaVersion: 1;
   profiles: ProviderProfile[];
@@ -31,6 +41,7 @@ export interface Settings {
   targetLanguage: string;
   theme: 'dark' | 'light' | 'system';
   audio: AudioRouting;
+  subtitle: SubtitleAppearance;
 }
 export interface Segment {
   id: string;
