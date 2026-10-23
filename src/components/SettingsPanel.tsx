@@ -248,6 +248,39 @@ export default function SettingsPanel({
               </SettingRow>
             </div>
           </section>
+          <section className="preference-section" aria-labelledby="listening-language-heading">
+            <h2 id="listening-language-heading">监听字幕</h2>
+            <div className="preference-card">
+              <SettingRow title="识别语言">
+                <Select
+                  label="语音识别语言"
+                  value={draft.listening.sourceLanguage}
+                  options={['自动识别', '简体中文', '英语', '日语', '韩语', '西班牙语'].map(
+                    (language) => ({
+                      value: language,
+                      label: language,
+                    }),
+                  )}
+                  onChange={(value) =>
+                    setDraft({ ...draft, listening: { ...draft.listening, sourceLanguage: value } })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title="字幕语言">
+                <Select
+                  label="字幕语言"
+                  value={draft.listening.targetLanguage}
+                  options={['简体中文', '英语', '日语', '韩语', '西班牙语'].map((language) => ({
+                    value: language,
+                    label: language,
+                  }))}
+                  onChange={(value) =>
+                    setDraft({ ...draft, listening: { ...draft.listening, targetLanguage: value } })
+                  }
+                />
+              </SettingRow>
+            </div>
+          </section>
           <section className="preference-section" aria-labelledby="composer-heading">
             <h2 id="composer-heading">文字表达</h2>
             <div className="preference-card">

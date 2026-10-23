@@ -628,44 +628,6 @@ export default function App() {
                       : []),
                   ]}
                 />
-                <div className="language-pair">
-                  <Select
-                    label="听取语言"
-                    disabled={listening}
-                    value={settings.listening.sourceLanguage}
-                    onChange={(value) =>
-                      persist(
-                        {
-                          ...settings,
-                          listening: { ...settings.listening, sourceLanguage: value },
-                        },
-                        true,
-                      )
-                    }
-                    options={['自动识别', ...languages].map((language) => ({
-                      value: language,
-                      label: language,
-                    }))}
-                    compact
-                  />
-                  <ArrowRight size={12} />
-                  <Select
-                    label="字幕语言"
-                    disabled={listening}
-                    value={settings.listening.targetLanguage}
-                    onChange={(value) =>
-                      persist(
-                        {
-                          ...settings,
-                          listening: { ...settings.listening, targetLanguage: value },
-                        },
-                        true,
-                      )
-                    }
-                    options={languages.map((language) => ({ value: language, label: language }))}
-                    compact
-                  />
-                </div>
                 <ListeningStatus
                   phase={listenPhase}
                   health={listenHealth}
