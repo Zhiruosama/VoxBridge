@@ -1,0 +1,17 @@
+# Stable short caption chunks
+
+The previous interim translator resubmitted the entire growing provider sentence. A later ASR rewrite could clear a displayed provisional translation; receiving a final also cancelled an in-flight preview and started a larger request. Increasing the preview polling rate did not fix that ownership problem.
+
+Realtime recognition now creates independent local caption IDs. Sentence punctuation commits a short caption immediately. English-like text is bounded at about 100 characters or 16 words, CJK at 32 characters; a stable tail prefix can commit after 1.2 seconds on the next ASR update, using a word boundary for spaced languages. Decimal dots and common titles are protected. Provider final events flush only the uncommitted suffix. Caption start times after a local cut are approximate because the provider's sentence-level begin time does not identify every local boundary.
+
+Committed source/translation pairs are immutable. Only the current unfinished tail follows ASR revisions. A token anchor and linear-memory edit alignment remap the consumed boundary if the provider corrects earlier text, keeping the published prefix out of future requests. A newly observed provider sentence seals the previous tail with a higher local revision; late events for older provider sentences are ignored. A retracted unfinished tail can be removed, without deleting any committed caption. This intentionally favors stable published captions over retroactively applying later ASR corrections to them.
+
+The translator handles up to three committed chunks concurrently with a bounded 32-item waiting queue. New chunks do not cancel earlier translation requests. Captions retain source order even when translation requests finish out of order. Committed work is not discarded by the old 20-second preview expiry; overload is reported explicitly rather than silently dropping another caption. Stop/recovery still cancels current network work, while already completed captions remain visible. Translation instructions explicitly require the target language for incomplete fragments and prohibit inventing a completion.
+
+## Validation
+
+- Frontend: 80 tests passed, including retaining completed translations across tail rewrites, tail deletion and recovery, rejecting whole-paragraph overwrites of committed IDs, and out-of-order translation completion.
+- Rust: 81 tests passed; 15 opt-in service/hardware tests ignored. New regressions cover the user's chair/arcade example, final suffix-only flushing, stable-prefix commits, bounded continuous narration, upstream corrections before the consumed boundary, Chinese punctuation, decimals/titles, provider sentence transitions, retracted tails, parallel completion and stop cancellation. A slow first caption still finishes; later captions can translate before it.
+- Isolated mocked desktop UI showed five completed short bilingual captions surviving revisions of a sixth unfinished tail. Screenshot: `native/macos/.build/committed-short-captions.png` (ignored artifact).
+- Production frontend and Mac app builds, Clippy with warnings denied, formatting, diff checks and strict deep codesign verification passed.
+- No real service requests or credential reads were made in this batch. The user's live app/listening session was not restarted; real flash-model latency and recognition quality need interactive acceptance after restarting.

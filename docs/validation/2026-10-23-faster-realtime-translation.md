@@ -1,5 +1,7 @@
 # More frequent realtime subtitle translation
 
+This interim implementation was superseded by [stable short caption chunks](2026-10-23-stable-short-captions.md) after interactive testing exposed provisional translation resets and whole-sentence resubmission.
+
 The realtime listening path previously translated only final ASR sentences. Continuous narration could therefore show source text for 10–20 seconds before any translation appeared.
 
 The WebSocket path now has one latest-value slot for interim ASR text, sampled on a 1.5-second cadence. At most one translation request runs at a time. New interim revisions replace the waiting snapshot rather than building a queue. Unchanged text is not translated repeatedly; snapshots shorter than four characters or beyond the existing 2000-character translation limit are not submitted for previews. Final sentences retain their bounded four-item queue and 20-second expiry. A final interrupts an in-flight preview network wait and takes priority; an exact matching completed preview is reused for the final revision.

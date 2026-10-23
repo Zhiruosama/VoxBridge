@@ -1,0 +1,73 @@
+use super::*;
+use std::sync::Mutex;
+
+fn caption(id: u64) -> Sentence {
+    Sentence {
+        id,
+        revision: 1,
+        text: format!("Short sentence {id}."),
+        final_text: true,
+        start_ms: 0,
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn slow_caption_does_not_block_following_captions_or_get_cancelled_by_them() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(32);
+    for id in 1..=6 {
+        tx.send(caption(id)).await.unwrap();
+    }
+    drop(tx);
+    let observed = Mutex::new(Vec::new());
+    translate_chunks(
+        &token,
+        rx,
+        |s| async move {
+            tokio::time::sleep(Duration::from_millis(if s.id == 1 { 4000 } else { 200 })).await;
+            Ok(format!("译文 {}", s.id))
+        },
+        |s, text| {
+            assert_eq!(text, format!("译文 {}", s.id));
+            observed.lock().unwrap().push(s.id);
+            Ok(())
+        },
+    )
+    .await
+    .unwrap();
+    let results = observed.into_inner().unwrap();
+    assert_eq!(results.len(), 6);
+    assert_ne!(results[0], 1);
+    assert_eq!(results.last(), Some(&1));
+}
+
+#[tokio::test(start_paused = true)]
+async fn concurrency_is_bounded_and_stop_suppresses_all_pending_results() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(32);
+    for id in 1..=12 {
+        tx.send(caption(id)).await.unwrap();
+    }
+    drop(tx);
+    let requests = AtomicU64::new(0);
+    let worker = translate_chunks(
+        &token,
+        rx,
+        |_| {
+            requests.fetch_add(1, Ordering::Relaxed);
+            async {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                Ok("结果".into())
+            }
+        },
+        |_, _| panic!("no results after stop"),
+    );
+    let drive = async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(requests.load(Ordering::Relaxed), 3);
+        token.cancel();
+    };
+    let (result, ()) = tokio::join!(worker, drive);
+    result.unwrap();
+    assert_eq!(requests.load(Ordering::Relaxed), 3);
+}

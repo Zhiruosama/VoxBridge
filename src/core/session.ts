@@ -2,9 +2,14 @@ import type { Session, TranscriptEvent } from './types';
 
 /** A final revision is immutable; late events cannot resurrect a stopped session. */
 export function applyTranscript(state: Session, event: TranscriptEvent): Session {
-  if (!state.id || state.id !== event.sessionId || !event.text.trim()) return state;
+  if (!state.id || state.id !== event.sessionId) return state;
   const existing = state.segments.find((segment) => segment.id === event.segmentId);
   if (existing && (existing.final || event.revision <= existing.revision)) return state;
+  if (!event.text.trim()) {
+    return existing && event.final
+      ? { ...state, segments: state.segments.filter((segment) => segment.id !== event.segmentId) }
+      : state;
+  }
   const segment = {
     id: event.segmentId,
     revision: event.revision,

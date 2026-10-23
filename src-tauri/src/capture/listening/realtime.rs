@@ -1,7 +1,8 @@
 use super::*;
 use crate::asr::realtime::Sentence;
-use tokio::sync::{mpsc, oneshot, watch};
-mod previews;
+use tokio::sync::{mpsc, oneshot};
+mod chunks;
+mod translations;
 use tokio_util::sync::CancellationToken;
 
 fn capture_pcm(
@@ -114,8 +115,9 @@ pub(super) async fn run(
         },
     )?;
     let (audio_tx, audio_rx) = mpsc::channel(100);
-    let (final_tx, final_rx) = mpsc::channel::<(Sentence, Instant)>(4);
-    let (preview_tx, preview_rx) = watch::channel(None);
+    let (final_tx, final_rx) = mpsc::channel::<Sentence>(32);
+    let mut chunks = chunks::Chunks::default();
+    let started = Instant::now();
     let (ready_tx, ready_rx) = oneshot::channel();
     let skipped = Arc::new(AtomicU64::new(0));
     let source = request.source.clone();
@@ -163,35 +165,35 @@ pub(super) async fn run(
                 if token.is_cancelled() {
                     return Ok(());
                 }
-                send(
-                    channel,
-                    ListeningEvent::Transcript {
-                        session_id: request.session_id.clone(),
-                        generation: request.generation,
-                        segment_id: segment_id(
-                            &request.session_id,
-                            request.generation,
-                            sentence.id,
-                        ),
-                        revision: sentence.revision,
-                        text: sentence.text.clone(),
-                        r#final: sentence.final_text,
-                        start_ms: request.offset_ms.saturating_add(sentence.start_ms),
-                    },
-                )?;
-                if sentence.final_text {
-                    preview_tx.send_replace(None);
-                    match final_tx.try_send((sentence, Instant::now())) {
-                        Ok(()) => {}
-                        Err(mpsc::error::TrySendError::Full(_)) => {
-                            skipped.fetch_add(1, Ordering::Relaxed);
-                        }
-                        Err(mpsc::error::TrySendError::Closed(_)) => {
-                            return Err("字幕翻译任务已结束。".into())
+                for sentence in chunks.push(sentence, started.elapsed().as_millis() as u64) {
+                    send(
+                        channel,
+                        ListeningEvent::Transcript {
+                            session_id: request.session_id.clone(),
+                            generation: request.generation,
+                            segment_id: segment_id(
+                                &request.session_id,
+                                request.generation,
+                                sentence.id,
+                            ),
+                            revision: sentence.revision,
+                            text: sentence.text.clone(),
+                            r#final: sentence.final_text,
+                            start_ms: request.offset_ms.saturating_add(sentence.start_ms),
+                        },
+                    )?;
+                    if sentence.final_text && !sentence.text.trim().is_empty() {
+                        match final_tx.try_send(sentence) {
+                            Ok(()) => {}
+                            Err(mpsc::error::TrySendError::Full(_)) => {
+                                skipped.fetch_add(1, Ordering::Relaxed);
+                                return Err("字幕翻译积压，请稍后重新监听。".into());
+                            }
+                            Err(mpsc::error::TrySendError::Closed(_)) => {
+                                return Err("字幕翻译任务已结束。".into())
+                            }
                         }
                     }
-                } else {
-                    preview_tx.send_replace(Some(sentence));
                 }
                 Ok(())
             },
@@ -201,11 +203,9 @@ pub(super) async fn run(
         result
     };
     let translated = async {
-        let result = previews::translate_updates(
+        let result = translations::translate_chunks(
             token,
             final_rx,
-            preview_rx,
-            &skipped,
             |sentence| async move {
                 translation
                     .translate(
@@ -228,11 +228,7 @@ pub(super) async fn run(
                             sentence.id,
                         ),
                         revision: sentence.revision,
-                        source_text: if sentence.final_text {
-                            None
-                        } else {
-                            Some(sentence.text)
-                        },
+                        source_text: None,
                         text,
                     },
                 )

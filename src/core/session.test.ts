@@ -126,3 +126,44 @@ describe('interim translation revisions', () => {
     expect(applyTranslation(state, 'b', 'one', 2, '其他会话', 'I cannot go')).toBe(state);
   });
 });
+
+describe('committed realtime caption chunks', () => {
+  it('retains completed translations across tail rewrites, clearing and recovery', () => {
+    let state = applyTranscript({ id: 'a', segments: [] }, { ...event, final: true });
+    state = applyTranslation(state, 'a', 'one', 1, '已经翻译好的短句');
+    state = applyTranscript(state, { ...event, segmentId: 'tail', text: 'Unfinished tail' });
+    state = applyTranscript(state, {
+      ...event,
+      segmentId: 'tail',
+      revision: 2,
+      text: 'Corrected tail',
+    });
+    state = applyTranscript(state, {
+      ...event,
+      segmentId: 'tail',
+      revision: 3,
+      text: '',
+      final: true,
+    });
+    state = discardUnfinished(state);
+    expect(state.segments).toHaveLength(1);
+    expect(state.segments[0].translation).toBe('已经翻译好的短句');
+    expect(
+      applyTranscript(state, {
+        ...event,
+        revision: 9,
+        text: 'A whole revised paragraph',
+        final: true,
+      }),
+    ).toBe(state);
+  });
+  it('keeps source order when short translations complete out of order', () => {
+    let state: Session = { id: 'a', segments: [] };
+    for (const id of ['first', 'second', 'third'])
+      state = applyTranscript(state, { ...event, segmentId: id, text: id, final: true });
+    for (const id of ['second', 'third', 'first'])
+      state = applyTranslation(state, 'a', id, 1, `${id} translated`);
+    expect(state.segments.map((s) => s.id)).toEqual(['first', 'second', 'third']);
+    expect(state.segments.every((s) => s.translation?.endsWith(' translated'))).toBe(true);
+  });
+});
