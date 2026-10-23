@@ -350,6 +350,16 @@ export default function App() {
     setPage('settings');
   }
 
+  const composerHint =
+    (settings.composer.enterAction === 'newline'
+      ? 'Enter 换行'
+      : settings.composer.enterAction === 'translate'
+        ? 'Enter 仅翻译 · Shift + Enter 换行'
+        : `Enter ${settings.composer.output === 'translation' ? '翻译后输出' : '输出原文'} · Shift + Enter 换行`) +
+    (settings.composer.enterAction === 'speak'
+      ? ` · ${settings.composer.route === 'preview' ? '试听' : '发送'}设备`
+      : '');
+
   return (
     <div className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}>
       <a className="skip-link" href="#main-content">
@@ -606,6 +616,7 @@ export default function App() {
                     value={text}
                     disabled={busy}
                     aria-describedby="composer-hint"
+                    title={composerHint}
                     onChange={(event) => {
                       setText(event.target.value);
                       setResult('');
@@ -747,24 +758,9 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                <div id="composer-hint" className="composer-hint">
-                  <span>
-                    {settings.composer.enterAction === 'newline'
-                      ? 'Enter 换行'
-                      : settings.composer.enterAction === 'translate'
-                        ? 'Enter 仅翻译 · Shift + Enter 换行'
-                        : `Enter ${settings.composer.output === 'translation' ? '翻译后输出' : '输出原文'} · Shift + Enter 换行`}
-                    {settings.composer.enterAction === 'speak' &&
-                      ` · ${settings.composer.route === 'preview' ? '试听' : '发送'}设备`}
-                  </span>
-                  <button
-                    className="subtle"
-                    disabled={busy || listening}
-                    onClick={() => openSettings()}
-                  >
-                    发送设置 · 服务可能计费
-                  </button>
-                </div>
+                <span id="composer-hint" className="sr-only">
+                  {composerHint}
+                </span>
                 {error && (
                   <p className="error-text" role="alert">
                     {error}
