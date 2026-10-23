@@ -14,6 +14,14 @@ pub fn read(id: &str) -> Result<String, String> {
         .map_err(|_| "未找到密钥，请在设置中配置。".into())
 }
 
+/// Security.framework can block for seconds; keep it off the network / UI runtime.
+pub async fn read_async(id: &str) -> Result<String, String> {
+    let id = id.to_owned();
+    tauri::async_runtime::spawn_blocking(move || read(&id))
+        .await
+        .map_err(|_| "读取系统凭据任务失败。".to_string())?
+}
+
 #[tauri::command]
 pub fn credential_status(id: String) -> Result<bool, String> {
     match entry(&id)?.get_password() {

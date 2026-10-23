@@ -578,6 +578,30 @@ pub async fn speak(
     state: tauri::State<'_, SpeechState>,
     gate: tauri::State<'_, AudioGate>,
 ) -> Result<(), String> {
+    execute(
+        profile,
+        text,
+        routing,
+        route,
+        request_id,
+        on_progress,
+        &state,
+        &gate,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn execute(
+    profile: SpeechProfile,
+    text: String,
+    routing: Routing,
+    route: Route,
+    request_id: String,
+    on_progress: tauri::ipc::Channel<SpeechProgress>,
+    state: &SpeechState,
+    gate: &AudioGate,
+) -> Result<(), String> {
     let url = endpoint(&profile)?;
     if text.trim().is_empty() || text.chars().count() > 500 {
         return Err("语音文字须为 1–500 字。".into());
@@ -589,7 +613,26 @@ pub async fn speak(
         .clone()
         .try_acquire_owned()
         .map_err(|_| "音频输出正忙，请等待当前播放结束。")?;
-    let key = crate::credentials::read(&profile.id)?;
+    if let Err(error) = crate::platform::wait_for_output(&device, &job.token, || {
+        progress(&on_progress, &request_id, "waitingDevice")
+    })
+    .await
+    {
+        progress(
+            &on_progress,
+            &request_id,
+            if job.token.is_cancelled() {
+                "stopped"
+            } else {
+                "failed"
+            },
+        );
+        return Err(error);
+    }
+    let key = tokio::select! { biased;
+        _ = job.token.cancelled() => return Err(STOPPED.into()),
+        result = crate::credentials::read_async(&profile.id) => result?,
+    };
     if profile.adapter == "minimax_tts_ws" {
         return streaming::speak_streaming(
             profile,

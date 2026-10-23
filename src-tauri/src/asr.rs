@@ -294,7 +294,10 @@ pub async fn transcribe_wav(
     endpoint(&profile)?;
     validate_wav(&audio)?;
     let job = state.begin(&request_id)?;
-    let key = crate::credentials::read(&profile.id)?;
+    let key = tokio::select! { biased;
+        _ = job.token.cancelled() => return Err(STOPPED.into()),
+        result = crate::credentials::read_async(&profile.id) => result?,
+    };
     recognize(&profile, &audio, &key, &job.token).await
 }
 

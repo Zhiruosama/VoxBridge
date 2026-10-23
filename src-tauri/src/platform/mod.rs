@@ -118,3 +118,104 @@ mod tests {
         assert!(select_unique(entries.into_iter(), "same").is_err());
     }
 }
+
+async fn wait_until_available<F: std::future::Future<Output = Result<bool, String>>>(
+    stop: &tokio_util::sync::CancellationToken,
+    mut check: impl FnMut() -> F,
+    mut waiting: impl FnMut(),
+) -> Result<(), String> {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(20);
+    let mut notified = false;
+    loop {
+        let available = tokio::select! { biased;
+            _ = stop.cancelled() => return Err("语音已停止。".into()),
+            result = check() => result?,
+            _ = tokio::time::sleep_until(deadline) => return Err("等待输出设备恢复超时，请重新连接后发送。".into()),
+        };
+        if available {
+            return Ok(());
+        }
+        if !notified {
+            waiting();
+            notified = true;
+        }
+        tokio::select! { biased;
+            _ = stop.cancelled() => return Err("语音已停止。".into()),
+            _ = tokio::time::sleep_until(deadline) => return Err("等待输出设备恢复超时，请重新连接后发送。".into()),
+            _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {},
+        }
+    }
+}
+
+pub(crate) async fn wait_for_output(
+    id: &str,
+    stop: &tokio_util::sync::CancellationToken,
+    waiting: impl FnMut(),
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    macos::validate_output_id(id)?;
+    wait_until_available(
+        stop,
+        || {
+            let id = id.to_owned();
+            async move {
+                tauri::async_runtime::spawn_blocking(move || {
+                    let matches = list_outputs()?
+                        .into_iter()
+                        .filter(|device| device.id == id)
+                        .count();
+                    match matches {
+                        0 => Ok(false),
+                        1 => Ok(true),
+                        _ => Err("输出设备标识存在歧义，请重新选择设备。".into()),
+                    }
+                })
+                .await
+                .map_err(|_| "读取输出设备失败。".to_string())?
+            }
+        },
+        waiting,
+    )
+    .await
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    use tokio_util::sync::CancellationToken;
+    #[tokio::test(start_paused = true)]
+    async fn waits_for_same_device_and_stops_or_times_out_without_fallback() {
+        let token = CancellationToken::new();
+        let mut polls = 0;
+        let mut notices = 0;
+        wait_until_available(
+            &token,
+            || {
+                polls += 1;
+                let ready = polls == 3;
+                async move { Ok(ready) }
+            },
+            || notices += 1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(polls, 3);
+        assert_eq!(notices, 1);
+        let error = wait_until_available(&token, || async { Ok(false) }, || {})
+            .await
+            .unwrap_err();
+        assert!(error.contains("超时"));
+        let mut polls = 0;
+        wait_until_available(
+            &token,
+            || {
+                polls += 1;
+                async { Ok(false) }
+            },
+            || token.cancel(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(polls, 1);
+    }
+}

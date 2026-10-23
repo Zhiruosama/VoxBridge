@@ -11,6 +11,7 @@ mod overlay;
 mod pcm;
 mod platform;
 mod providers;
+mod recovery;
 mod speech;
 
 #[derive(serde::Serialize)]

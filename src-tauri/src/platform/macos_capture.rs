@@ -37,6 +37,10 @@ fn supported() -> Result<(), String> {
 fn check(status: i32, operation: &str) -> Result<(), String> {
     if status == 0 {
         Ok(())
+    } else if status == kAudioHardwareBadDeviceError || status == kAudioHardwareNotRunningError {
+        Err(format!(
+            "音频系统暂时不可用：{operation}（系统状态 {status}）。"
+        ))
     } else {
         Err(format!("{operation}失败（系统状态 {status}）。请检查系统设置中的屏幕与系统音频录制权限，授权后重启应用。"))
     }

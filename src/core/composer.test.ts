@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ComposerController, composerKeyAction } from './composer';
+import { ComposerController, composerKeyAction, composerLanguages } from './composer';
 import { defaults } from './settings';
 
 function fixture() {
@@ -209,5 +209,41 @@ describe('composer keyboard', () => {
     expect(composerKeyAction({ ...enter, keyCode: 229 }, 'speak')).toBe('ignore');
     expect(composerKeyAction({ ...enter, repeat: true }, 'speak')).toBe('ignore');
     expect(composerKeyAction({ ...enter, key: 'a' }, 'speak')).toBe('ignore');
+  });
+});
+
+describe('duplex expression', () => {
+  it('reverses the live listening direction without mutating saved settings', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    input.settings.sourceLanguage = '英语';
+    input.settings.targetLanguage = '简体中文';
+    await controller.run({ ...input, listening: true }, callbacks);
+    expect(dependencies.translate).toHaveBeenCalledWith(
+      input.settings.profiles[1],
+      '你好',
+      '简体中文',
+      '英语',
+      'request',
+    );
+    expect(input.settings.sourceLanguage).toBe('英语');
+    expect(composerLanguages(input.settings, false)).toEqual({
+      source: '英语',
+      target: '简体中文',
+    });
+    expect(dependencies.speak).toHaveBeenCalledOnce();
+  });
+  it('keeps a send independent of changing listening state and can cancel a missing-device wait', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    const speech = deferred<void>();
+    dependencies.speak.mockImplementation(async (_profile, _text, _audio, _route, id, progress) => {
+      progress({ requestId: id, phase: 'waitingDevice' });
+      await speech.promise;
+    });
+    const running = controller.run({ ...input, listening: true }, callbacks);
+    await vi.waitFor(() => expect(callbacks.phase).toHaveBeenCalledWith('waitingDevice'));
+    await controller.cancel();
+    expect(dependencies.stopSpeech).toHaveBeenCalledWith('request');
+    speech.resolve();
+    expect(await running).toBe('stopped');
   });
 });

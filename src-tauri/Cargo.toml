@@ -35,3 +35,6 @@ objc2-core-audio = { version = "0.3.2", default-features = false, features = ["s
 objc2-core-audio-types = { version = "0.3.2", default-features = false, features = ["std", "CoreAudioBaseTypes"] }
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFString", "CFDictionary", "CFArray", "CFNumber"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSString", "NSUUID", "NSValue"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }

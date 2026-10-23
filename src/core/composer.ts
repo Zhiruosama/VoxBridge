@@ -3,11 +3,18 @@ import type { ComposerSettings, Settings, SpeechProgress } from './types';
 
 export type ComposerPhase =
   | 'idle'
+  | 'waitingDevice'
   | 'translating'
   | 'synthesizing'
   | 'decoding'
   | 'playing'
   | 'stopping';
+export function composerLanguages(settings: Settings, listening: boolean) {
+  return listening
+    ? { source: settings.targetLanguage, target: settings.sourceLanguage }
+    : { source: settings.sourceLanguage, target: settings.targetLanguage };
+}
+
 export function composerKeyAction(
   event: {
     key: string;
@@ -64,6 +71,7 @@ export class ComposerController {
       text: string;
       settings: Settings;
       action: 'speak' | 'translate';
+      listening?: boolean;
       route?: ComposerSettings['route'];
       output?: ComposerSettings['output'];
     },
@@ -74,6 +82,7 @@ export class ComposerController {
   ): Promise<'completed' | 'stopped' | 'busy'> {
     if (this.operation) return 'busy';
     const settings = structuredClone(input.settings);
+    const direction = composerLanguages(settings, input.listening ?? false);
     const text = input.text.trim();
     const output = input.output ?? settings.composer.output;
     const route = input.route ?? settings.composer.route;
@@ -104,8 +113,8 @@ export class ComposerController {
         content = await this.dependencies.translate(
           translationProfile,
           text,
-          settings.sourceLanguage,
-          settings.targetLanguage,
+          direction.source,
+          direction.target,
           operation.id,
         );
         if (operation.cancelled) return 'stopped';
@@ -132,7 +141,7 @@ export class ComposerController {
               operation.cancelled
             )
               return;
-            if (['synthesizing', 'decoding', 'playing'].includes(event.phase))
+            if (['waitingDevice', 'synthesizing', 'decoding', 'playing'].includes(event.phase))
               callbacks.phase(event.phase as ComposerPhase);
           },
         );

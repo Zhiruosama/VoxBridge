@@ -48,5 +48,7 @@
 
 ## 最新实机记录
 
+- [同时收发与自动恢复](validation/2026-10-23-duplex-recovery.md)
+
 - [千问实时 ASR 与定稿翻译](validation/2026-10-23-realtime-asr.md)
 - [MiniMax PCM 流式播放](validation/2026-10-23-streaming-tts.md)

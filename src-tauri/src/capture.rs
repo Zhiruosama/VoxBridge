@@ -15,7 +15,7 @@ pub(crate) mod listening;
 #[cfg(all(test, target_os = "macos"))]
 mod test_audio;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureSource {
     pub pid: i32,

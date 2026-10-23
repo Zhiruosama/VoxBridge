@@ -209,3 +209,38 @@ fn synthetic_audio_child() {
         std::io::stdout().flush().unwrap();
     }
 }
+
+#[test]
+#[ignore = "manual: physical test tone verifies VoxBridge output is excluded from selected-process tap"]
+fn live_duplex_self_output_is_excluded_from_target() {
+    use rodio::{DeviceSinkBuilder, Player, Source};
+    let mut target = SyntheticPlayer::start();
+    let token = tokio_util::sync::CancellationToken::new();
+    let _guard = token.clone().drop_guard();
+    let (writer, mut reader, _) = crate::pcm::channel(192_000);
+    let capture = native::Capture::start(&target.source, writer, &token).unwrap();
+    let baseline = measure(&capture, &mut reader, Duration::from_millis(350));
+    assert!(baseline.0 > 0 && baseline.1 < 0.00001);
+    let output = DeviceSinkBuilder::open_default_sink().unwrap();
+    let sink = Player::connect_new(output.mixer());
+    sink.append(
+        rodio::source::SineWave::new(997.0)
+            .amplify(0.04)
+            .take_duration(Duration::from_millis(800)),
+    );
+    let own_output = measure(&capture, &mut reader, Duration::from_millis(700));
+    assert!(
+        own_output.0 > 0 && own_output.1 < 0.00001,
+        "own output leaked into target: {}",
+        own_output.1
+    );
+    sink.stop();
+    target.command("tone");
+    let positive = measure(&capture, &mut reader, Duration::from_millis(500));
+    assert!(positive.1 > 0.01, "positive control was silent");
+    target.command("silence");
+    println!(
+        "LIVE_DUPLEX_ISOLATION: own-output RMS={}, target-positive RMS={}",
+        own_output.1, positive.1
+    );
+}

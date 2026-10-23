@@ -56,7 +56,9 @@ export default function SubtitleOverlay() {
       }}
     >
       <header className="subtitle-overlay-toolbar" data-tauri-drag-region title="拖动字幕窗口">
-        <span data-tauri-drag-region>{active ? '双语字幕' : '监听已停止'}</span>
+        <span data-tauri-drag-region>
+          {snapshot.phase === 'recovering' ? '正在恢复监听…' : active ? '双语字幕' : '监听已停止'}
+        </span>
         <div>
           {active && <button onClick={() => void action(stopOverlayListening)}>停止监听</button>}
           <button onClick={() => void action(focusMain)} title="收起字幕窗并返回主窗口，继续监听">

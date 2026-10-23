@@ -3,7 +3,7 @@ import { AlertCircle, ChevronDown, Info, LoaderCircle, X } from 'lucide-react';
 import { captureHealthMessage, type CaptureHealth } from '../core/capture-health';
 import type { ListeningEvent } from '../core/types';
 
-export type ListeningPhase = 'idle' | 'starting' | 'running' | 'stopping';
+export type ListeningPhase = 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
 export type ListeningProgress = Extract<ListeningEvent, { type: 'progress' }>;
 
 function StatusPopover({
@@ -50,22 +50,26 @@ export default function ListeningStatus({
   phase,
   health,
   progress,
+  recovery,
 }: {
   phase: ListeningPhase;
   health: CaptureHealth;
   progress: ListeningProgress | null;
+  recovery?: Extract<ListeningEvent, { type: 'recovering' }> | null;
 }) {
-  const pending = phase === 'starting' || phase === 'stopping';
+  const pending = phase === 'starting' || phase === 'recovering' || phase === 'stopping';
   const label =
-    phase === 'starting'
-      ? '正在连接'
-      : phase === 'stopping'
-        ? '正在停止'
-        : health === 'active'
-          ? '监听中'
-          : health === 'stalled'
-            ? '等待连接'
-            : '等待声音';
+    phase === 'recovering'
+      ? '正在恢复'
+      : phase === 'starting'
+        ? '正在连接'
+        : phase === 'stopping'
+          ? '正在停止'
+          : health === 'active'
+            ? '监听中'
+            : health === 'stalled'
+              ? '等待连接'
+              : '等待声音';
   return (
     <div className="listening-controls">
       {phase !== 'idle' && (
@@ -85,7 +89,12 @@ export default function ListeningStatus({
           }
         >
           <h3>监听详情</h3>
-          {progress ? (
+          {phase === 'recovering' && recovery ? (
+            <p>
+              {recovery.reason} 将在 {Math.ceil(recovery.delayMs / 1000)} 秒后重试（第{' '}
+              {recovery.attempt} 次）。
+            </p>
+          ) : progress ? (
             <dl className="signal-metrics">
               <div>
                 <dt>采样率</dt>
@@ -128,7 +137,9 @@ export default function ListeningStatus({
         <h3>关于监听</h3>
         <p>先让目标应用发声，再刷新并选择音频进程。</p>
         <p>监听会调用所选的语音识别与翻译服务，可能产生费用。</p>
-        <p>监听期间暂停语音输出；停止监听后可使用下方文字表达。</p>
+        <p>
+          监听期间可同时输入文字并发送语音，翻译方向与字幕相反。请将聊天声音输出到耳机、发送语音输出到独立虚拟设备，避免回环。
+        </p>
       </StatusPopover>
     </div>
   );

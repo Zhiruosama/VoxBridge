@@ -10,6 +10,7 @@ fn capture_pcm(
     sender: mpsc::Sender<Vec<u8>>,
     channel: tauri::ipc::Channel<ListeningEvent>,
     skipped: Arc<AtomicU64>,
+    generation: u32,
 ) -> Result<(), String> {
     if token.is_cancelled() {
         return Ok(());
@@ -27,7 +28,14 @@ fn capture_pcm(
     let mut meter = crate::pcm::Meter::default();
     let mut block = Vec::with_capacity(640);
     let mut reported = Instant::now() - Duration::from_secs(1);
+    let mut last_frame = Instant::now();
+    let mut last_poll = std::time::SystemTime::now();
     loop {
+        let now = std::time::SystemTime::now();
+        if now.duration_since(last_poll).unwrap_or_default() > Duration::from_secs(5) {
+            return Err("系统暂停后需要重新连接音频。".into());
+        }
+        last_poll = now;
         if token.is_cancelled() || sender.is_closed() {
             return Ok(());
         }
@@ -41,6 +49,7 @@ fn capture_pcm(
             let Ok(frame) = reader.pop() else {
                 break;
             };
+            last_frame = Instant::now();
             meter.consume(frame);
             if meter.gaps > 0 || dropped.load(Ordering::Relaxed) > 0 {
                 return Err("音频采集发生中断，请重新开始监听。".into());
@@ -54,6 +63,9 @@ fn capture_pcm(
                     .map_err(|_| "实时识别发送积压或已断开，请重新监听。".to_string())?;
             }
         }
+        if last_frame.elapsed() > Duration::from_secs(5) {
+            return Err("监听采集回调中断。".into());
+        }
         if reported.elapsed() >= Duration::from_millis(250) {
             if !super::super::native::source_exists(&source) {
                 return Err("目标音频进程已退出或改变，请刷新后重新监听。".into());
@@ -62,6 +74,7 @@ fn capture_pcm(
                 &channel,
                 ListeningEvent::Progress {
                     session_id: session_id.clone(),
+                    generation,
                     phase: "running",
                     sample_rate: capture.sample_rate,
                     frames: meter.frames,
@@ -89,6 +102,7 @@ pub(super) async fn run(
         channel,
         ListeningEvent::Progress {
             session_id: request.session_id.clone(),
+            generation: request.generation,
             phase: "starting",
             sample_rate: 0,
             frames: 0,
@@ -103,6 +117,7 @@ pub(super) async fn run(
     let (ready_tx, ready_rx) = oneshot::channel();
     let skipped = Arc::new(AtomicU64::new(0));
     let source = request.source.clone();
+    let generation = request.generation;
     let id = request.session_id.clone();
     let capture_token = token.clone();
     let capture_channel = channel.clone();
@@ -122,6 +137,7 @@ pub(super) async fn run(
                     audio_tx,
                     capture_channel,
                     capture_skipped,
+                    generation,
                 )
             }))
             .unwrap_or_else(|_| Err("监听采集任务异常退出。".into()));
@@ -149,11 +165,16 @@ pub(super) async fn run(
                     channel,
                     ListeningEvent::Transcript {
                         session_id: request.session_id.clone(),
-                        segment_id: format!("{}-{}", request.session_id, sentence.id),
+                        generation: request.generation,
+                        segment_id: segment_id(
+                            &request.session_id,
+                            request.generation,
+                            sentence.id,
+                        ),
                         revision: sentence.revision,
                         text: sentence.text.clone(),
                         r#final: sentence.final_text,
-                        start_ms: sentence.start_ms,
+                        start_ms: request.offset_ms.saturating_add(sentence.start_ms),
                     },
                 )?;
                 if sentence.final_text {
@@ -190,7 +211,7 @@ pub(super) async fn run(
                     result = translation.translate(&sentence.text, &request.source_language, &request.target_language, token) => result?,
                 };
                 if !token.is_cancelled() {
-                    send(channel, ListeningEvent::Translation { session_id: request.session_id.clone(), segment_id: format!("{}-{}", request.session_id, sentence.id), revision: sentence.revision, text })?;
+                    send(channel, ListeningEvent::Translation { session_id: request.session_id.clone(), generation: request.generation, segment_id: segment_id(&request.session_id, request.generation, sentence.id), revision: sentence.revision, text })?;
                 }
             }
         }.await;
@@ -256,6 +277,7 @@ mod tests {
         let translations = crate::providers::Requests::default();
         let translation = translations
             .listening_session(request.translation_profile.clone(), &request.session_id)
+            .await
             .unwrap();
         let key = crate::credentials::read("provider-qwen-asr").unwrap();
         let asr_token = CancellationToken::new();
@@ -300,3 +322,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod duplex_tests;

@@ -23,10 +23,16 @@ import ListeningStatus, {
 } from './components/ListeningStatus';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
 import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
-import { applyTranscript, applyTranslation } from './core/session';
+import { applyTranscript, applyTranslation, discardUnfinished } from './core/session';
 import { overlaySnapshot } from './core/overlay';
+import { ListeningEpoch } from './core/listening';
 import { CaptureSignalMonitor, type CaptureHealth } from './core/capture-health';
-import { ComposerController, composerKeyAction, type ComposerPhase } from './core/composer';
+import {
+  ComposerController,
+  composerKeyAction,
+  composerLanguages,
+  type ComposerPhase,
+} from './core/composer';
 import { listen } from '@tauri-apps/api/event';
 import {
   cancelTranslation,
@@ -73,14 +79,18 @@ export default function App() {
   const [captureSources, setCaptureSources] = useState<CaptureSource[]>([]);
   const [captureSourceId, setCaptureSourceId] = useState('');
   const [refreshingSources, setRefreshingSources] = useState(false);
-  const [listenPhase, setListenPhase] = useState<'idle' | 'starting' | 'running' | 'stopping'>(
-    'idle',
-  );
+  const [listenPhase, setListenPhase] = useState<
+    'idle' | 'starting' | 'running' | 'recovering' | 'stopping'
+  >('idle');
   const [listenProgress, setListenProgress] = useState<ListeningProgress | null>(null);
   const [listenHealth, setListenHealth] = useState<CaptureHealth>('waiting');
   const [listenError, setListenError] = useState('');
+  const [recovery, setRecovery] = useState<Extract<ListeningEvent, { type: 'recovering' }> | null>(
+    null,
+  );
   const listeningRef = useRef<string | null>(null);
   const listenStoppingRef = useRef(false);
+  const listenEpochRef = useRef(new ListeningEpoch());
   const listening = listenPhase !== 'idle';
   const [text, setText] = useState('');
   const [result, setResult] = useState('');
@@ -194,13 +204,27 @@ export default function App() {
 
   function receiveListening(event: ListeningEvent) {
     if (listeningRef.current !== event.sessionId || listenStoppingRef.current) return;
+    if (!listenEpochRef.current.accept(event)) return;
     if (event.type === 'transcript') {
       setSession((state) => applyTranscript(state, event));
     } else if (event.type === 'translation') {
       setSession((state) =>
         applyTranslation(state, event.sessionId, event.segmentId, event.revision, event.text),
       );
+    } else if (event.type === 'recovering') {
+      setListenPhase('recovering');
+      setRecovery(event);
+      setListenProgress(null);
+      captureSignalRef.current = new CaptureSignalMonitor();
+      setSession(discardUnfinished);
+    } else if (event.type === 'sourceChanged') {
+      setCaptureSourceId(String(event.source.pid));
+      setCaptureSources((sources) => [
+        ...sources.filter((source) => source.pid !== event.source.pid),
+        event.source,
+      ]);
     } else if (event.phase === 'running') {
+      setRecovery(null);
       setListenPhase('running');
       setListenHealth(captureSignalRef.current.update(event));
       setListenProgress(event);
@@ -208,7 +232,7 @@ export default function App() {
   }
 
   async function beginListening() {
-    if (listeningRef.current || composer.busy) return;
+    if (listeningRef.current) return;
     const source = captureSources.find((item) => String(item.pid) === captureSourceId);
     const asrProfile = profileFor(settings, 'asr');
     const invalid = validateProfile(asrProfile) || validateProfile(translationProfile);
@@ -223,8 +247,10 @@ export default function App() {
     const id = crypto.randomUUID();
     listeningRef.current = id;
     listenStoppingRef.current = false;
+    listenEpochRef.current = new ListeningEpoch();
     captureSignalRef.current = new CaptureSignalMonitor();
     setListenPhase('starting');
+    setRecovery(null);
     setListenProgress(null);
     setListenHealth('waiting');
     setListenError('');
@@ -251,7 +277,7 @@ export default function App() {
     } finally {
       if (listeningRef.current === id) {
         listeningRef.current = null;
-        setSession((state) => ({ ...state, id: null }));
+        setSession((state) => ({ ...discardUnfinished(state), id: null }));
         setListenPhase('idle');
       }
     }
@@ -262,7 +288,7 @@ export default function App() {
     if (!id || listenStoppingRef.current) return;
     listenStoppingRef.current = true;
     setListenPhase('stopping');
-    setSession((state) => ({ ...state, id: null }));
+    setSession((state) => ({ ...discardUnfinished(state), id: null }));
     try {
       await stopCapture(id);
     } catch (error) {
@@ -294,7 +320,7 @@ export default function App() {
     route = settings.composer.route,
     content?: string,
   ) {
-    if (composer.busy || listeningRef.current) return;
+    if (composer.busy) return;
     if (!desktop) {
       setError('请通过桌面应用使用翻译和语音输出。');
       return;
@@ -313,6 +339,7 @@ export default function App() {
           settings,
           action,
           route,
+          listening: Boolean(listeningRef.current),
           ...(content !== undefined ? { output: 'source' as const } : {}),
         },
         {
@@ -354,6 +381,7 @@ export default function App() {
     setPage('settings');
   }
 
+  const direction = composerLanguages(settings, listening);
   const composerHint =
     (settings.composer.enterAction === 'newline'
       ? 'Enter 换行'
@@ -362,7 +390,8 @@ export default function App() {
         : `Enter ${settings.composer.output === 'translation' ? '翻译后输出' : '输出原文'} · Shift + Enter 换行`) +
     (settings.composer.enterAction === 'speak'
       ? ` · ${settings.composer.route === 'preview' ? '试听' : '发送'}设备`
-      : '');
+      : '') +
+    ` · ${direction.source} → ${direction.target}`;
 
   return (
     <div className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}>
@@ -465,7 +494,7 @@ export default function App() {
                   !desktop ||
                   runtime?.platform !== 'macos' ||
                   listenPhase === 'stopping' ||
-                  (!listening && (!captureSourceId || busy || refreshingSources))
+                  (!listening && (!captureSourceId || refreshingSources))
                 }
                 title="开始后，目标声音会发送到所选的语音识别与翻译服务，可能计费"
               >
@@ -555,6 +584,7 @@ export default function App() {
                   phase={listenPhase}
                   health={listenHealth}
                   progress={listenProgress}
+                  recovery={recovery}
                 />
               </div>
               <ListeningNotice
@@ -677,8 +707,8 @@ export default function App() {
                         className="output-mode"
                         aria-label="输出译文"
                         aria-pressed={settings.composer.output === 'translation'}
-                        disabled={busy || listening}
-                        title="切换原文或译文语音；译文模式会自动翻译"
+                        disabled={busy}
+                        title={`切换原文或译文语音；当前 ${direction.source} → ${direction.target}`}
                         onClick={() =>
                           persist(
                             {
@@ -703,6 +733,7 @@ export default function App() {
                           <span role="status" className="composer-phase">
                             {
                               {
+                                waitingDevice: '等待设备…',
                                 translating: '翻译中…',
                                 synthesizing: '合成中…',
                                 decoding: '准备播放…',
@@ -725,7 +756,7 @@ export default function App() {
                         <>
                           <button
                             className="subtle"
-                            disabled={!text.trim() || !desktop || listening}
+                            disabled={!text.trim() || !desktop}
                             onClick={() => void runComposer('translate')}
                             title="仅翻译，不输出语音"
                           >
@@ -743,13 +774,13 @@ export default function App() {
                                 ? '自动翻译后在试听设备播放'
                                 : '在试听设备播放原文'
                             }
-                            disabled={!desktop || !text.trim() || listening}
+                            disabled={!desktop || !text.trim()}
                             onClick={() => void runComposer('speak', 'preview')}
                           >
                             <Headphones size={16} />
                           </button>
                           <button
-                            disabled={!desktop || !text.trim() || listening}
+                            disabled={!desktop || !text.trim()}
                             title={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
                             aria-label="输出合成语音"
                             className="send-button"
@@ -776,14 +807,14 @@ export default function App() {
                     <div className="composer-actions">
                       <button
                         className="subtle"
-                        disabled={!desktop || busy || listening || result.length > 500}
+                        disabled={!desktop || busy || result.length > 500}
                         onClick={() => void runComposer('speak', 'preview', result)}
                       >
                         试听译文
                       </button>
                       <button
                         className="subtle"
-                        disabled={!desktop || busy || listening || result.length > 500}
+                        disabled={!desktop || busy || result.length > 500}
                         onClick={() => void runComposer('speak', 'send', result)}
                       >
                         发送译文

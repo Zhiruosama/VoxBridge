@@ -299,3 +299,111 @@ async fn wrong_task_and_provider_failure_are_sanitized() {
         server.await.unwrap();
     }
 }
+
+#[tokio::test]
+async fn reconnects_after_dropped_socket_without_replaying_audio() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let config = profile(&format!("ws://{}", listener.local_addr().unwrap()));
+    let server = tokio::spawn(async move {
+        for generation in 0..2 {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let run: Value =
+                serde_json::from_str(socket.next().await.unwrap().unwrap().to_text().unwrap())
+                    .unwrap();
+            let task = run["header"]["task_id"].as_str().unwrap();
+            socket
+                .send(Message::Text(
+                    json!({"header":{"task_id":task,"event":"task-started"}})
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .unwrap();
+            loop {
+                match socket.next().await.unwrap().unwrap() {
+                    Message::Binary(bytes) => {
+                        assert_eq!(
+                            bytes[0], generation,
+                            "only fresh audio must be sent on each attempt"
+                        );
+                        let mut value = sentence(
+                            1,
+                            if generation == 0 {
+                                "partial before drop"
+                            } else {
+                                "new final"
+                            },
+                            generation == 1,
+                        );
+                        value["header"] = json!({"task_id":task,"event":"result-generated"});
+                        socket
+                            .send(Message::Text(value.to_string().into()))
+                            .await
+                            .unwrap();
+                        if generation == 0 {
+                            break;
+                        }
+                    }
+                    Message::Ping(bytes) => socket.send(Message::Pong(bytes)).await.unwrap(),
+                    Message::Text(text) => {
+                        let value: Value = serde_json::from_str(&text).unwrap();
+                        assert_eq!(value["header"]["action"], "finish-task");
+                        socket
+                            .send(Message::Text(
+                                json!({"header":{"task_id":task,"event":"task-finished"}})
+                                    .to_string()
+                                    .into(),
+                            ))
+                            .await
+                            .unwrap();
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            // Drop transport without a close handshake on the first attempt.
+        }
+    });
+    let token = CancellationToken::new();
+    let events = std::sync::Mutex::new(Vec::new());
+    let mut retries = 0;
+    crate::recovery::supervise(
+        &token,
+        |generation| {
+            let events = &events;
+            let config = &config;
+            let token = &token;
+            async move {
+                let (tx, rx) = mpsc::channel(1);
+                let (ready_tx, ready_rx) = oneshot::channel();
+                let producer = async move {
+                    if ready_rx.await.is_ok() {
+                        let _ = tx.send(vec![generation as u8; 640]).await;
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                };
+                let recognition =
+                    recognize_stream(config, "test-key", token, rx, ready_tx, |sentence| {
+                        events.lock().unwrap().push((generation, sentence));
+                        Ok(())
+                    });
+                let (result, ()) = tokio::join!(recognition, producer);
+                result
+            }
+        },
+        |_, _, _| {
+            retries += 1;
+            Ok(())
+        },
+    )
+    .await
+    .unwrap();
+    server.await.unwrap();
+    assert_eq!(retries, 1);
+    let events = events.lock().unwrap();
+    assert_eq!(events.len(), 2);
+    assert!(!events[0].1.final_text);
+    assert_eq!(events[1].0, 1);
+    assert!(events[1].1.final_text);
+}

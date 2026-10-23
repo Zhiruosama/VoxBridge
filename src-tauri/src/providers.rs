@@ -111,7 +111,7 @@ impl Requests {
         }
     }
 
-    pub(crate) fn listening_session(
+    pub(crate) async fn listening_session(
         &self,
         profile: TranslationProfile,
         id: &str,
@@ -125,7 +125,7 @@ impl Requests {
             return Err("监听翻译服务配置无效。".into());
         }
         endpoint(&profile.base_url)?;
-        let key = crate::credentials::read(&profile.id)?;
+        let key = crate::credentials::read_async(&profile.id).await?;
         self.reserve_listening(profile, id, key)
     }
 
@@ -176,7 +176,17 @@ impl TranslationSession<'_> {
             biased;
             _ = stop.cancelled() => Err("监听已停止。".into()),
             _ = self.token.cancelled() => Err("监听已停止。".into()),
-            result = request_translation(self.url.clone(), self.key.clone(), &self.model, text, source, target, self.thinking) => result,
+            result = async {
+                for attempt in 0..=2 {
+                    match request_translation(self.url.clone(), self.key.clone(), &self.model, text, source, target, self.thinking).await {
+                        Err(error) if attempt < 2 && crate::recovery::transient(&error) => {
+                            tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
+                        },
+                        result => return result,
+                    }
+                }
+                unreachable!()
+            } => result,
         }
     }
 }
@@ -237,7 +247,7 @@ pub async fn translate(
         biased;
         _ = token.cancelled() => Err("翻译已停止。".into()),
         result = async {
-            let secret = crate::credentials::read(&profile.id)?;
+            let secret = crate::credentials::read_async(&profile.id).await?;
             request_translation(url, secret, &profile.model_id, &text, &source, &target, profile.thinking).await
         } => result,
     };
@@ -465,5 +475,58 @@ mod tests {
     fn errors_do_not_contain_server_content() {
         assert!(status_message(401).contains("认证"));
         assert!(status_message(429).contains("限流"));
+    }
+    #[tokio::test]
+    async fn subtitle_translation_recovers_after_temporary_service_failures() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            for attempt in 0..3 {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut reader = BufReader::new(socket.try_clone().unwrap());
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                let mut length = 0;
+                loop {
+                    line.clear();
+                    reader.read_line(&mut line).unwrap();
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_lowercase().strip_prefix("content-length:") {
+                        length = value.trim().parse().unwrap();
+                    }
+                }
+                let mut body = vec![0; length];
+                reader.read_exact(&mut body).unwrap();
+                let request: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                assert_eq!(request["messages"][1]["content"], "hello");
+                let (status, body) = if attempt < 2 {
+                    ("503 Unavailable", "private-upstream-detail")
+                } else {
+                    (
+                        "200 OK",
+                        r#"{"choices":[{"finish_reason":"stop","message":{"content":"你好"}}]}"#,
+                    )
+                };
+                write!(socket,"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            }
+        });
+        let registry = Requests::default();
+        let profile=serde_json::from_value(serde_json::json!({"id":"test-recovery","stage":"translation","adapter":"openai_chat_completions","baseUrl":base,"modelId":"test"})).unwrap();
+        let session = registry
+            .reserve_listening(profile, "caption-session", "test-key".into())
+            .unwrap();
+        assert_eq!(
+            session
+                .translate("hello", "英语", "简体中文", &CancellationToken::new())
+                .await
+                .unwrap(),
+            "你好"
+        );
+        server.join().unwrap();
     }
 }

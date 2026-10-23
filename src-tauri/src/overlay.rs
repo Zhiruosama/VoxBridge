@@ -50,7 +50,7 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
         || snapshot.version > 9_007_199_254_740_991
         || !matches!(
             snapshot.phase.as_str(),
-            "idle" | "starting" | "running" | "stopping"
+            "idle" | "starting" | "running" | "recovering" | "stopping"
         )
         || !(14..=40).contains(&snapshot.font_size)
         || !snapshot.background_opacity.is_finite()

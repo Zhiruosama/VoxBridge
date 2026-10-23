@@ -12,7 +12,14 @@ export interface AudioRouting {
 }
 export interface SpeechProgress {
   requestId: string;
-  phase: 'synthesizing' | 'decoding' | 'playing' | 'completed' | 'stopped' | 'failed';
+  phase:
+    | 'waitingDevice'
+    | 'synthesizing'
+    | 'decoding'
+    | 'playing'
+    | 'completed'
+    | 'stopped'
+    | 'failed';
 }
 export interface ProviderProfile {
   id: string;
@@ -31,7 +38,7 @@ export interface SubtitleAppearance {
 export interface OverlaySnapshot extends SubtitleAppearance {
   version: number;
   sessionId: string | null;
-  phase: 'idle' | 'starting' | 'running' | 'stopping';
+  phase: 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
   lines: { source: string; translation?: string; time: string }[];
 }
 export interface ComposerSettings {
@@ -88,8 +95,11 @@ export interface CaptureSource {
   bundleId: string;
 }
 export type ListeningEvent =
+  | { type: 'recovering'; sessionId: string; attempt: number; delayMs: number; reason: string }
+  | { type: 'sourceChanged'; sessionId: string; generation: number; source: CaptureSource }
   | {
       type: 'progress';
+      generation?: number;
       sessionId: string;
       phase: 'starting' | 'running' | 'stopped' | 'failed';
       sampleRate: number;
@@ -99,8 +109,15 @@ export type ListeningEvent =
       droppedSegments: number;
       discontinuities: number;
     }
-  | (TranscriptEvent & { type: 'transcript'; startMs: number })
-  | { type: 'translation'; sessionId: string; segmentId: string; revision: number; text: string };
+  | (TranscriptEvent & { type: 'transcript'; startMs: number; generation?: number })
+  | {
+      type: 'translation';
+      generation?: number;
+      sessionId: string;
+      segmentId: string;
+      revision: number;
+      text: string;
+    };
 export interface CaptureProgress {
   sessionId: string;
   phase: 'starting' | 'running' | 'stopped' | 'failed';

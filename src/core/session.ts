@@ -44,3 +44,8 @@ export function applyTranslation(
     ),
   };
 }
+
+/** Preserve final subtitles across reconnects; unfinished text belongs to the old audio stream. */
+export function discardUnfinished(state: Session): Session {
+  return { ...state, segments: state.segments.filter((segment) => segment.final) };
+}
