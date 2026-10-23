@@ -147,3 +147,68 @@ async fn live_flash_translates_screenshot_captions_into_chinese() {
         serde_json::to_string(&results).unwrap()
     );
 }
+
+#[tokio::test]
+async fn transport_reuses_one_tcp_connection_without_reusing_authorization() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = endpoint(&format!("http://{}/v1", listener.local_addr().unwrap())).unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let mut reader = BufReader::new(socket.try_clone().unwrap());
+        for expected in ["Bearer fixture-one", "Bearer fixture-two"] {
+            let mut line = String::new();
+            reader
+                .read_line(&mut line)
+                .expect("both requests must use the same TCP connection");
+            assert!(line.starts_with("POST /v1/chat/completions "));
+            let mut length = 0;
+            let mut auth = String::new();
+            loop {
+                line.clear();
+                reader.read_line(&mut line).unwrap();
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_lowercase().strip_prefix("content-length:") {
+                    length = value.trim().parse().unwrap();
+                }
+                if let Some((name, value)) = line.split_once(':') {
+                    if name.eq_ignore_ascii_case("authorization") {
+                        auth = value.trim().into();
+                    }
+                }
+            }
+            assert_eq!(auth, expected);
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).unwrap();
+            let response = r#"{"choices":[{"message":{"content":"你好"},"finish_reason":"stop"}]}"#;
+            write!(
+                socket,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\n\r\n{}",
+                response.len(),
+                response
+            )
+            .unwrap();
+        }
+    });
+    for secret in ["fixture-one", "fixture-two"] {
+        assert_eq!(
+            request_translation(
+                url.clone(),
+                secret.into(),
+                "model",
+                "hello",
+                "英语",
+                "简体中文",
+                None
+            )
+            .await
+            .unwrap(),
+            "你好"
+        );
+    }
+    server.join().unwrap();
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { AlertCircle, ChevronDown, Info, LoaderCircle, X } from 'lucide-react';
 import { captureHealthMessage, type CaptureHealth } from '../core/capture-health';
-import type { ListeningEvent } from '../core/types';
+import type { ListeningEvent, TranslationMetrics } from '../core/types';
 
 export type ListeningPhase = 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
 export type ListeningProgress = Extract<ListeningEvent, { type: 'progress' }>;
@@ -51,11 +51,13 @@ export default function ListeningStatus({
   health,
   progress,
   recovery,
+  translationMetrics,
 }: {
   phase: ListeningPhase;
   health: CaptureHealth;
   progress: ListeningProgress | null;
   recovery?: Extract<ListeningEvent, { type: 'recovering' }> | null;
+  translationMetrics?: TranslationMetrics | null;
 }) {
   const pending = phase === 'starting' || phase === 'recovering' || phase === 'stopping';
   const label =
@@ -123,6 +125,47 @@ export default function ListeningStatus({
             </dl>
           ) : (
             <p>正在连接应用声音，请留意系统权限提示。</p>
+          )}
+          {translationMetrics && (
+            <>
+              <h3>实时翻译</h3>
+              <dl className="signal-metrics">
+                <div>
+                  <dt>排队 / 请求中</dt>
+                  <dd>
+                    {translationMetrics.queued} / {translationMetrics.inflight}
+                  </dd>
+                </div>
+                <div>
+                  <dt>已处理 / 失败</dt>
+                  <dd>
+                    {translationMetrics.completed} / {translationMetrics.failed}
+                  </dd>
+                </div>
+                <div>
+                  <dt>排队 P50 / P95</dt>
+                  <dd>
+                    {translationMetrics.queueP50Ms} / {translationMetrics.queueP95Ms} ms
+                  </dd>
+                </div>
+                <div>
+                  <dt>请求 P50 / P95</dt>
+                  <dd>
+                    {translationMetrics.requestP50Ms} / {translationMetrics.requestP95Ms} ms
+                  </dd>
+                </div>
+                <div>
+                  <dt>提交至译出 P50 / P95</dt>
+                  <dd>
+                    {translationMetrics.totalP50Ms} / {translationMetrics.totalP95Ms} ms
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                最近 {translationMetrics.sampleCount} 段，最多 128
+                段；请求含重试等待，不含采集与识别时间。失败请求也计入耗时。
+              </p>
+            </>
           )}
           {phase === 'running' && health !== 'active' && (
             <p className="signal-explanation">{captureHealthMessage(health)}</p>

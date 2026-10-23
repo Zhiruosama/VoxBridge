@@ -128,13 +128,13 @@ describe('provider profiles', () => {
   });
   it('migrates subtitle appearance and never stores subtitle snapshots', () => {
     const input = { ...structuredClone(defaults), subtitle: undefined };
-    expect(parseSettings(input).subtitle).toEqual({ fontSize: 22, backgroundOpacity: 0.82 });
+    expect(parseSettings(input).subtitle).toEqual(defaults.subtitle);
     const imported = {
       ...input,
       subtitle: { fontSize: 100, backgroundOpacity: NaN, lines: ['private-transcript'] },
     };
     const parsed = parseSettings(imported);
-    expect(parsed.subtitle).toEqual({ fontSize: 40, backgroundOpacity: 0.82 });
+    expect(parsed.subtitle).toEqual({ ...defaults.subtitle, fontSize: 40 });
     expect(JSON.stringify(parsed)).not.toContain('private-transcript');
   });
   it('migrates composer preferences and strips unknown fields', () => {

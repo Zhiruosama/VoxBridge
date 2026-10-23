@@ -34,12 +34,24 @@ export interface ProviderProfile {
 export interface SubtitleAppearance {
   fontSize: number;
   backgroundOpacity: number;
+  mode: 'compact' | 'continuous';
+  content: 'translation' | 'bilingual' | 'source';
+  textColor: string;
+  lineHeight: number;
 }
 export interface OverlaySnapshot extends SubtitleAppearance {
   version: number;
   sessionId: string | null;
   phase: 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
-  lines: { source: string; translation?: string; time: string }[];
+  lines: {
+    segmentId: string;
+    revision: number;
+    final: boolean;
+    translationState: 'pending' | 'ready' | 'failed';
+    source: string;
+    translation?: string;
+    time: string;
+  }[];
 }
 export interface ComposerSettings {
   enterAction: 'speak' | 'translate' | 'newline';
@@ -99,7 +111,26 @@ export interface CaptureSource {
   name?: string;
   appScoped?: boolean;
 }
+export interface TranslationMetrics {
+  completed: number;
+  failed: number;
+  sampleCount: number;
+  queued: number;
+  inflight: number;
+  queueP50Ms: number;
+  queueP95Ms: number;
+  requestP50Ms: number;
+  requestP95Ms: number;
+  totalP50Ms: number;
+  totalP95Ms: number;
+}
 export type ListeningEvent =
+  | {
+      type: 'translationMetrics';
+      sessionId: string;
+      generation: number;
+      metrics: TranslationMetrics;
+    }
   | {
       type: 'translationError';
       sessionId: string;

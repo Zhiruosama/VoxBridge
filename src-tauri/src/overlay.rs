@@ -5,6 +5,10 @@ use tauri::{Emitter, Manager};
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OverlayLine {
+    segment_id: String,
+    revision: u32,
+    r#final: bool,
+    translation_state: String,
     source: String,
     translation: Option<String>,
     time: String,
@@ -18,6 +22,10 @@ pub struct OverlaySnapshot {
     phase: String,
     font_size: u32,
     background_opacity: f64,
+    mode: String,
+    content: String,
+    text_color: String,
+    line_height: f64,
     lines: Vec<OverlayLine>,
 }
 
@@ -29,6 +37,10 @@ impl Default for OverlaySnapshot {
             phase: "idle".into(),
             font_size: 22,
             background_opacity: 0.82,
+            mode: "continuous".into(),
+            content: "translation".into(),
+            text_color: "#ffffff".into(),
+            line_height: 1.65,
             lines: vec![],
         }
     }
@@ -59,9 +71,48 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
             .session_id
             .as_ref()
             .is_some_and(|id| id.len() > 128)
-        || snapshot.lines.len() > 3
+        || !matches!(snapshot.mode.as_str(), "compact" | "continuous")
+        || !matches!(
+            snapshot.content.as_str(),
+            "translation" | "bilingual" | "source"
+        )
+        || ![
+            "#ffffff", "#ffe082", "#a5d6a7", "#80deea", "#ffcc80", "#f8bbd0",
+        ]
+        .contains(&snapshot.text_color.as_str())
+        || !snapshot.line_height.is_finite()
+        || !(1.2..=2.2).contains(&snapshot.line_height)
+        || snapshot.lines.len() > if snapshot.mode == "compact" { 3 } else { 160 }
+        || snapshot
+            .lines
+            .iter()
+            .map(|line| {
+                line.source.chars().count()
+                    + line.translation.as_deref().unwrap_or("").chars().count()
+            })
+            .sum::<usize>()
+            > 48000
+        || {
+            let mut ids = std::collections::HashSet::new();
+            snapshot
+                .lines
+                .iter()
+                .any(|line| !ids.insert(&line.segment_id))
+        }
         || snapshot.lines.iter().any(|line| {
-            line.source.chars().count() > 6000
+            line.segment_id.is_empty()
+                || line.segment_id.len() > 256
+                || line.revision == 0
+                || !matches!(
+                    line.translation_state.as_str(),
+                    "pending" | "ready" | "failed"
+                )
+                || (line.translation_state == "ready")
+                    != line
+                        .translation
+                        .as_ref()
+                        .is_some_and(|text| !text.is_empty())
+                || line.source.chars().count() > 6000
                 || line
                     .translation
                     .as_ref()
@@ -199,14 +250,50 @@ mod tests {
         invalid.font_size = 100;
         assert!(validate(&invalid).is_err());
         invalid = snapshot(1);
+        invalid.mode = "compact".into();
         invalid.lines = (0..4)
-            .map(|_| OverlayLine {
+            .map(|id| OverlayLine {
+                segment_id: format!("s-{id}"),
+                revision: 1,
+                r#final: true,
+                translation_state: "pending".into(),
                 source: "text".into(),
                 translation: None,
                 time: "00:00:00".into(),
             })
             .collect();
         assert!(validate(&invalid).is_err());
+    }
+
+    #[test]
+    fn continuous_history_has_stable_unique_ids_and_bounded_character_cost() {
+        let mut value = snapshot(1);
+        value.lines = (0..160)
+            .map(|id| OverlayLine {
+                segment_id: format!("caption-{id}"),
+                revision: 1,
+                r#final: true,
+                translation_state: "ready".into(),
+                source: "source".into(),
+                translation: Some("译文".into()),
+                time: "00:00:00".into(),
+            })
+            .collect();
+        assert!(validate(&value).is_ok());
+        value.lines[1].segment_id = value.lines[0].segment_id.clone();
+        assert!(validate(&value).is_err());
+        value.lines[1].segment_id = "caption-1".into();
+        value.lines[0].source = "a".repeat(6000);
+        for line in &mut value.lines[1..10] {
+            line.source = "你".repeat(6000);
+        }
+        assert!(validate(&value).is_err());
+        value.lines.clear();
+        value.text_color = "url(secret)".into();
+        assert!(validate(&value).is_err());
+        value.text_color = "#ffffff".into();
+        value.line_height = f64::INFINITY;
+        assert!(validate(&value).is_err());
     }
 
     #[test]

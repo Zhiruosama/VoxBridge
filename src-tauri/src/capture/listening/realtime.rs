@@ -115,7 +115,7 @@ pub(super) async fn run(
         },
     )?;
     let (audio_tx, audio_rx) = mpsc::channel(100);
-    let (final_tx, final_rx) = mpsc::channel::<Sentence>(32);
+    let (final_tx, final_rx) = mpsc::channel::<translations::QueuedCaption>(32);
     let (source_tx, mut source_rx) = mpsc::channel(64);
     let (ready_tx, ready_rx) = oneshot::channel();
     let skipped = Arc::new(AtomicU64::new(0));
@@ -206,7 +206,7 @@ pub(super) async fn run(
                         },
                     )?;
                     if sentence.final_text && !sentence.text.trim().is_empty() {
-                        match final_tx.try_send(sentence) {
+                        match final_tx.try_send(sentence.into()) {
                             Ok(()) => {}
                             Err(mpsc::error::TrySendError::Full(_)) => {
                                 skipped.fetch_add(1, Ordering::Relaxed);
@@ -270,6 +270,16 @@ pub(super) async fn run(
                         revision: sentence.revision,
                         source_text: None,
                         text,
+                    },
+                )
+            },
+            |metrics| {
+                send(
+                    channel,
+                    ListeningEvent::TranslationMetrics {
+                        session_id: request.session_id.clone(),
+                        generation: request.generation,
+                        metrics,
                     },
                 )
             },

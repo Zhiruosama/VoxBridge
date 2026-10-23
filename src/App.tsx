@@ -93,6 +93,9 @@ export default function App() {
   const [listenPhase, setListenPhase] = useState<
     'idle' | 'starting' | 'running' | 'recovering' | 'stopping'
   >('idle');
+  const [translationMetrics, setTranslationMetrics] = useState<
+    Extract<ListeningEvent, { type: 'translationMetrics' }>['metrics'] | null
+  >(null);
   const [listenProgress, setListenProgress] = useState<ListeningProgress | null>(null);
   const [listenHealth, setListenHealth] = useState<CaptureHealth>('waiting');
   const [listenError, setListenError] = useState('');
@@ -231,6 +234,8 @@ export default function App() {
           event.sourceText,
         ),
       );
+    } else if (event.type === 'translationMetrics') {
+      setTranslationMetrics(event.metrics);
     } else if (event.type === 'translationError') {
       setSession((state) =>
         applyTranslationError(state, event.sessionId, event.segmentId, event.revision),
@@ -239,6 +244,7 @@ export default function App() {
       setListenPhase('recovering');
       setRecovery(event);
       setListenProgress(null);
+      setTranslationMetrics(null);
       captureSignalRef.current = new CaptureSignalMonitor();
       setSession(discardUnfinished);
     } else if (event.type === 'sourceChanged') {
@@ -276,6 +282,7 @@ export default function App() {
     setListenPhase('starting');
     setRecovery(null);
     setListenProgress(null);
+    setTranslationMetrics(null);
     setListenHealth('waiting');
     setListenError('');
     setSession({ id, segments: [] });
@@ -625,6 +632,7 @@ export default function App() {
                   phase={listenPhase}
                   health={listenHealth}
                   progress={listenProgress}
+                  translationMetrics={translationMetrics}
                   recovery={recovery}
                 />
               </div>

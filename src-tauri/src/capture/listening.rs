@@ -32,6 +32,22 @@ pub struct ListeningRequest {
     offset_ms: u64,
 }
 
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslationMetrics {
+    pub completed: u64,
+    pub failed: u64,
+    pub sample_count: usize,
+    pub queued: usize,
+    pub inflight: usize,
+    pub queue_p50_ms: u64,
+    pub queue_p95_ms: u64,
+    pub request_p50_ms: u64,
+    pub request_p95_ms: u64,
+    pub total_p50_ms: u64,
+    pub total_p95_ms: u64,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(
     tag = "type",
@@ -39,6 +55,11 @@ pub struct ListeningRequest {
     rename_all_fields = "camelCase"
 )]
 pub enum ListeningEvent {
+    TranslationMetrics {
+        session_id: String,
+        generation: u32,
+        metrics: TranslationMetrics,
+    },
     Recovering {
         session_id: String,
         attempt: u32,

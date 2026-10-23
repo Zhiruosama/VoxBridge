@@ -15,6 +15,7 @@ import {
   saveTemplateCredential,
   type TemplateStatus,
 } from '../bridge';
+import { subtitleColors, subtitleDefaults } from '../core/overlay';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import { applyProviderPreset, providerPresets } from '../core/provider-presets';
@@ -325,8 +326,85 @@ export default function SettingsPanel({
             </p>
           </section>
           <section className="preference-section" aria-labelledby="subtitle-heading">
-            <h2 id="subtitle-heading">悬浮字幕</h2>
+            <div className="preference-section-title">
+              <h2 id="subtitle-heading">悬浮字幕</h2>
+              <button
+                className="subtle"
+                onClick={() => setDraft({ ...draft, subtitle: { ...subtitleDefaults } })}
+              >
+                恢复默认
+              </button>
+            </div>
             <div className="preference-card">
+              <SettingRow title="显示方式">
+                <Select
+                  label="悬浮字幕显示方式"
+                  value={draft.subtitle.mode}
+                  options={[
+                    { value: 'continuous', label: '连续阅读' },
+                    { value: 'compact', label: '紧凑字幕' },
+                  ]}
+                  onChange={(mode) =>
+                    setDraft({
+                      ...draft,
+                      subtitle: { ...draft.subtitle, mode: mode as Settings['subtitle']['mode'] },
+                    })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title="显示内容">
+                <Select
+                  label="悬浮字幕显示内容"
+                  value={draft.subtitle.content}
+                  options={[
+                    { value: 'translation', label: '译文优先' },
+                    { value: 'bilingual', label: '双语' },
+                    { value: 'source', label: '原文' },
+                  ]}
+                  onChange={(content) =>
+                    setDraft({
+                      ...draft,
+                      subtitle: {
+                        ...draft.subtitle,
+                        content: content as Settings['subtitle']['content'],
+                      },
+                    })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title="文字颜色">
+                <div className="subtitle-color-options" role="group" aria-label="悬浮字幕文字颜色">
+                  {subtitleColors.map((color, index) => (
+                    <button
+                      key={color}
+                      className="subtitle-color"
+                      aria-label={['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index]}
+                      aria-pressed={draft.subtitle.textColor === color}
+                      style={{ backgroundColor: color }}
+                      onClick={() =>
+                        setDraft({ ...draft, subtitle: { ...draft.subtitle, textColor: color } })
+                      }
+                    />
+                  ))}
+                </div>
+              </SettingRow>
+              <SettingRow title="行距">
+                <input
+                  type="range"
+                  aria-label="悬浮字幕行距"
+                  min={1.2}
+                  max={2.2}
+                  step={0.05}
+                  value={draft.subtitle.lineHeight}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      subtitle: { ...draft.subtitle, lineHeight: Number(event.target.value) },
+                    })
+                  }
+                />
+                <span className="preference-value">{draft.subtitle.lineHeight.toFixed(2)}</span>
+              </SettingRow>
               <SettingRow title="字号">
                 <input
                   type="range"

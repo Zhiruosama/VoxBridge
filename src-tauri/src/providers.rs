@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::{
     collections::{HashMap, VecDeque},
-    sync::Mutex,
+    sync::{Mutex, OnceLock},
     time::Duration,
 };
 use tokio_util::sync::CancellationToken;
@@ -260,6 +260,25 @@ pub async fn translate(
     result
 }
 
+// Shared transport only: credentials stay on each request, never in client defaults.
+// Keep redirect denial, body limits and per-request cancellation unchanged.
+fn translation_client() -> Result<&'static reqwest::Client, String> {
+    static CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
+    CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(15))
+                .pool_idle_timeout(Duration::from_secs(60))
+                .pool_max_idle_per_host(3)
+                .build()
+                .map_err(|_| "无法初始化网络连接。".into())
+        })
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn request_translation(
     url: url::Url,
@@ -270,12 +289,7 @@ pub(crate) async fn request_translation(
     target: &str,
     thinking: Option<Thinking>,
 ) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(Duration::from_secs(15))
-        .build()
-        .map_err(|_| "无法初始化网络连接。")?;
+    let client = translation_client()?;
     let mut payload = serde_json::json!({
         "model": model, "stream": false,
         "messages": [
