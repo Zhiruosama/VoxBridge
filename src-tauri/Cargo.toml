@@ -33,6 +33,7 @@ zeroize = "1"
 whatlang = "0.18"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6.2"
 security-framework = "3.7"
 objc2 = { version = "0.6.5", default-features = false, features = ["std"] }
 objc2-core-audio = { version = "0.3.2", default-features = false, features = ["std", "AudioHardware", "objc2", "objc2-foundation", "objc2-core-audio-types"] }

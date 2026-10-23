@@ -10,6 +10,7 @@ import {
   credentialStatus,
   desktop,
   listOutputs,
+  listInputs,
   removeCredential,
   setCredential,
 } from '../bridge';
@@ -62,11 +63,14 @@ export default function SettingsPanel({
   const [renaming, setRenaming] = useState(false);
   const [previousName, setPreviousName] = useState('');
   const [devices, setDevices] = useState<OutputDevice[]>([]);
+  const [inputs, setInputs] = useState<OutputDevice[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   async function refreshDevices() {
     setRefreshing(true);
     try {
-      setDevices(await listOutputs());
+      const [outputs, microphones] = await Promise.all([listOutputs(), listInputs()]);
+      setDevices(outputs);
+      setInputs(microphones);
     } catch (error) {
       notify(String(error));
     } finally {
@@ -76,9 +80,12 @@ export default function SettingsPanel({
   useEffect(() => {
     if (section !== 'general') return;
     let active = true;
-    listOutputs()
-      .then((next) => {
-        if (active) setDevices(next);
+    Promise.all([listOutputs(), listInputs()])
+      .then(([next, microphones]) => {
+        if (active) {
+          setDevices(next);
+          setInputs(microphones);
+        }
       })
       .catch((error) => {
         if (active) notify(String(error));
@@ -580,6 +587,30 @@ export default function SettingsPanel({
                 >
                   {draft.audio.monitorEnabled ? '开启' : '关闭'}
                 </button>
+              </SettingRow>
+              <SettingRow title="语音输入麦克风">
+                <Select
+                  label="语音输入麦克风"
+                  value={draft.audio.inputDeviceId || '__system_default__'}
+                  disabled={!desktop || refreshing}
+                  options={[
+                    { value: '__system_default__', label: '系统默认麦克风' },
+                    ...inputs.map((device) => ({ value: device.id, label: device.name })),
+                    ...(draft.audio.inputDeviceId &&
+                    !inputs.some((device) => device.id === draft.audio.inputDeviceId)
+                      ? [{ value: draft.audio.inputDeviceId, label: '已选麦克风（当前不可用）' }]
+                      : []),
+                  ]}
+                  onChange={(value) =>
+                    setDraft({
+                      ...draft,
+                      audio: {
+                        ...draft.audio,
+                        inputDeviceId: value === '__system_default__' ? '' : value,
+                      },
+                    })
+                  }
+                />
               </SettingRow>
               <SettingRow title="试听设备">
                 <Select

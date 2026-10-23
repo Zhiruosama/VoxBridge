@@ -172,7 +172,12 @@ describe('provider profiles', () => {
           apiKey: 'never-save',
         },
       }).composer,
-    ).toEqual({ enterAction: 'newline', output: 'source', route: 'preview' });
+    ).toEqual({
+      voiceInputMode: 'dictate',
+      enterAction: 'newline',
+      output: 'source',
+      route: 'preview',
+    });
   });
   it('round-trips composer preferences through storage', () => {
     const stored = new Map<string, string>();
@@ -181,7 +186,12 @@ describe('provider profiles', () => {
       setItem: (key: string, value: string) => stored.set(key, value),
     });
     const input = structuredClone(defaults);
-    input.composer = { enterAction: 'translate', output: 'source', route: 'preview' };
+    input.composer = {
+      voiceInputMode: 'send',
+      enterAction: 'translate',
+      output: 'source',
+      route: 'preview',
+    };
     saveSettings(input);
     expect(loadSettings().composer).toEqual(input.composer);
   });
@@ -300,4 +310,18 @@ it('rejects malformed caption color values rather than injecting CSS', () => {
     captionColors: { recognition: 'url(https://example.com)', expression: '#fff; color:red' },
   });
   expect(loaded.captionColors).toEqual({ recognition: '#ffffff', expression: '#ffffff' });
+});
+
+it('preserves microphone choice and defaults voice input to editable dictation', () => {
+  const legacy = parseSettings({ ...defaults, composer: { enterAction: 'speak' } });
+  expect(legacy.composer.voiceInputMode).toBe('dictate');
+  const configured = parseSettings({
+    ...defaults,
+    audio: { ...defaults.audio, inputDeviceId: 'mic:external' },
+    composer: { ...defaults.composer, voiceInputMode: 'send' },
+  });
+  expect(parseSettings(JSON.parse(JSON.stringify(configured))).audio.inputDeviceId).toBe(
+    'mic:external',
+  );
+  expect(configured.composer.voiceInputMode).toBe('send');
 });

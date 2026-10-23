@@ -21,7 +21,12 @@ export const defaults: Settings = {
   captionColors: { ...captionColorDefaults },
   audio: { previewDeviceId: '', sendDeviceId: '', monitorEnabled: false },
   subtitle: { ...subtitleDefaults },
-  composer: { enterAction: 'speak', output: 'translation', route: 'send' },
+  composer: {
+    voiceInputMode: 'dictate',
+    enterAction: 'speak',
+    output: 'translation',
+    route: 'send',
+  },
   active: { asr: 'asr-default', translation: 'translation-default', tts: 'tts-default' },
   profiles: [
     {
@@ -129,6 +134,7 @@ export function profileFor(settings: Settings, stage: Stage): ProviderProfile {
 function parseComposerSettings(value: unknown): ComposerSettings {
   const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   return {
+    voiceInputMode: input.voiceInputMode === 'send' ? 'send' : 'dictate',
     enterAction: ['speak', 'translate', 'newline'].includes(input.enterAction as string)
       ? (input.enterAction as ComposerSettings['enterAction'])
       : defaults.composer.enterAction,
@@ -232,6 +238,9 @@ export function parseSettings(value: unknown): Settings {
         : defaults.listening.targetLanguage,
     },
     audio: {
+      ...(typeof (input.audio as Record<string, unknown> | undefined)?.inputDeviceId === 'string'
+        ? { inputDeviceId: (input.audio as Record<string, string>).inputDeviceId }
+        : {}),
       monitorEnabled: (input.audio as Record<string, unknown> | undefined)?.monitorEnabled === true,
       previewDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.previewDeviceId === 'string'

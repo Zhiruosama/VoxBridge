@@ -43,6 +43,9 @@ import {
 } from './core/composer';
 import { listen } from '@tauri-apps/api/event';
 import {
+  startVoiceInput,
+  finishVoiceInput,
+  cancelVoiceInput,
   cancelTranslation,
   detectTextLanguage,
   desktop,
@@ -116,6 +119,11 @@ export default function App() {
   const listening = listenPhase !== 'idle';
   const [text, setText] = useState('');
   const draftRevisionRef = useRef(0);
+  const voiceRef = useRef<{ id: string; cancelled: boolean; finishing: boolean } | null>(null);
+  const [voice, setVoice] = useState<{
+    phase: 'starting' | 'recording' | 'recognizing' | 'cancelling';
+    seconds: number;
+  } | null>(null);
   const [composerPhase, setComposerPhase] = useState<ComposerPhase>('idle');
   const busy = composerPhase !== 'idle';
   const [composer] = useState(
@@ -211,6 +219,10 @@ export default function App() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      if (voiceRef.current) {
+        voiceRef.current.cancelled = true;
+        void cancelVoiceInput(voiceRef.current.id).catch(() => {});
+      }
       void composer.cancel().catch(() => {});
       const id = listeningRef.current;
       listeningRef.current = null;
@@ -363,14 +375,18 @@ export default function App() {
       notify(`保存失败：${String(e)}`);
     }
   }
-  async function runComposer(action: 'speak' | 'translate', route = settings.composer.route) {
-    if (composer.busy) return;
+  async function runComposer(
+    action: 'speak' | 'translate',
+    route = settings.composer.route,
+    sourceOverride?: string,
+  ) {
+    if (composer.busy || voiceRef.current) return;
     if (!desktop) {
       notify('请通过桌面应用使用翻译和语音输出。');
       return;
     }
     const id = crypto.randomUUID();
-    const source = text;
+    const source = sourceOverride ?? text;
     const sourceRevision = draftRevisionRef.current;
     let clearedRevision: number | null = null;
     const restoreSubmittedDraft = () => {
@@ -424,6 +440,87 @@ export default function App() {
     }
   }
 
+  async function beginVoice() {
+    if (voiceRef.current || composer.busy || !desktop) return;
+    const profile = profileFor(settings, 'asr');
+    const invalid = validateProfile(profile);
+    if (invalid) {
+      notify(invalid);
+      return;
+    }
+    const operation = { id: crypto.randomUUID(), cancelled: false, finishing: false };
+    const revision = draftRevisionRef.current;
+    const previous = text;
+    const mode = settings.composer.voiceInputMode || 'dictate';
+    voiceRef.current = operation;
+    setVoice({ phase: 'starting', seconds: 0 });
+    try {
+      const result = await startVoiceInput(
+        operation.id,
+        settings.audio.inputDeviceId || '',
+        profile,
+        (progress) => {
+          if (
+            mountedRef.current &&
+            voiceRef.current === operation &&
+            !operation.cancelled &&
+            !(operation.finishing && progress.phase === 'recording')
+          )
+            setVoice(progress);
+        },
+      );
+      if (!mountedRef.current || voiceRef.current !== operation || operation.cancelled) return;
+      if (draftRevisionRef.current !== revision) {
+        notify('录音期间输入内容有修改，识别结果已追加，请确认后发送。');
+        draftRevisionRef.current++;
+        setText((current) => [current, result.text].filter(Boolean).join('\n'));
+        return;
+      }
+      const combined = [previous, result.text].filter(Boolean).join('\n');
+      draftRevisionRef.current++;
+      setText(combined);
+      voiceRef.current = null;
+      setVoice(null);
+      if (mode === 'send') {
+        if ([...combined].length > 500) {
+          notify('识别内容超过 500 字，请编辑后发送。');
+          return;
+        }
+        await runComposer('speak', settings.composer.route, combined);
+      }
+    } catch (error) {
+      if (mountedRef.current && !operation.cancelled) notify(String(error));
+    } finally {
+      if (voiceRef.current === operation) {
+        voiceRef.current = null;
+        if (mountedRef.current) setVoice(null);
+      }
+    }
+  }
+  async function finishVoice() {
+    const operation = voiceRef.current;
+    if (!operation || operation.finishing || voice?.phase !== 'recording') return;
+    operation.finishing = true;
+    setVoice((current) => current && { ...current, phase: 'recognizing' });
+    try {
+      await finishVoiceInput(operation.id);
+    } catch (error) {
+      notify(String(error));
+    }
+  }
+  async function cancelVoice() {
+    const operation = voiceRef.current;
+    if (!operation) return;
+    operation.cancelled = true;
+    setVoice((current) => current && { ...current, phase: 'cancelling' });
+    try {
+      await cancelVoiceInput(operation.id);
+    } catch (error) {
+      notify(String(error));
+    }
+    // The native promise owns cleanup; a new recording cannot start before it settles.
+  }
+
   async function stopComposer() {
     if (!composer.busy || composerPhase === 'stopping') return;
     setComposerPhase('stopping');
@@ -435,6 +532,10 @@ export default function App() {
   }
 
   function openSettings(section: SettingsSection = 'general') {
+    if (voiceRef.current) {
+      notify('请先结束或取消录音。');
+      return;
+    }
     if (composer.busy) {
       void stopComposer();
       notify('正在停止当前操作，结束后可进入设置。');
@@ -768,7 +869,7 @@ export default function App() {
                   <div className="composer-controls">
                     <button
                       className="model-button"
-                      disabled={busy || listening}
+                      disabled={busy || listening || Boolean(voice)}
                       onClick={() => openSettings('translation')}
                       title="配置翻译模型"
                     >
@@ -779,18 +880,85 @@ export default function App() {
                     <Select
                       label="语音目标语言"
                       value={settings.targetLanguage}
-                      disabled={busy}
+                      disabled={busy || Boolean(voice)}
                       onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
                       options={languages.map((language) => ({ value: language, label: language }))}
                       compact
                     />
                     {text.length > 450 && <span className="input-count">{text.length}/500</span>}
                     <div className="composer-actions">
+                      {voice ? (
+                        <div className="voice-recording" role="status">
+                          <span
+                            className={
+                              voice.phase === 'recording' ? 'recording-dot' : 'voice-spinner'
+                            }
+                          />
+                          <span>
+                            {voice.phase === 'recording'
+                              ? `${Math.floor(voice.seconds)}s / 30s`
+                              : voice.phase === 'starting'
+                                ? '准备录音…'
+                                : voice.phase === 'cancelling'
+                                  ? '取消中…'
+                                  : '识别中…'}
+                          </span>
+                          <button
+                            className="subtle"
+                            disabled={voice.phase === 'cancelling'}
+                            onClick={() => void cancelVoice()}
+                          >
+                            取消
+                          </button>
+                          {voice.phase === 'recording' && (
+                            <button className="voice-finish" onClick={() => void finishVoice()}>
+                              {settings.composer.voiceInputMode === 'send'
+                                ? '结束并发送'
+                                : '完成录音'}
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <Select
+                            label="语音输入模式"
+                            compact
+                            value={settings.composer.voiceInputMode || 'dictate'}
+                            disabled={busy}
+                            options={[
+                              { value: 'dictate', label: '语音转文字' },
+                              { value: 'send', label: '语音消息' },
+                            ]}
+                            onChange={(value) =>
+                              persist(
+                                {
+                                  ...settings,
+                                  composer: {
+                                    ...settings.composer,
+                                    voiceInputMode: value as 'dictate' | 'send',
+                                  },
+                                },
+                                true,
+                              )
+                            }
+                          />
+                          <button
+                            className="icon-button"
+                            aria-label="开始录音"
+                            title="开始麦克风录音，最长 30 秒"
+                            disabled={busy || !desktop}
+                            onClick={() => void beginVoice()}
+                          >
+                            <Mic size={16} />
+                          </button>
+                        </>
+                      )}
+
                       <button
                         className="output-mode"
                         aria-label="输出译文"
                         aria-pressed={settings.composer.output === 'translation'}
-                        disabled={busy}
+                        disabled={busy || Boolean(voice)}
                         title={`切换原文或译文语音；当前 ${direction.source} → ${direction.target}`}
                         onClick={() =>
                           persist(
@@ -868,14 +1036,14 @@ export default function App() {
                         <>
                           <button
                             className="subtle"
-                            disabled={!text.trim() || !desktop}
+                            disabled={!text.trim() || !desktop || Boolean(voice)}
                             onClick={() => void runComposer('translate')}
                             title="仅翻译，不输出语音"
                           >
                             翻译
                           </button>
                           <button
-                            disabled={!desktop || !text.trim()}
+                            disabled={!desktop || !text.trim() || Boolean(voice)}
                             title={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
                             aria-label="输出合成语音"
                             className="send-button"

@@ -7,6 +7,7 @@ export type Adapter =
   | 'qwen_dashscope_asr'
   | 'pending_asr';
 export interface AudioRouting {
+  inputDeviceId?: string;
   previewDeviceId: string;
   sendDeviceId: string;
   monitorEnabled?: boolean;
@@ -57,6 +58,7 @@ export interface OverlaySnapshot extends SubtitleAppearance {
   }[];
 }
 export interface ComposerSettings {
+  voiceInputMode?: 'dictate' | 'send';
   enterAction: 'speak' | 'translate' | 'newline';
   output: 'source' | 'translation';
   route: 'preview' | 'send';

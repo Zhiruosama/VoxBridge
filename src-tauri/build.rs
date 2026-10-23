@@ -2,6 +2,10 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "runtime_info",
+            "list_inputs",
+            "start_voice_input",
+            "finish_voice_input",
+            "cancel_voice_input",
             "credential_status",
             "set_credential",
             "remove_credential",

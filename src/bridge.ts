@@ -147,3 +147,28 @@ export async function openVirtualMicInstaller() {
   if (!desktop) throw new Error('安装虚拟麦克风需要 Mac 桌面版。');
   await invoke('open_virtual_mic_installer');
 }
+
+export interface VoiceProgress {
+  phase: 'recording' | 'recognizing';
+  seconds: number;
+}
+export async function listInputs(): Promise<OutputDevice[]> {
+  return desktop ? invoke('list_inputs') : [];
+}
+export async function startVoiceInput(
+  requestId: string,
+  deviceId: string,
+  profile: ProviderProfile,
+  onProgress: (progress: VoiceProgress) => void,
+): Promise<Transcript> {
+  if (!desktop) throw new Error('麦克风录音需要桌面版。');
+  const channel = new Channel<VoiceProgress>();
+  channel.onmessage = onProgress;
+  return invoke('start_voice_input', { requestId, deviceId, profile, onProgress: channel });
+}
+export async function finishVoiceInput(requestId: string) {
+  await invoke('finish_voice_input', { requestId });
+}
+export async function cancelVoiceInput(requestId: string) {
+  await invoke('cancel_voice_input', { requestId });
+}

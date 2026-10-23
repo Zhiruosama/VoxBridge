@@ -1,14 +1,15 @@
 mod asr;
 mod audio;
-#[cfg(any(target_os = "macos", test))]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod audio_pipeline;
 mod capture;
 mod credentials;
 mod language;
 #[cfg(test)]
 mod live_tests;
+mod microphone;
 mod overlay;
-#[cfg(any(target_os = "macos", test))]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod pcm;
 mod platform;
 mod providers;
@@ -42,11 +43,16 @@ pub fn run() {
         .manage(audio::ToneState::default())
         .manage(capture::CaptureState::default())
         .manage(asr::AsrState::default())
+        .manage(microphone::MicrophoneState::default())
         .manage(overlay::OverlayState::default())
         .manage(speech::SpeechState::default())
         .manage(speech::AudioGate::new())
         .invoke_handler(tauri::generate_handler![
             runtime_info,
+            microphone::list_inputs,
+            microphone::start_voice_input,
+            microphone::finish_voice_input,
+            microphone::cancel_voice_input,
             language::detect_text_language,
             overlay::publish_overlay,
             overlay::read_overlay,
@@ -88,6 +94,10 @@ pub fn run() {
                     window.app_handle().state::<asr::AsrState>().stop_all();
                     window
                         .app_handle()
+                        .state::<microphone::MicrophoneState>()
+                        .stop_all();
+                    window
+                        .app_handle()
                         .state::<providers::Requests>()
                         .stop_all();
                     window
@@ -108,6 +118,7 @@ pub fn run() {
                 use tauri::Manager;
                 app.state::<capture::CaptureState>().stop_all();
                 app.state::<asr::AsrState>().stop_all();
+                app.state::<microphone::MicrophoneState>().stop_all();
                 app.state::<providers::Requests>().stop_all();
                 app.state::<speech::SpeechState>().stop_all();
                 credentials::clear_session();
