@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaults, parseSettings, profileFor, validateProfile } from './settings';
-import { applyProviderPreset } from './provider-presets';
+import { applyProviderPreset, removeProviderProfile } from './provider-presets';
 
 describe('provider presets', () => {
   it('adds separate provider profiles and preserves user changes on reuse', () => {
@@ -56,4 +56,27 @@ describe('provider presets', () => {
     expect(output.profiles[2].thinking).toBeUndefined();
     expect(JSON.stringify(output)).not.toContain('never-save');
   });
+});
+
+it('removes a selected service and preserves profiles of other stages across reload', () => {
+  const input = applyProviderPreset(structuredClone(defaults), 'provider-deepseek-flash');
+  const next = removeProviderProfile(input, 'provider-deepseek-flash', 'fresh-id');
+  expect(next.profiles.some((p) => p.id === 'provider-deepseek-flash')).toBe(false);
+  expect(next.active.translation).toBe('translation-default');
+  expect(next.active.asr).toBe(input.active.asr);
+  expect(parseSettings(next).profiles).toEqual(next.profiles);
+  expect(input.profiles.some((p) => p.id === 'provider-deepseek-flash')).toBe(true);
+});
+it('replaces the last service with a fresh empty profile that cannot reuse the deleted key', () => {
+  const input = structuredClone(defaults);
+  const next = removeProviderProfile(input, 'tts-default', 'fresh-tts');
+  expect(next.active.tts).toBe('fresh-tts');
+  expect(profileFor(parseSettings(next), 'tts')).toMatchObject({
+    id: 'fresh-tts',
+    baseUrl: '',
+    modelId: '',
+    voice: '',
+  });
+  expect(next.profiles.some((p) => p.id === 'tts-default')).toBe(false);
+  expect(() => removeProviderProfile(input, 'tts-default', 'tts-default')).toThrow();
 });

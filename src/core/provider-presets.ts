@@ -1,3 +1,4 @@
+import { blankProfile } from './settings';
 import { defaultTranslationPrompt } from './translation-prompt';
 import type { ProviderProfile, Settings } from './types';
 
@@ -65,4 +66,27 @@ export function applyProviderPreset(settings: Settings, id: string): Settings {
     profiles: existing ? settings.profiles : [...settings.profiles, { ...preset }],
     active: { ...settings.active, [preset.stage]: preset.id },
   };
+}
+
+/** Keep every stage usable without restoring a deleted profile or its credential ID. */
+export function removeProviderProfile(
+  settings: Settings,
+  id: string,
+  replacementId: string,
+): Settings {
+  const removed = settings.profiles.find((p) => p.id === id);
+  if (!removed) throw new Error('配置不存在。');
+  const profiles = settings.profiles.filter((p) => p.id !== id);
+  const active = { ...settings.active };
+  if (active[removed.stage] === id) {
+    const remaining = profiles.find((p) => p.stage === removed.stage);
+    if (remaining) active[removed.stage] = remaining.id;
+    else {
+      if (replacementId === id || profiles.some((p) => p.id === replacementId))
+        throw new Error('空白配置标识重复。');
+      profiles.push(blankProfile(removed.stage, replacementId));
+      active[removed.stage] = replacementId;
+    }
+  }
+  return { ...settings, profiles, active };
 }

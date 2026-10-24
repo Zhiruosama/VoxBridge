@@ -19,7 +19,11 @@ import { subtitleColors, subtitleDefaults } from '../core/overlay';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import PresetEditor from './PresetEditor';
-import { applyProviderPreset, providerPresets } from '../core/provider-presets';
+import {
+  applyProviderPreset,
+  providerPresets,
+  removeProviderProfile,
+} from '../core/provider-presets';
 import {
   modelOptions,
   voiceOptions,
@@ -69,6 +73,7 @@ export default function SettingsPanel({
   const [busy, setBusy] = useState(false);
   const [keyError, setKeyError] = useState('');
   const [renaming, setRenaming] = useState(false);
+  const [deletingProfile, setDeletingProfile] = useState<string | null>(null);
   const [previousName, setPreviousName] = useState('');
   const [devices, setDevices] = useState<OutputDevice[]>([]);
   const [inputs, setInputs] = useState<OutputDevice[]>([]);
@@ -111,6 +116,7 @@ export default function SettingsPanel({
     setHasKey(null);
     setKeyError('');
     setRenaming(false);
+    setDeletingProfile(null);
     if (section === 'general') return;
     credentialStatus(profile.id)
       .then((exists) => {
@@ -173,6 +179,23 @@ export default function SettingsPanel({
       profiles: [...draft.profiles, next],
       active: { ...draft.active, [stage]: id },
     });
+  }
+
+  async function deleteCurrentProfile() {
+    if (busy || deletingProfile !== profile.id) return;
+    setBusy(true);
+    try {
+      const next = removeProviderProfile(draft, profile.id, crypto.randomUUID());
+      await removeCredential(profile.id);
+      setSecret('');
+      setDeletingProfile(null);
+      onSave(next);
+      notify('配置及已保存的密钥已删除。');
+    } catch (error) {
+      notify(String(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveCurrent() {
@@ -838,10 +861,32 @@ export default function SettingsPanel({
                       >
                         <Pencil size={14} />
                       </button>
+                      <button
+                        className="icon-button"
+                        disabled={busy}
+                        aria-label="删除当前配置"
+                        title="删除当前配置"
+                        onClick={() => setDeletingProfile(profile.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </>
                   )}
                 </div>
               </SettingRow>
+              {deletingProfile === profile.id && (
+                <div className="profile-delete-confirm" role="alert">
+                  <p>删除“{profile.name}”及已保存的密钥？删除会立即保存，无法撤销。</p>
+                  <div>
+                    <button disabled={busy} onClick={() => setDeletingProfile(null)}>
+                      取消
+                    </button>
+                    <button disabled={busy} onClick={() => void deleteCurrentProfile()}>
+                      确认删除
+                    </button>
+                  </div>
+                </div>
+              )}
               <SettingRow title="API 地址">
                 <input
                   aria-label="API 地址"

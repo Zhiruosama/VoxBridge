@@ -2109,3 +2109,18 @@ input:focus {
 .composer-box:has(.input-count) textarea {
   padding-right: 80px;
 }
+
+.profile-delete-confirm {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--danger);
+  font-size: 12px;
+}
+.profile-delete-confirm p {
+  margin: 0 0 10px;
+}
+.profile-delete-confirm > div {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
