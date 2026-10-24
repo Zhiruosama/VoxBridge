@@ -8,6 +8,7 @@ import {
   overlayVoiceDefaults,
   overlayVoiceLabels,
   reconcileOverlayDraft,
+  restoreOverlayDraft,
 } from '../core/overlay-voice';
 import type { OverlayVoiceRequest, OverlayVoiceState } from '../core/types';
 import VoiceActivity from './VoiceActivity';
@@ -29,14 +30,27 @@ export default function OverlayVoiceControls({
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const remoteDraftRef = useRef('');
   const sentRef = useRef<string | null>(null);
+  const draftRevision = useRef(0);
+  const submittedRef = useRef<{ text: string; revision: number } | null>(null);
   useEffect(() => {
     const previous = remoteDraftRef.current;
     remoteDraftRef.current = voice.draft;
     // Preserve a new local edit when the main window clears the completed message.
     const sent = sentRef.current;
     setDraft((current) => reconcileOverlayDraft(current, previous, voice.draft, sent));
-    if (!voice.draft) sentRef.current = null;
+    if (!voice.draft && previous === sent) {
+      sentRef.current = null;
+      submittedRef.current = null;
+    }
   }, [voice.draft]);
+  function restoreSubmitted() {
+    const submitted = submittedRef.current;
+    if (submitted)
+      setDraft((current) => restoreOverlayDraft(current, draftRevision.current, submitted));
+  }
+  useEffect(() => {
+    if (voice.error) restoreSubmitted();
+  }, [voice.error]);
   useEffect(() => {
     if (textOpen) editorRef.current?.focus();
   }, [textOpen]);
@@ -66,13 +80,22 @@ export default function OverlayVoiceControls({
     };
   }, []);
   async function request(value: OverlayVoiceRequest) {
-    if (value.action === 'send') sentRef.current = value.text;
+    if (value.action === 'send') {
+      sentRef.current = value.text;
+      submittedRef.current = { text: value.text, revision: ++draftRevision.current };
+      setDraft('');
+      editorRef.current?.focus();
+    }
     setRequesting(true);
     setError('');
     try {
       await overlayVoiceAction(value);
     } catch (failure) {
-      if (value.action === 'send') sentRef.current = null;
+      if (value.action === 'send') {
+        restoreSubmitted();
+        sentRef.current = null;
+        submittedRef.current = null;
+      }
       setError(String(failure));
     } finally {
       setRequesting(false);
@@ -103,7 +126,10 @@ export default function OverlayVoiceControls({
               maxLength={2000}
               rows={2}
               placeholder="输入要说的话…"
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => {
+                draftRevision.current++;
+                setDraft(event.target.value);
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();

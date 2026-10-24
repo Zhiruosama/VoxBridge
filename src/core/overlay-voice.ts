@@ -35,6 +35,14 @@ export function reconcileOverlayDraft(
   next: string,
   sent: string | null,
 ) {
-  if (next && next === sent) return local;
+  if (sent !== null && (next === sent || (!next && previous === sent))) return local;
   return next || (local === previous ? '' : local);
+}
+
+export function restoreOverlayDraft(
+  local: string,
+  revision: number,
+  submitted: { text: string; revision: number },
+) {
+  return revision === submitted.revision ? submitted.text : local;
 }
