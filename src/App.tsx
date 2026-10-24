@@ -1116,34 +1116,43 @@ export default function App() {
                     placeholder="输入要说的话…"
                   />
                   <div className="composer-controls" inert={Boolean(voice)}>
-                    <button
-                      className="model-button"
-                      disabled={busy || listening || Boolean(voice)}
-                      onClick={() => openSettings('translation')}
-                      title="配置翻译模型"
-                    >
-                      <Languages size={13} />
-                      {translationProfile.modelId || '选择模型'}
-                      <ChevronDown size={11} />
-                    </button>
-                    <Select
-                      label="语音目标语言"
-                      value={settings.targetLanguage}
-                      disabled={busy || Boolean(voice)}
-                      onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
-                      options={languages.map((language) => ({ value: language, label: language }))}
-                      compact
-                    />
-                    <SpeechPicker
-                      settings={settings}
-                      onChange={(next) => persist(next, true)}
-                      onSettings={() => openSettings('tts')}
-                    />
-                    <SpeechSpeedPicker
-                      value={speechSpeed}
-                      onChange={(speed) => persist(updateSpeechProfile(settings, { speed }), true)}
-                    />
-                    {text.length > 1800 && <span className="input-count">{text.length}/2000</span>}
+                    <div className="composer-preferences">
+                      <button
+                        className="model-button"
+                        disabled={busy || listening || Boolean(voice)}
+                        onClick={() => openSettings('translation')}
+                        title="配置翻译模型"
+                      >
+                        <Languages size={13} />
+                        <span>{translationProfile.modelId || '选择模型'}</span>
+                        <ChevronDown size={11} />
+                      </button>
+                      <Select
+                        label="语音目标语言"
+                        value={settings.targetLanguage}
+                        disabled={busy || Boolean(voice)}
+                        onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
+                        options={languages.map((language) => ({
+                          value: language,
+                          label: language,
+                        }))}
+                        compact
+                      />
+                      <SpeechPicker
+                        settings={settings}
+                        onChange={(next) => persist(next, true)}
+                        onSettings={() => openSettings('tts')}
+                      />
+                      <SpeechSpeedPicker
+                        value={speechSpeed}
+                        onChange={(speed) =>
+                          persist(updateSpeechProfile(settings, { speed }), true)
+                        }
+                      />
+                      {text.length > 1800 && (
+                        <span className="input-count">{text.length}/2000</span>
+                      )}
+                    </div>
                     <div className="composer-actions">
                       <>
                         <button
@@ -1177,7 +1186,7 @@ export default function App() {
                           <span className="voice-switch-track" aria-hidden="true">
                             <span />
                           </span>
-                          直接发送
+                          <span className="voice-direct-label">直接发送</span>
                         </button>
                         <button
                           className="icon-button"

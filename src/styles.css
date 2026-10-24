@@ -667,6 +667,9 @@ nav button[aria-current='page'] {
   min-height: 28px;
 }
 .composer-phase {
+  position: absolute;
+  right: 16px;
+  bottom: 54px;
   font-size: 11px;
   color: var(--muted);
   white-space: nowrap;
@@ -860,6 +863,9 @@ nav button[aria-current='page'] {
   border-radius: 50%;
 }
 .input-count {
+  position: absolute;
+  right: 16px;
+  top: 10px;
   font-size: 10px;
   color: var(--faint);
   margin-left: auto;
@@ -1791,13 +1797,68 @@ input:focus {
     transition: none;
   }
 }
-.composer-controls,
-.composer-actions {
-  flex-wrap: wrap;
+/* Shrink labels before moving controls; active/idle actions keep the same row. */
+.composer-box {
+  container-type: inline-size;
+}
+.composer-controls {
+  flex-wrap: nowrap;
+}
+.composer-preferences {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+.composer-preferences .model-button,
+.composer-preferences .speech-picker {
+  flex: 1 1 140px;
+  min-width: 40px;
+}
+.composer-preferences .model-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.composer-preferences .model-button span,
+.composer-preferences .speech-picker summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-preferences svg,
+.composer-preferences > .select-trigger,
+.composer-preferences > .speech-speed-trigger {
+  flex-shrink: 0;
+}
+.composer-preferences .speech-picker summary {
+  min-width: 0;
 }
 .composer-actions {
-  max-width: 100%;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  white-space: nowrap;
+}
+@container (max-width: 700px) {
+  .composer-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .composer-actions {
+    margin-left: 0;
+  }
+}
+@container (max-width: 380px) {
+  .composer-actions {
+    gap: 4px;
+  }
+  .voice-direct-label {
+    display: none;
+  }
 }
 
 .overlay-text-slot {
@@ -2043,4 +2104,8 @@ input:focus {
 .composer-stop-placeholder {
   width: 30px;
   flex-shrink: 0;
+}
+
+.composer-box:has(.input-count) textarea {
+  padding-right: 80px;
 }
