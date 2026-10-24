@@ -17,6 +17,7 @@ import {
 import { subtitleColors, subtitleDefaults } from '../core/overlay';
 import Select from './Select';
 import SettingRow from './SettingRow';
+import PresetEditor from './PresetEditor';
 import { applyProviderPreset, providerPresets } from '../core/provider-presets';
 import {
   modelOptions,
@@ -812,15 +813,13 @@ export default function SettingsPanel({
               </SettingRow>
               <SettingRow title="模型 ID">
                 <div className="preset-field">
-                  {(stage === 'asr' || stage === 'tts') && (
-                    <Select
-                      label="模型预设"
-                      value={profile.modelId}
-                      options={modelOptions(profile)}
-                      placeholder="选择模型预设"
-                      onChange={(modelId) => update(speechModelChange(profile, modelId))}
-                    />
-                  )}
+                  <Select
+                    label="模型预设"
+                    value={profile.modelId}
+                    options={modelOptions(profile)}
+                    placeholder="选择模型预设"
+                    onChange={(modelId) => update(speechModelChange(profile, modelId))}
+                  />
                   <input
                     aria-label="模型 ID"
                     value={profile.modelId}
@@ -901,6 +900,25 @@ export default function SettingsPanel({
                     />
                   </div>
                 </SettingRow>
+              )}
+            </div>
+          </section>
+          <section className="preference-section" aria-labelledby="personal-presets-heading">
+            <h2 id="personal-presets-heading">自定义预设</h2>
+            <div className="preference-card">
+              <PresetEditor
+                key={`${profile.id}:${profile.adapter}:models`}
+                profile={profile}
+                kind="modelPresets"
+                onChange={update}
+              />
+              {stage === 'tts' && (
+                <PresetEditor
+                  key={`${profile.id}:${profile.adapter}:voices`}
+                  profile={profile}
+                  kind="voicePresets"
+                  onChange={update}
+                />
               )}
             </div>
           </section>

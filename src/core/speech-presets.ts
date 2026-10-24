@@ -39,7 +39,11 @@ export function modelOptions(profile: ProviderProfile): SpeechOption[] {
             ? ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']
             : [];
   return withCurrent(
-    ids.map((value) => ({ value, label: value, group: provider })),
+    mergePresets(
+      profile,
+      'modelPresets',
+      ids.map((value) => ({ value, label: value, group: provider })),
+    ),
     profile.modelId,
   );
 }
@@ -80,7 +84,19 @@ export function voiceOptions(profile: ProviderProfile): SpeechOption[] {
       : common;
     options = ids.map((value) => ({ value, label: value, group: 'OpenAI' }));
   }
-  return withCurrent(options, profile.voice);
+  return withCurrent(mergePresets(profile, 'voicePresets', options), profile.voice);
+}
+
+function mergePresets(
+  profile: ProviderProfile,
+  kind: 'modelPresets' | 'voicePresets',
+  builtins: SpeechOption[],
+): SpeechOption[] {
+  const custom = (profile[kind] ?? []).filter((item) => item.adapter === profile.adapter);
+  return [
+    ...custom.map((item) => ({ value: item.value, label: item.name, group: '我的预设' })),
+    ...builtins.filter((item) => !custom.some((preset) => preset.value === item.value)),
+  ];
 }
 
 function withCurrent(options: SpeechOption[], current: string): SpeechOption[] {

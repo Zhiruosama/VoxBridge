@@ -32,8 +32,15 @@ export interface ProviderProfile {
   baseUrl: string;
   modelId: string;
   voice: string;
+  modelPresets?: ProfilePreset[];
+  voicePresets?: ProfilePreset[];
   thinking?: 'enabled' | 'disabled';
   translationPrompt?: string;
+}
+export interface ProfilePreset {
+  name: string;
+  value: string;
+  adapter: Adapter;
 }
 export interface SubtitleAppearance {
   colorMode: 'workspace' | 'custom';

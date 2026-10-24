@@ -1,6 +1,7 @@
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import type { ComposerSettings, ProviderProfile, Settings, Stage } from './types';
 import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
+import { parseProfilePresets } from './profile-presets';
 
 import { captionColorDefaults, parseCaptionColors } from './caption-colors';
 export { captionColorDefaults } from './caption-colors';
@@ -175,6 +176,12 @@ export function parseSettings(value: unknown): Settings {
       baseUrl: p.baseUrl as string,
       modelId: p.modelId as string,
       voice: p.voice as string,
+      ...(p.modelPresets !== undefined
+        ? { modelPresets: parseProfilePresets(p.modelPresets) }
+        : {}),
+      ...(stage === 'tts' && p.voicePresets !== undefined
+        ? { voicePresets: parseProfilePresets(p.voicePresets) }
+        : {}),
       ...(stage === 'translation'
         ? {
             translationPrompt:
