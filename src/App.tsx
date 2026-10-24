@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   Settings2,
   Square,
+  X,
 } from 'lucide-react';
 import SettingsPanel, { type SettingsSection } from './components/SettingsPanel';
 import Diagnostics from './components/Diagnostics';
@@ -953,12 +954,42 @@ export default function App() {
                 </button>
               )}
               <section className="composer-area" aria-label="文字表达">
-                <div className="composer-box">
+                <div className={`composer-box${voice ? ' is-voice-active' : ''}`}>
+                  {voice && (
+                    <div className="voice-recording" aria-label="语音输入">
+                      <button
+                        className="icon-button voice-cancel"
+                        aria-label="取消录音"
+                        title="取消录音"
+                        disabled={voice.phase === 'cancelling'}
+                        onClick={() => void cancelVoice()}
+                      >
+                        <X size={18} />
+                      </button>
+                      <div className="voice-recording-status" role="status">
+                        <VoiceActivity phase={voice.phase} level={voice.level} />
+                      </div>
+                      <button
+                        className="voice-finish"
+                        aria-label={
+                          settings.composer.voiceInputMode === 'send'
+                            ? '结束录音并发送'
+                            : '完成录音并填入输入框'
+                        }
+                        disabled={voice.phase !== 'recording'}
+                        onClick={() => void finishVoice()}
+                      >
+                        <Square size={13} fill="currentColor" />
+                        {settings.composer.voiceInputMode === 'send' ? '结束并发送' : '完成录音'}
+                      </button>
+                    </div>
+                  )}
                   <label className="sr-only" htmlFor="speech-input">
                     输入要翻译或表达的内容
                   </label>
                   <textarea
                     id="speech-input"
+                    inert={Boolean(voice)}
                     maxLength={2000}
                     value={text}
                     aria-describedby="composer-hint"
@@ -1001,7 +1032,7 @@ export default function App() {
                     }}
                     placeholder="输入要说的话…"
                   />
-                  <div className="composer-controls">
+                  <div className="composer-controls" inert={Boolean(voice)}>
                     <button
                       className="model-button"
                       disabled={busy || listening || Boolean(voice)}
@@ -1027,70 +1058,50 @@ export default function App() {
                     />
                     {text.length > 1800 && <span className="input-count">{text.length}/2000</span>}
                     <div className="composer-actions">
-                      {voice ? (
-                        <div className="voice-recording" role="status">
-                          <VoiceActivity phase={voice.phase} level={voice.level} />
-                          <button
-                            className="subtle"
-                            disabled={voice.phase === 'cancelling'}
-                            onClick={() => void cancelVoice()}
-                          >
-                            取消
-                          </button>
-                          {voice.phase === 'recording' && (
-                            <button className="voice-finish" onClick={() => void finishVoice()}>
-                              {settings.composer.voiceInputMode === 'send'
-                                ? '结束并发送'
-                                : '完成录音'}
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            role="switch"
-                            className="voice-direct-toggle"
-                            aria-label="录音后直接发送"
-                            aria-checked={settings.composer.voiceInputMode === 'send'}
-                            disabled={busy}
-                            title={
-                              settings.composer.voiceInputMode === 'send'
-                                ? '开启：结束录音后自动翻译并输出语音'
-                                : '关闭：识别结果填入输入框，确认后再发送'
-                            }
-                            onClick={() =>
-                              persist(
-                                {
-                                  ...settings,
-                                  composer: {
-                                    ...settings.composer,
-                                    voiceInputMode:
-                                      settings.composer.voiceInputMode === 'send'
-                                        ? 'dictate'
-                                        : 'send',
-                                  },
+                      <>
+                        <button
+                          type="button"
+                          role="switch"
+                          className="voice-direct-toggle"
+                          aria-label="录音后直接发送"
+                          aria-checked={settings.composer.voiceInputMode === 'send'}
+                          disabled={busy}
+                          title={
+                            settings.composer.voiceInputMode === 'send'
+                              ? '开启：结束录音后自动翻译并输出语音'
+                              : '关闭：识别结果填入输入框，确认后再发送'
+                          }
+                          onClick={() =>
+                            persist(
+                              {
+                                ...settings,
+                                composer: {
+                                  ...settings.composer,
+                                  voiceInputMode:
+                                    settings.composer.voiceInputMode === 'send'
+                                      ? 'dictate'
+                                      : 'send',
                                 },
-                                true,
-                              )
-                            }
-                          >
-                            <span className="voice-switch-track" aria-hidden="true">
-                              <span />
-                            </span>
-                            直接发送
-                          </button>
-                          <button
-                            className="icon-button"
-                            aria-label="开始录音"
-                            title="开始麦克风录音，最长 1 分钟"
-                            disabled={busy || !desktop}
-                            onClick={() => void beginVoice()}
-                          >
-                            <Mic size={16} />
-                          </button>
-                        </>
-                      )}
+                              },
+                              true,
+                            )
+                          }
+                        >
+                          <span className="voice-switch-track" aria-hidden="true">
+                            <span />
+                          </span>
+                          直接发送
+                        </button>
+                        <button
+                          className="icon-button"
+                          aria-label="开始录音"
+                          title="开始麦克风录音，最长 1 分钟"
+                          disabled={busy || !desktop}
+                          onClick={() => void beginVoice()}
+                        >
+                          <Mic size={16} />
+                        </button>
+                      </>
 
                       <button
                         className="output-mode"

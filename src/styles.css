@@ -456,6 +456,7 @@ nav button[aria-current='page'] {
   flex-shrink: 0;
 }
 .composer-box {
+  position: relative;
   background: var(--raised);
   border: 1px solid #414141;
   border-radius: 20px;
@@ -1629,16 +1630,58 @@ input:focus {
   font-size: 12px;
 }
 
+.composer-box.is-voice-active > textarea,
+.composer-box.is-voice-active > .composer-controls {
+  visibility: hidden;
+}
 .voice-recording {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
+  gap: 20px;
+  padding: 20px;
+  border-radius: inherit;
+}
+.voice-recording-status {
+  flex: 1;
+  min-width: 0;
+}
+.voice-recording-status .voice-activity {
+  flex-direction: column;
   gap: 8px;
   font-size: 12px;
   color: var(--muted);
 }
+.voice-recording-status .voice-wave {
+  width: 100%;
+  height: 32px;
+  gap: 5px;
+}
+.voice-recording .voice-cancel {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--muted);
+}
 .voice-finish {
-  border-radius: 8px;
-  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.voice-finish:enabled:hover {
+  background: var(--muted);
 }
 .voice-activity {
   display: flex;
