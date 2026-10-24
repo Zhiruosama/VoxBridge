@@ -47,6 +47,7 @@ pub fn run() {
         .manage(overlay::OverlayState::default())
         .manage(overlay::voice::OverlayVoiceState::default())
         .manage(speech::SpeechState::default())
+        .manage(speech::PreparedSpeechState::default())
         .manage(speech::AudioGate::new())
         .invoke_handler(tauri::generate_handler![
             runtime_info,
@@ -81,6 +82,9 @@ pub fn run() {
             capture::finish_listening,
             capture::listening::start_listening,
             speech::speak,
+            speech::prepared::prepare_speech,
+            speech::prepared::play_prepared_speech,
+            speech::prepared::discard_prepared_speech,
             speech::stop_speech,
             speech::set_speech_monitoring,
             platform::open_virtual_mic_installer,
@@ -126,6 +130,7 @@ pub fn run() {
                 app.state::<microphone::MicrophoneState>().stop_all();
                 app.state::<providers::Requests>().stop_all();
                 app.state::<speech::SpeechState>().stop_all();
+                app.state::<speech::PreparedSpeechState>().stop_all();
                 credentials::clear_session();
                 app.state::<audio::ToneState>()
                     .0

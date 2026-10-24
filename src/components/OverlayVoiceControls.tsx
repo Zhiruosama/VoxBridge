@@ -1,3 +1,4 @@
+import SendQueueControls from './SendQueueControls';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { listen } from '@tauri-apps/api/event';
@@ -141,7 +142,7 @@ export default function OverlayVoiceControls({
                   event.nativeEvent.keyCode !== 229
                 ) {
                   event.preventDefault();
-                  if (idle && !disabled && draft.trim() && length <= 2000)
+                  if (!capturing && !disabled && draft.trim() && length <= 2000)
                     void request({ action: 'send', text: draft });
                 }
               }}
@@ -151,6 +152,7 @@ export default function OverlayVoiceControls({
         )}
       <div className="overlay-voice-actions">
         {leading}
+        <SendQueueControls view={voice.queue} onAction={(action) => void request(action)} />
         <SpeechSpeedPicker
           value={voice.speed}
           disabled={!ready || !voice.enabled}
@@ -184,7 +186,7 @@ export default function OverlayVoiceControls({
               className="overlay-mic-button"
               aria-label="发送悬浮窗语音"
               title={`生成语音并输出 · ${voice.targetLanguage}`}
-              disabled={disabled || !idle || !draft.trim() || length > 2000}
+              disabled={disabled || capturing || !draft.trim() || length > 2000}
               onClick={() => void request({ action: 'send', text: draft })}
             >
               <ArrowUp size={18} />

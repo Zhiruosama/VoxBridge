@@ -225,10 +225,12 @@ export interface OverlayVoiceState {
   enabled: boolean;
   targetLanguage: string;
   speed: number;
+  queue: import('./send-queue').QueueView;
   error: string;
   draft: string;
 }
 export type OverlayVoiceRequest =
   | { action: 'start' | 'finish' | 'cancel' | 'stop' | 'discard' }
   | { action: 'send'; text: string }
-  | { action: 'speed'; speed: number };
+  | { action: 'speed'; speed: number }
+  | import('./send-queue').QueueAction;

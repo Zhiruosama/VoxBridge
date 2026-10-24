@@ -196,3 +196,24 @@ export async function overlayVoiceAction(
 ): Promise<void> {
   return invoke('overlay_voice_action', { request });
 }
+
+export async function prepareSpeech(
+  profile: ProviderProfile & { language?: string },
+  text: string,
+  requestId: string,
+): Promise<void> {
+  return invoke('prepare_speech', { profile, text, requestId });
+}
+export async function playPreparedSpeech(
+  routing: AudioRouting,
+  route: 'preview' | 'send',
+  requestId: string,
+  onProgress: (event: SpeechProgress) => void,
+): Promise<void> {
+  const channel = new Channel<SpeechProgress>();
+  channel.onmessage = onProgress;
+  return invoke('play_prepared_speech', { routing, route, requestId, onProgress: channel });
+}
+export async function discardPreparedSpeech(requestId: string): Promise<void> {
+  return invoke('discard_prepared_speech', { requestId });
+}

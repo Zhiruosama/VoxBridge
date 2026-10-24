@@ -1963,3 +1963,84 @@ input:focus {
   --menu: #25272d;
   --accent: #dedede;
 }
+
+.queue-trigger {
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--muted);
+  border: 0;
+  padding: 4px 7px;
+}
+.send-queue-panel {
+  position: fixed;
+  z-index: 125;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: min(330px, calc(100vh - 24px));
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--menu);
+  color: var(--text);
+  box-shadow: 0 8px 24px #0005;
+  font-size: 12px;
+}
+.send-queue-panel header,
+.queue-item-heading,
+.queue-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.send-queue-panel header strong,
+.queue-item-heading span {
+  margin-right: auto;
+}
+.send-queue-panel button {
+  font-size: 12px;
+  min-height: 26px;
+  padding: 3px 7px;
+}
+.send-queue-items {
+  overflow: auto;
+  min-height: 0;
+  margin-top: 8px;
+}
+.send-queue-items article {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.send-queue-items p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.send-queue-items textarea {
+  width: 100%;
+  font-size: 13px;
+  resize: vertical;
+}
+.queue-error {
+  color: var(--danger);
+}
+:root[data-overlay='true'] .send-queue-panel {
+  --text: #f5f5f7;
+  --muted: #bfc5d1;
+  --menu: #25272d;
+}
+
+.composer-queue {
+  position: absolute;
+  right: 0;
+  top: -32px;
+}
+.composer-queue .queue-trigger {
+  background: var(--raised);
+  border-radius: 8px;
+}
+.composer-stop-placeholder {
+  width: 30px;
+  flex-shrink: 0;
+}

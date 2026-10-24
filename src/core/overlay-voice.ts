@@ -7,6 +7,7 @@ export const overlayVoiceDefaults: OverlayVoiceState = {
   enabled: false,
   targetLanguage: '英语',
   speed: 1,
+  queue: { paused: false, items: [] },
   error: '',
   draft: '',
 };

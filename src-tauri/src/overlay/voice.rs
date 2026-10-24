@@ -15,6 +15,21 @@ pub struct VoiceSnapshot {
     speed: f64,
     error: String,
     draft: String,
+    #[serde(default)]
+    queue: QueueSnapshot,
+}
+#[derive(Clone, Default, Deserialize, Serialize)]
+struct QueueSnapshot {
+    paused: bool,
+    items: Vec<QueueItem>,
+}
+#[derive(Clone, Deserialize, Serialize)]
+struct QueueItem {
+    id: String,
+    text: String,
+    status: String,
+    error: String,
+    active: bool,
 }
 fn normal_speed() -> f64 {
     1.0
@@ -31,6 +46,7 @@ impl Default for VoiceSnapshot {
             speed: 1.0,
             error: String::new(),
             draft: String::new(),
+            queue: QueueSnapshot::default(),
         }
     }
 }
@@ -46,8 +62,23 @@ pub enum VoiceRequest {
     Discard,
     Send { text: String },
     Speed { speed: f64 },
+    QueuePause,
+    QueueResume,
+    QueueCancel { id: String },
+    QueueRetry { id: String },
+    QueueEdit { id: String, text: String },
 }
 fn validate(state: &VoiceSnapshot) -> Result<(), String> {
+    if state.queue.items.len() > 10
+        || state.queue.items.iter().any(|item| {
+            item.id.len() > 128
+                || item.text.chars().count() > 2000
+                || item.status.len() > 32
+                || item.error.chars().count() > 400
+        })
+    {
+        return Err("发送队列状态无效。".into());
+    }
     if state.version == 0
         || state.version > 9_007_199_254_740_991
         || !state.speed.is_finite()
@@ -81,6 +112,21 @@ fn validate(state: &VoiceSnapshot) -> Result<(), String> {
 fn validate_request(label: &str, request: &VoiceRequest) -> Result<(), String> {
     if label != "subtitle" {
         return Err("此操作仅限字幕窗。".into());
+    }
+    match request {
+        VoiceRequest::QueueCancel { id }
+        | VoiceRequest::QueueRetry { id }
+        | VoiceRequest::QueueEdit { id, .. }
+            if id.is_empty() || id.len() > 128 =>
+        {
+            return Err("队列标识无效。".into())
+        }
+        VoiceRequest::QueueEdit { text, .. }
+            if text.trim().is_empty() || text.chars().count() > 2000 =>
+        {
+            return Err("请输入 1–2000 字的内容。".into())
+        }
+        _ => {}
     }
     if let VoiceRequest::Speed { speed } = request {
         if !speed.is_finite() || !(0.5..=2.0).contains(speed) {

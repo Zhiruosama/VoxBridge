@@ -1,3 +1,7 @@
+import SendQueueControls from './components/SendQueueControls';
+import type { QueueAction } from './core/send-queue';
+import { SendQueue, type QueueView } from './core/send-queue';
+import { prepareSpeech, playPreparedSpeech, discardPreparedSpeech } from './bridge';
 import SpeechSpeedPicker from './components/SpeechSpeedPicker';
 import { updateSpeechProfile } from './core/speech-presets';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -157,6 +161,56 @@ export default function App() {
         setMonitoring: setSpeechMonitoring,
       }),
   );
+  const [queueView, setQueueView] = useState<QueueView>({ paused: false, items: [] });
+  const [sendQueue] = useState(
+    () =>
+      new SendQueue({
+        detectLanguage: detectTextLanguage,
+        translate,
+        speak,
+        cancelTranslation,
+        stopSpeech,
+        setMonitoring: setSpeechMonitoring,
+        prepare: prepareSpeech,
+        playPrepared: playPreparedSpeech,
+        discardPrepared: discardPreparedSpeech,
+      }),
+  );
+  useEffect(
+    () =>
+      sendQueue.subscribe((view) => {
+        setQueueView(view);
+        const active = view.items.find((item) => item.active);
+        setComposerPhase(
+          active &&
+            [
+              'detecting',
+              'waitingDevice',
+              'translating',
+              'synthesizing',
+              'decoding',
+              'playing',
+              'stopping',
+            ].includes(active.status)
+            ? (active.status as ComposerPhase)
+            : 'idle',
+        );
+      }),
+    [sendQueue],
+  );
+  useEffect(
+    () => () => {
+      if (sendQueue.busy) void sendQueue.clear();
+    },
+    [sendQueue],
+  );
+  function queueAction(action: QueueAction) {
+    if (action.action === 'queuePause') sendQueue.pause();
+    else if (action.action === 'queueResume') sendQueue.resume();
+    else if (action.action === 'queueCancel') void sendQueue.cancel(action.id);
+    else if (action.action === 'queueRetry') void sendQueue.retry(action.id, settings);
+    else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
+  }
   const [overlayDraft, setOverlayDraft] = useState('');
   const [overlayVoiceError, setOverlayVoiceError] = useState('');
   const [overlayVoiceReady, setOverlayVoiceReady] = useState(false);
@@ -217,6 +271,7 @@ export default function App() {
       enabled: page === 'workspace' && overlayVoiceReady,
       targetLanguage: settings.targetLanguage,
       speed: speechSpeed,
+      queue: queueView,
       error: Array.from(overlayVoiceError).slice(0, 400).join(''),
       draft: overlayDraft,
     }).catch(() => {});
@@ -226,6 +281,7 @@ export default function App() {
     settings.composer.voiceInputMode,
     settings.targetLanguage,
     speechSpeed,
+    queueView,
     page,
     overlayReady,
     overlayVoiceReady,
@@ -255,6 +311,10 @@ export default function App() {
     };
   }, []);
   overlayActionsRef.current = (request) => {
+    if (request.action.startsWith('queue')) {
+      queueAction(request as QueueAction);
+      return;
+    }
     if (request.action === 'cancel') {
       void cancelVoice();
       return;
@@ -499,7 +559,7 @@ export default function App() {
       onComplete: () => void;
     },
   ) {
-    if (composer.busy || voiceRef.current) return;
+    if (voiceRef.current || composer.busy || (action === 'translate' && sendQueue.busy)) return;
     if (!desktop) {
       notify('请通过桌面应用使用翻译和语音输出。');
       return;
@@ -520,7 +580,7 @@ export default function App() {
     };
     const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
     try {
-      const outcome = await composer.run(
+      const outcome = await (action === 'speak' ? sendQueue : composer).run(
         {
           id,
           text: source,
@@ -532,6 +592,7 @@ export default function App() {
         {
           notice: notify,
           accepted: () => {
+            if (options?.preserveDraft) setOverlayDraft('');
             if (
               !options?.preserveDraft &&
               action === 'speak' &&
@@ -545,15 +606,20 @@ export default function App() {
           phase: (phase) => {
             if (mountedRef.current) setComposerPhase(phase);
           },
-          translation: (translated) => {
+          translation: (translated: string, queuedSource?: string) => {
             if (mountedRef.current)
               setSession((state) =>
-                appendExpression(state, { id, source, translation: translated, time }),
+                appendExpression(state, {
+                  id,
+                  source: queuedSource ?? source,
+                  translation: translated,
+                  time,
+                }),
               );
           },
         },
       );
-      if (outcome === 'stopped') restoreSubmittedDraft();
+      if (outcome === 'stopped' && action !== 'speak') restoreSubmittedDraft();
       if (outcome === 'completed' && mountedRef.current) options?.onComplete();
     } catch (error) {
       restoreSubmittedDraft();
@@ -668,6 +734,10 @@ export default function App() {
   }
 
   async function stopComposer() {
+    if (sendQueue.busy) {
+      await sendQueue.stop();
+      return;
+    }
     if (!composer.busy || composerPhase === 'stopping') return;
     setComposerPhase('stopping');
     try {
@@ -994,6 +1064,9 @@ export default function App() {
                       </button>
                     </div>
                   )}
+                  <div className="composer-queue">
+                    <SendQueueControls view={queueView} onAction={queueAction} />
+                  </div>
                   <label className="sr-only" htmlFor="speech-input">
                     输入要翻译或表达的内容
                   </label>
@@ -1163,16 +1236,20 @@ export default function App() {
                             { ...settings, audio: { ...settings.audio, monitorEnabled: enabled } },
                             true,
                           );
-                          void composer
-                            .setMonitoring(enabled)
-                            .catch(() => notify('试听切换失败，请重试。'));
+                          void Promise.all([
+                            composer.setMonitoring(enabled),
+                            sendQueue.setMonitoring(enabled),
+                          ]).catch(() => notify('试听切换失败，请重试。'));
                         }}
                       >
                         <Headphones size={16} />
                       </button>
-                      {busy ? (
+                      {busy && (
                         <>
-                          <span role="status" className="composer-phase">
+                          <span
+                            role="status"
+                            className={queueView.items.length ? 'sr-only' : 'composer-phase'}
+                          >
                             {
                               {
                                 waitingDevice: '等待设备…',
@@ -1187,7 +1264,7 @@ export default function App() {
                             }
                           </span>
                           <button
-                            className="send-button"
+                            className="icon-button"
                             aria-label="停止当前操作"
                             disabled={composerPhase === 'stopping'}
                             onClick={() => void stopComposer()}
@@ -1195,27 +1272,33 @@ export default function App() {
                             <Square size={13} />
                           </button>
                         </>
-                      ) : (
-                        <>
-                          <button
-                            className="subtle"
-                            disabled={!text.trim() || !desktop || Boolean(voice)}
-                            onClick={() => void runComposer('translate')}
-                            title="仅翻译，不输出语音"
-                          >
-                            翻译
-                          </button>
-                          <button
-                            disabled={!desktop || !text.trim() || Boolean(voice)}
-                            title={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
-                            aria-label="输出合成语音"
-                            className="send-button"
-                            onClick={() => void runComposer('speak')}
-                          >
-                            <ArrowRight size={16} />
-                          </button>
-                        </>
                       )}
+                      {!busy && <span className="composer-stop-placeholder" aria-hidden="true" />}
+                      <>
+                        <button
+                          className="subtle"
+                          disabled={
+                            busy ||
+                            queueView.items.length > 0 ||
+                            !text.trim() ||
+                            !desktop ||
+                            Boolean(voice)
+                          }
+                          onClick={() => void runComposer('translate')}
+                          title="仅翻译，不输出语音"
+                        >
+                          翻译
+                        </button>
+                        <button
+                          disabled={!desktop || !text.trim() || Boolean(voice) || composer.busy}
+                          title={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
+                          aria-label="输出合成语音"
+                          className="send-button"
+                          onClick={() => void runComposer('speak')}
+                        >
+                          <ArrowRight size={16} />
+                        </button>
+                      </>
                     </div>
                   </div>
                 </div>

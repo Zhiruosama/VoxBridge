@@ -153,7 +153,7 @@ fn default_speed() -> f64 {
     1.0
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeechProfile {
     id: String,
@@ -674,6 +674,32 @@ pub(crate) async fn execute(
     state: &SpeechState,
     gate: &AudioGate,
 ) -> Result<(), String> {
+    execute_inner(
+        profile,
+        text,
+        routing,
+        route,
+        request_id,
+        on_progress,
+        state,
+        gate,
+        None,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_inner(
+    profile: SpeechProfile,
+    text: String,
+    routing: Routing,
+    route: Route,
+    request_id: String,
+    on_progress: tauri::ipc::Channel<SpeechProgress>,
+    state: &SpeechState,
+    gate: &AudioGate,
+    prepared_audio: Option<Vec<u8>>,
+) -> Result<(), String> {
     let url = endpoint(&profile)?;
     crate::language::speech_language(profile.language.as_deref())?;
     if text.trim().is_empty() || text.chars().count() > 2000 {
@@ -710,11 +736,15 @@ pub(crate) async fn execute(
         );
         return Err(error);
     }
-    let key = tokio::select! { biased;
-        _ = job.token.cancelled() => return Err(STOPPED.into()),
-        result = crate::credentials::read_async(&profile.id) => result?,
+    let key = if prepared_audio.is_some() {
+        String::new()
+    } else {
+        tokio::select! { biased;
+            _ = job.token.cancelled() => return Err(STOPPED.into()),
+            result = crate::credentials::read_async(&profile.id) => result?,
+        }
     };
-    if profile.adapter == "minimax_tts_ws" {
+    if profile.adapter == "minimax_tts_ws" && prepared_audio.is_none() {
         return streaming::speak_streaming(
             profile,
             url,
@@ -752,7 +782,10 @@ pub(crate) async fn execute(
             .await
             .map_err(|_| "音频任务初始化失败。".to_string())??;
         progress(&on_progress, &request_id, "synthesizing");
-        let bytes = synthesize_cancellable(&profile, url, &text, &key, &job.token).await?;
+        let bytes = match prepared_audio {
+            Some(bytes) => bytes,
+            None => synthesize_cancellable(&profile, url, &text, &key, &job.token).await?,
+        };
         if job.token.is_cancelled() {
             return Err(STOPPED.into());
         }
@@ -786,3 +819,6 @@ pub fn set_speech_monitoring(
 
 #[cfg(test)]
 mod tests;
+
+pub mod prepared;
+pub use prepared::PreparedSpeechState;
