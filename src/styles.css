@@ -1800,11 +1800,19 @@ input:focus {
   justify-content: flex-end;
 }
 
-.overlay-voice-footer {
+.overlay-text-slot {
+  flex-shrink: 0;
+}
+.overlay-text-slot:empty {
+  display: none;
+}
+.overlay-text-panel {
   padding: 10px 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   background: var(--overlay-background);
+}
+.overlay-voice-footer {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1854,7 +1862,7 @@ input:focus {
   color: #fecaca;
   overflow-wrap: anywhere;
 }
-.overlay-voice-footer textarea {
+.overlay-text-panel textarea {
   width: 100%;
   min-height: 58px;
   max-height: 110px;
@@ -1887,7 +1895,7 @@ input:focus {
   color: #fff;
 }
 
-.overlay-voice-footer textarea:focus-visible {
+.overlay-text-panel textarea:focus-visible {
   outline: 1px solid rgba(255, 255, 255, 0.25);
   outline-offset: 2px;
   box-shadow: none;

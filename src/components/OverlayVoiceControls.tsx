@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { listen } from '@tauri-apps/api/event';
 import { ArrowUp, Keyboard, Mic, Square, X } from 'lucide-react';
 import { overlayVoiceAction, readOverlayVoice } from '../bridge';
@@ -11,20 +12,25 @@ import {
 import type { OverlayVoiceRequest, OverlayVoiceState } from '../core/types';
 import VoiceActivity from './VoiceActivity';
 
-export default function OverlayVoiceControls({ leading }: { leading?: ReactNode }) {
+export default function OverlayVoiceControls({
+  leading,
+  editorContainer,
+}: {
+  leading?: ReactNode;
+  editorContainer: HTMLElement | null;
+}) {
   const [voice, setVoice] = useState(overlayVoiceDefaults);
   const [ready, setReady] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState('');
   const [draft, setDraft] = useState('');
-  const [textOpen, setTextOpen] = useState<boolean | null>(null);
+  const [textOpen, setTextOpen] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const remoteDraftRef = useRef('');
   const sentRef = useRef<string | null>(null);
   useEffect(() => {
     const previous = remoteDraftRef.current;
     remoteDraftRef.current = voice.draft;
-    if (voice.draft && !previous && voice.draft !== sentRef.current) setTextOpen(true);
     // Preserve a new local edit when the main window clears the completed message.
     const sent = sentRef.current;
     setDraft((current) => reconcileOverlayDraft(current, previous, voice.draft, sent));
@@ -74,7 +80,7 @@ export default function OverlayVoiceControls({ leading }: { leading?: ReactNode 
   const idle = voice.phase === 'idle';
   const recording = voice.phase === 'recording';
   const capturing = ['starting', 'recording', 'recognizing', 'cancelling'].includes(voice.phase);
-  const showDraft = textOpen ?? (Boolean(draft) || Boolean(voice.draft));
+  const showDraft = textOpen;
   const length = Array.from(draft).length;
   const disabled = !ready || !voice.enabled || requesting;
   return (
@@ -84,33 +90,38 @@ export default function OverlayVoiceControls({ leading }: { leading?: ReactNode 
           {error || voice.error}
         </div>
       )}
-      {showDraft && (
-        <textarea
-          id="overlay-text-input"
-          ref={editorRef}
-          aria-label="悬浮窗输入内容"
-          value={draft}
-          maxLength={2000}
-          rows={2}
-          placeholder="输入要说的话…"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              setTextOpen(false);
-            } else if (
-              event.key === 'Enter' &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing &&
-              event.nativeEvent.keyCode !== 229
-            ) {
-              event.preventDefault();
-              if (idle && !disabled && draft.trim() && length <= 2000)
-                void request({ action: 'send', text: draft });
-            }
-          }}
-        />
-      )}
+      {showDraft &&
+        editorContainer &&
+        createPortal(
+          <div className="overlay-text-panel">
+            <textarea
+              id="overlay-text-input"
+              ref={editorRef}
+              aria-label="悬浮窗输入内容"
+              value={draft}
+              maxLength={2000}
+              rows={2}
+              placeholder="输入要说的话…"
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setTextOpen(false);
+                } else if (
+                  event.key === 'Enter' &&
+                  !event.shiftKey &&
+                  !event.nativeEvent.isComposing &&
+                  event.nativeEvent.keyCode !== 229
+                ) {
+                  event.preventDefault();
+                  if (idle && !disabled && draft.trim() && length <= 2000)
+                    void request({ action: 'send', text: draft });
+                }
+              }}
+            />
+          </div>,
+          editorContainer,
+        )}
       <div className="overlay-voice-actions">
         {leading}
         {recording ? (

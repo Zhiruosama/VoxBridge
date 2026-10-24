@@ -18,6 +18,7 @@ export default function SubtitleOverlay() {
     ...subtitleDefaults,
   });
   const [error, setError] = useState('');
+  const [editorContainer, setEditorContainer] = useState<HTMLDivElement | null>(null);
   const reading = useReadingFollow(snapshot, snapshot.sessionId, snapshot.mode);
   const [hiddenThrough, setHiddenThrough] = useState<Set<string>>(new Set());
   const lines = snapshot.lines.filter((line) => !hiddenThrough.has(line.segmentId));
@@ -138,16 +139,18 @@ export default function SubtitleOverlay() {
             <p className="subtitle-overlay-empty">{active ? '等待字幕…' : '暂无字幕'}</p>
           )}
         </main>
+        <OverlayVoiceControls
+          editorContainer={editorContainer}
+          leading={
+            !reading.follow && lines.length > 0 ? (
+              <button className="subtitle-overlay-latest" onClick={reading.jumpLatest}>
+                ↓ 回到最新
+              </button>
+            ) : undefined
+          }
+        />
       </section>
-      <OverlayVoiceControls
-        leading={
-          !reading.follow && lines.length > 0 ? (
-            <button className="subtitle-overlay-latest" onClick={reading.jumpLatest}>
-              ↓ 回到最新
-            </button>
-          ) : undefined
-        }
-      />
+      <div className="overlay-text-slot" ref={setEditorContainer} />
     </div>
   );
 }
