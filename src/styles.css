@@ -1895,8 +1895,11 @@ input:focus {
   color: #fff;
 }
 
+.overlay-text-panel:focus-within {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+.overlay-text-panel textarea:focus,
 .overlay-text-panel textarea:focus-visible {
-  outline: 1px solid rgba(255, 255, 255, 0.25);
-  outline-offset: 2px;
+  outline: none;
   box-shadow: none;
 }
