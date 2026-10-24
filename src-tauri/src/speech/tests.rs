@@ -40,6 +40,7 @@ fn minimax_errors_distinguish_balance_auth_and_voice_without_echoing_provider_te
 pub(super) fn profile(adapter: &str, base_url: String) -> SpeechProfile {
     SpeechProfile {
         language: None,
+        speed: 1.0,
         id: "test-profile".into(),
         stage: "tts".into(),
         adapter: adapter.into(),
@@ -239,7 +240,8 @@ fn http_server(status: &str, body: Vec<u8>) -> (String, std::thread::JoinHandle<
 #[tokio::test]
 async fn openai_http_sends_exact_profile_and_returns_decodable_audio() {
     let (address, server) = http_server("200 OK", MP3.to_vec());
-    let p = profile("openai_audio_speech", address);
+    let mut p = profile("openai_audio_speech", address);
+    p.speed = 1.25;
     let audio = synthesize(&p, endpoint(&p).unwrap(), "你好", "mock-key")
         .await
         .unwrap();
@@ -253,7 +255,7 @@ async fn openai_http_sends_exact_profile_and_returns_decodable_audio() {
     let payload: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
     assert_eq!(
         payload,
-        json!({"model":"test-model","voice":"test-voice","input":"你好","response_format":"mp3"})
+        json!({"model":"test-model","voice":"test-voice","input":"你好","response_format":"mp3","speed":1.25})
     );
 }
 
@@ -300,6 +302,7 @@ async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
         format!("ws://{}", listener.local_addr().unwrap()),
     );
     p.language = Some("日语".into());
+    p.speed = 1.35;
     let server = async {
         let (stream, _) = listener.accept().await.unwrap();
         let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
@@ -315,6 +318,7 @@ async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
         assert_eq!(start["event"], "task_start");
         assert_eq!(start["language_boost"], "Japanese");
         assert_eq!(start["voice_setting"]["voice_id"], "test-voice");
+        assert_eq!(start["voice_setting"]["speed"], 1.35);
         assert_eq!(start["audio_setting"]["format"], "mp3");
         ws.send(Message::Text(
             json!({"event":"task_started"}).to_string().into(),
@@ -401,4 +405,19 @@ fn monitor_requires_a_separate_preview_device_only_for_send_route() {
     assert!(routing.destination(&Route::Send).is_err());
     routing.monitor_enabled = false;
     assert_eq!(routing.destination(&Route::Send).unwrap(), "virtual");
+}
+
+#[test]
+fn speed_defaults_and_bounds_are_checked_before_connecting() {
+    let old: SpeechProfile = serde_json::from_value(json!({"id":"old","stage":"tts","adapter":"minimax_tts_ws","baseUrl":"wss://example.com","modelId":"m","voice":"v"})).unwrap();
+    assert_eq!(old.speed, 1.0);
+    let mut p = profile("minimax_tts_ws", "wss://example.com".into());
+    for speed in [0.49, 2.01, f64::NAN, f64::INFINITY] {
+        p.speed = speed;
+        assert!(endpoint(&p).is_err());
+    }
+    for speed in [0.5, 1.0, 1.35, 2.0] {
+        p.speed = speed;
+        assert!(endpoint(&p).is_ok());
+    }
 }

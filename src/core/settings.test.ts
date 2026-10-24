@@ -325,3 +325,19 @@ it('preserves microphone choice and defaults voice input to editable dictation',
   );
   expect(configured.composer.voiceInputMode).toBe('send');
 });
+
+it('persists per-profile speech speed and migrates old profiles to normal speed', () => {
+  const settings = structuredClone(defaults);
+  delete settings.profiles[2].speed;
+  expect(parseSettings(settings).profiles[2].speed).toBe(1);
+  settings.profiles[2].speed = 1.35;
+  expect(parseSettings(JSON.parse(JSON.stringify(settings))).profiles[2].speed).toBe(1.35);
+  for (const speed of [0.49, 2.01, NaN, Infinity, '1.2']) {
+    expect(() =>
+      parseSettings({
+        ...settings,
+        profiles: settings.profiles.map((p) => (p.stage === 'tts' ? { ...p, speed } : p)),
+      }),
+    ).toThrow();
+  }
+});

@@ -149,6 +149,10 @@ impl SpeechState {
     }
 }
 
+fn default_speed() -> f64 {
+    1.0
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeechProfile {
@@ -158,6 +162,8 @@ pub struct SpeechProfile {
     base_url: String,
     model_id: String,
     voice: String,
+    #[serde(default = "default_speed")]
+    speed: f64,
     #[serde(default)]
     language: Option<String>,
 }
@@ -215,6 +221,9 @@ pub(crate) fn endpoint(profile: &SpeechProfile) -> Result<url::Url, String> {
         )
     {
         return Err("不支持的语音合成协议。".into());
+    }
+    if !profile.speed.is_finite() || !(0.5..=2.0).contains(&profile.speed) {
+        return Err("语速应在 0.5–2.0 倍之间。".into());
     }
     if profile.model_id.trim().is_empty()
         || profile.model_id.len() > 200
@@ -334,7 +343,7 @@ async fn synthesize_response(
             .timeout(Duration::from_secs(60))
             .build()
             .map_err(|_| "无法创建语音连接。")?;
-        let mut response = client.post(url).bearer_auth(key).json(&json!({ "model": profile.model_id, "voice": profile.voice, "input": text, "response_format": "mp3" })).send().await.map_err(|_| "语音服务连接失败或超时。")?;
+        let mut response = client.post(url).bearer_auth(key).json(&json!({ "model": profile.model_id, "voice": profile.voice, "speed": profile.speed, "input": text, "response_format": "mp3" })).send().await.map_err(|_| "语音服务连接失败或超时。")?;
         if !response.status().is_success() {
             return Err(provider_status(response.status().as_u16()));
         }
@@ -408,7 +417,7 @@ async fn synthesize_response(
     if receive(&mut socket).await?["event"] != "connected_success" {
         return Err("语音连接握手顺序异常。".into());
     }
-    socket.send(Message::Text(json!({ "event":"task_start", "model":profile.model_id, "language_boost":crate::language::speech_language(profile.language.as_deref())?, "voice_setting":{"voice_id":profile.voice}, "audio_setting":{"sample_rate":32000,"bitrate":128000,"format":if stream.is_some() { "pcm" } else { "mp3" },"channel":1} }).to_string().into())).await.map_err(|_| "无法开始语音任务。")?;
+    socket.send(Message::Text(json!({ "event":"task_start", "model":profile.model_id, "language_boost":crate::language::speech_language(profile.language.as_deref())?, "voice_setting":{"voice_id":profile.voice,"speed":profile.speed}, "audio_setting":{"sample_rate":32000,"bitrate":128000,"format":if stream.is_some() { "pcm" } else { "mp3" },"channel":1} }).to_string().into())).await.map_err(|_| "无法开始语音任务。")?;
     if receive(&mut socket).await?["event"] != "task_started" {
         return Err("语音任务未就绪。".into());
     }

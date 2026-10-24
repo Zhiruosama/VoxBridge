@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ChevronDown, Volume2 } from 'lucide-react';
 import Select from './Select';
+import SpeechSpeed from './SpeechSpeed';
 import { profileFor } from '../core/settings';
 import {
   modelOptions,
@@ -85,6 +86,11 @@ export default function SpeechPicker({
           placeholder="先配置音色"
           options={voices}
           onChange={(voice) => onChange(updateSpeechProfile(settings, { voice }))}
+        />
+        <label>语速</label>
+        <SpeechSpeed
+          value={profile.speed}
+          onChange={(speed) => onChange(updateSpeechProfile(settings, { speed }))}
         />
         <div className="speech-picker-bottom">
           <span>下一次生成生效</span>

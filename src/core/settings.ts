@@ -47,6 +47,7 @@ export const defaults: Settings = {
       name: '空白配置',
       stage: 'tts',
       adapter: 'minimax_tts_ws',
+      speed: 1,
       baseUrl: '',
       modelId: '',
       voice: '',
@@ -104,6 +105,12 @@ export function validateProfile(profile: ProviderProfile): string | null {
     [...(profile.translationPrompt ?? '')].length > translationPromptLimit
   )
     return `前置 Prompt 最多 ${translationPromptLimit} 字符。`;
+  if (
+    profile.stage === 'tts' &&
+    profile.speed !== undefined &&
+    (!Number.isFinite(profile.speed) || profile.speed < 0.5 || profile.speed > 2)
+  )
+    return '语速应在 0.5–2.0 倍之间。';
   if (!profile.name.trim()) return '请输入服务名称。';
   if (!profile.baseUrl.trim()) return '请输入 API 地址。';
   const invalid = validateEndpoint(profile.baseUrl, profile.adapter);
@@ -166,6 +173,12 @@ export function parseSettings(value: unknown): Settings {
         [...p.translationPrompt].length > translationPromptLimit)
     )
       throw new Error(`前置 Prompt 必须是最多 ${translationPromptLimit} 字符的文本。`);
+    if (
+      stage === 'tts' &&
+      p.speed !== undefined &&
+      (typeof p.speed !== 'number' || !Number.isFinite(p.speed) || p.speed < 0.5 || p.speed > 2)
+    )
+      throw new Error('语速应在 0.5–2.0 倍之间。');
     const invalid = validateEndpoint(p.baseUrl as string, adapter);
     if (invalid) throw new Error(invalid);
     return {
@@ -176,6 +189,7 @@ export function parseSettings(value: unknown): Settings {
       baseUrl: p.baseUrl as string,
       modelId: p.modelId as string,
       voice: p.voice as string,
+      ...(stage === 'tts' ? { speed: (p.speed as number | undefined) ?? 1 } : {}),
       ...(p.modelPresets !== undefined
         ? { modelPresets: parseProfilePresets(p.modelPresets) }
         : {}),

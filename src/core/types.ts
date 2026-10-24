@@ -32,6 +32,7 @@ export interface ProviderProfile {
   baseUrl: string;
   modelId: string;
   voice: string;
+  speed?: number;
   modelPresets?: ProfilePreset[];
   voicePresets?: ProfilePreset[];
   thinking?: 'enabled' | 'disabled';

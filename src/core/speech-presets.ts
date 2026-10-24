@@ -108,7 +108,7 @@ function withCurrent(options: SpeechOption[], current: string): SpeechOption[] {
 /** Updating a voice/model must retain the credential identity and all unrelated settings. */
 export function updateSpeechProfile(
   settings: Settings,
-  change: Partial<Pick<ProviderProfile, 'voice' | 'modelId'>>,
+  change: Partial<Pick<ProviderProfile, 'voice' | 'modelId' | 'speed'>>,
 ): Settings {
   const profile = profileFor(settings, 'tts');
   const modelChange = change.modelId ? speechModelChange(profile, change.modelId) : {};

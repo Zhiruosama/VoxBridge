@@ -1,3 +1,4 @@
+import SpeechSpeed from './SpeechSpeed';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
@@ -880,6 +881,11 @@ export default function SettingsPanel({
                       })
                     }
                   />
+                </SettingRow>
+              )}
+              {stage === 'tts' && (
+                <SettingRow title="语速">
+                  <SpeechSpeed value={profile.speed} onChange={(speed) => update({ speed })} />
                 </SettingRow>
               )}
               {stage === 'tts' && (
