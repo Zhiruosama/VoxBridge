@@ -363,3 +363,14 @@ it('retains Cantonese across reload for both caption and speech settings', () =>
   expect(restored.targetLanguage).toBe('粤语');
   expect(restored.listening).toEqual(settings.listening);
 });
+
+it('retains Finnish for incoming captions and outgoing speech after reload', () => {
+  const settings = structuredClone(defaults);
+  settings.sourceLanguage = '芬兰语';
+  settings.targetLanguage = '芬兰语';
+  settings.listening = { sourceLanguage: '自动识别', targetLanguage: '芬兰语' };
+  const restored = parseSettings(JSON.parse(JSON.stringify(settings)));
+  expect(restored.sourceLanguage).toBe('芬兰语');
+  expect(restored.targetLanguage).toBe('芬兰语');
+  expect(restored.listening).toEqual(settings.listening);
+});

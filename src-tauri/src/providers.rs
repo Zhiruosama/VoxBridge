@@ -441,7 +441,16 @@ fn valid_translation(source: &str, result: &str, target: &str) -> bool {
         } else {
             target
         };
-        if ["英语", "简体中文", "日语", "韩语", "西班牙语", "印尼语"].contains(&expected)
+        if [
+            "英语",
+            "简体中文",
+            "日语",
+            "韩语",
+            "西班牙语",
+            "印尼语",
+            "芬兰语",
+        ]
+        .contains(&expected)
             && actual != expected
         {
             return false;
@@ -505,7 +514,8 @@ mod tests {
     #[cfg(target_os = "macos")]
     fn wrong_target_language_is_not_accepted_as_a_translation() {
         let english = "This is a wonderful day and I would like to talk to my friends.";
-        for target in ["简体中文", "日语", "韩语", "西班牙语", "印尼语"] {
+        for target in ["简体中文", "日语", "韩语", "西班牙语", "印尼语", "芬兰语"]
+        {
             assert!(!valid_translation(
                 "今天很适合和朋友一起聊天。",
                 english,

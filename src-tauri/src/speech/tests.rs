@@ -296,7 +296,11 @@ async fn cancellation_drops_a_waiting_connection() {
 
 #[tokio::test]
 async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
-    for (language, boost) in [("日语", "Japanese"), ("粤语", "Chinese,Yue")] {
+    for (language, boost) in [
+        ("日语", "Japanese"),
+        ("粤语", "Chinese,Yue"),
+        ("芬兰语", "Finnish"),
+    ] {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let mut p = profile(
             "minimax_tts_ws",

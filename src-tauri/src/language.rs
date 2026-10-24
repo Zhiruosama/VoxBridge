@@ -42,6 +42,7 @@ fn recognize(text: &str) -> Option<&'static str> {
         "ko" => Some("韩语"),
         "es" => Some("西班牙语"),
         "id" => Some("印尼语"),
+        "fi" => Some("芬兰语"),
         _ => None,
     }
 }
@@ -59,6 +60,7 @@ fn recognize(text: &str) -> Option<&'static str> {
         whatlang::Lang::Kor => "韩语",
         whatlang::Lang::Spa => "西班牙语",
         whatlang::Lang::Ind => "印尼语",
+        whatlang::Lang::Fin => "芬兰语",
         _ => return None,
     })
 }
@@ -81,6 +83,7 @@ pub fn speech_language(language: Option<&str>) -> Result<&'static str, String> {
         Some("西班牙语") => Ok("Spanish"),
         Some("印尼语") => Ok("Indonesian"),
         Some("粤语") => Ok("Chinese,Yue"),
+        Some("芬兰语") => Ok("Finnish"),
         _ => Err("不支持所选语音语言。".into()),
     }
 }
@@ -127,6 +130,7 @@ mod tests {
             assert_eq!(detect(text), Some(language), "{language}");
         }
         assert_eq!(detect("Saya sedang belajar bahasa Indonesia. Hari ini saya ingin berbicara dengan teman-teman saya tentang rencana perjalanan kami ke Jakarta."), Some("印尼语"));
+        assert_eq!(detect("Tänään on kaunis päivä ja haluaisin jutella ystävieni kanssa. Mitä sinulle kuuluu?"), Some("芬兰语"));
         assert_eq!(detect("123 😊"), None);
         assert_eq!(detect("我想说 hello, how are you today?"), None);
     }
@@ -140,6 +144,7 @@ mod tests {
             ("西班牙语", "Spanish"),
             ("印尼语", "Indonesian"),
             ("粤语", "Chinese,Yue"),
+            ("芬兰语", "Finnish"),
         ] {
             assert_eq!(speech_language(Some(language)).unwrap(), expected);
         }
