@@ -1849,3 +1849,19 @@ input:focus {
 .overlay-voice-footer .voice-activity {
   font-size: 12px;
 }
+
+.overlay-voice-actions .overlay-text-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  color: #bfc5d1;
+  background: transparent;
+  flex-shrink: 0;
+}
+.overlay-voice-actions .overlay-text-button[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}

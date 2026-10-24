@@ -26,3 +26,14 @@ export const overlayVoiceLabels: Record<OverlayVoiceState['phase'], string> = {
   playing: '输出中…',
   stopping: '停止中…',
 };
+
+// A delayed send acknowledgement must not replace the user's next message.
+export function reconcileOverlayDraft(
+  local: string,
+  previous: string,
+  next: string,
+  sent: string | null,
+) {
+  if (next && next === sent) return local;
+  return next || (local === previous ? '' : local);
+}
