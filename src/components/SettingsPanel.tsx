@@ -299,6 +299,7 @@ export default function SettingsPanel({
                     '印尼语',
                     '粤语',
                     '芬兰语',
+                    '俄语',
                   ].map((language) => ({
                     value: language,
                     label: language,
@@ -321,6 +322,7 @@ export default function SettingsPanel({
                     '印尼语',
                     '粤语',
                     '芬兰语',
+                    '俄语',
                   ].map((language) => ({
                     value: language,
                     label: language,
@@ -348,6 +350,7 @@ export default function SettingsPanel({
                     '印尼语',
                     '粤语',
                     '芬兰语',
+                    '俄语',
                   ].map((language) => ({
                     value: language,
                     label: language,
@@ -368,6 +371,7 @@ export default function SettingsPanel({
                     '印尼语',
                     '粤语',
                     '芬兰语',
+                    '俄语',
                   ].map((language) => ({
                     value: language,
                     label: language,

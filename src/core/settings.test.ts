@@ -374,3 +374,14 @@ it('retains Finnish for incoming captions and outgoing speech after reload', () 
   expect(restored.targetLanguage).toBe('芬兰语');
   expect(restored.listening).toEqual(settings.listening);
 });
+
+it('retains Russian for incoming captions and outgoing speech after reload', () => {
+  const settings = structuredClone(defaults);
+  settings.sourceLanguage = '俄语';
+  settings.targetLanguage = '俄语';
+  settings.listening = { sourceLanguage: '自动识别', targetLanguage: '俄语' };
+  const restored = parseSettings(JSON.parse(JSON.stringify(settings)));
+  expect(restored.sourceLanguage).toBe('俄语');
+  expect(restored.targetLanguage).toBe('俄语');
+  expect(restored.listening).toEqual(settings.listening);
+});

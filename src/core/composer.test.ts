@@ -66,7 +66,7 @@ describe('selected language and direct speech', () => {
       modelId: 'next-model',
     });
   });
-  it.each(['英语', '简体中文', '日语', '韩语', '西班牙语', '印尼语', '粤语', '芬兰语'])(
+  it.each(['英语', '简体中文', '日语', '韩语', '西班牙语', '印尼语', '粤语', '芬兰语', '俄语'])(
     'passes %s as both translation target and synthesized speech language',
     async (target) => {
       const { input, dependencies, controller, callbacks } = fixture();

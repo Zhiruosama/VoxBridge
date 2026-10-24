@@ -84,7 +84,17 @@ import {
 import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
 import { useTextSelection } from './hooks/useTextSelection';
 
-const languages = ['英语', '简体中文', '日语', '韩语', '西班牙语', '印尼语', '粤语', '芬兰语'];
+const languages = [
+  '英语',
+  '简体中文',
+  '日语',
+  '韩语',
+  '西班牙语',
+  '印尼语',
+  '粤语',
+  '芬兰语',
+  '俄语',
+];
 type Page = 'workspace' | 'settings' | 'diagnostics';
 
 export default function App() {
