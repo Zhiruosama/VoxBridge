@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { focusMain, readOverlay, stopOverlayListening } from '../bridge';
 import { newerOverlay, subtitleDefaults } from '../core/overlay';
 import { useReadingFollow } from '../hooks/useReadingFollow';
+import { useOverlayDrag } from '../hooks/useOverlayDrag';
 import { useTextSelection } from '../hooks/useTextSelection';
 import type { OverlaySnapshot } from '../core/types';
 
@@ -52,6 +53,7 @@ export default function SubtitleOverlay() {
       setError('操作失败，请返回主窗口。');
     }
   }
+  const drag = useOverlayDrag(() => setError('无法拖动字幕窗，请重试。'));
   const active = snapshot.phase !== 'idle';
   return (
     <div
@@ -63,8 +65,8 @@ export default function SubtitleOverlay() {
         lineHeight: snapshot.lineHeight,
       }}
     >
-      <header className="subtitle-overlay-toolbar" data-tauri-drag-region title="拖动字幕窗口">
-        <span data-tauri-drag-region>
+      <header className="subtitle-overlay-toolbar" title="拖动字幕窗口" {...drag}>
+        <span>
           {snapshot.phase === 'recovering' ? '正在恢复监听…' : active ? '字幕' : '监听已停止'}
         </span>
         <div>

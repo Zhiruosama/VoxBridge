@@ -1,5 +1,7 @@
 # Floating captions across macOS Spaces
 
+**Superseded for cross-application full screen:** user testing showed these flags on the ordinary TaoWindow were insufficient. See [the native-panel follow-up](2026-10-24-overlay-panel.md). Window-targeted capture was not valid evidence of full-screen compositing.
+
 ## Change
 
 The subtitle window was always-on-top but remained assigned to a single Space. Enabled Tauri's `visibleOnAllWorkspaces` for the subtitle window only.

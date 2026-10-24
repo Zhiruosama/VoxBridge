@@ -58,6 +58,7 @@ pub fn run() {
             overlay::read_overlay,
             overlay::show_overlay,
             overlay::hide_overlay,
+            overlay::drag_overlay,
             overlay::focus_main,
             overlay::stop_overlay_listening,
             credentials::credential_status,

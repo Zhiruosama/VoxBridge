@@ -30,6 +30,7 @@ fn main() {
             "read_overlay",
             "show_overlay",
             "hide_overlay",
+            "drag_overlay",
             "focus_main",
             "stop_overlay_listening",
         ]),

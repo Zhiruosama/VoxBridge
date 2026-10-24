@@ -173,3 +173,12 @@ export async function finishVoiceInput(requestId: string) {
 export async function cancelVoiceInput(requestId: string) {
   await invoke('cancel_voice_input', { requestId });
 }
+
+export async function dragOverlay(
+  id: string,
+  phase: 'begin' | 'move' | 'end',
+  x = 0,
+  y = 0,
+): Promise<void> {
+  await invoke('drag_overlay', { id, phase, x, y });
+}

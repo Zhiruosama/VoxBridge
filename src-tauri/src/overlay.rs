@@ -1,3 +1,5 @@
+#[cfg(target_os = "macos")]
+mod panel;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -177,30 +179,76 @@ pub async fn show_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
     let subtitle = overlay.clone();
     overlay
         .run_on_main_thread(move || {
-            let result = configure_subtitle_window(&subtitle)
-                .and_then(|()| subtitle.show().map_err(|_| "无法显示悬浮字幕窗。".into()));
+            let result = show_subtitle_window(&subtitle);
             let _ = tx.send(result);
         })
         .map_err(|_| "无法设置悬浮字幕窗。")?;
     rx.await.map_err(|_| "悬浮字幕窗已关闭。")?
 }
 
-// Called on AppKit's main thread immediately before showing, including reopens.
-fn configure_subtitle_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+fn show_subtitle_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        let pointer = window.ns_window().map_err(|_| "无法读取悬浮字幕窗。")?;
-        if pointer.is_null() {
-            return Err("悬浮字幕窗不可用。".into());
-        }
-        // The WebviewWindow remains alive throughout this main-thread closure.
-        let native = unsafe { &*pointer.cast::<objc2_app_kit::NSWindow>() };
-        native.setCollectionBehavior(subtitle_collection_behavior(native.collectionBehavior()));
-        native.setHidesOnDeactivate(false);
+        panel::show(window)
     }
     #[cfg(not(target_os = "macos"))]
-    let _ = window;
-    Ok(())
+    {
+        window.show().map_err(|_| "无法显示悬浮字幕窗。".into())
+    }
+}
+
+async fn hide_subtitle_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let subtitle = window.clone();
+    window
+        .run_on_main_thread(move || {
+            #[cfg(target_os = "macos")]
+            let result = {
+                panel::hide();
+                Ok(())
+            };
+            #[cfg(not(target_os = "macos"))]
+            let result = subtitle
+                .hide()
+                .map_err(|_| "无法隐藏悬浮字幕窗。".to_string());
+            let _ = subtitle;
+            let _ = tx.send(result);
+        })
+        .map_err(|_| "无法收起悬浮字幕窗。")?;
+    rx.await.map_err(|_| "悬浮字幕窗已关闭。")?
+}
+
+#[tauri::command]
+pub async fn drag_overlay(
+    window: tauri::WebviewWindow,
+    id: String,
+    phase: String,
+    x: f64,
+    y: f64,
+) -> Result<(), String> {
+    if window.label() != "subtitle" {
+        return Err("此操作仅限字幕窗。".into());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(panel::drag(id, &phase, x, y));
+            })
+            .map_err(|_| "无法拖动字幕窗。")?;
+        rx.await.map_err(|_| "字幕窗已关闭。")?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (id, x, y);
+        if phase != "begin" {
+            return Ok(());
+        }
+        window
+            .start_dragging()
+            .map_err(|_| "无法拖动字幕窗。".into())
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -222,16 +270,16 @@ fn subtitle_collection_behavior(
 }
 
 #[tauri::command]
-pub fn hide_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
+pub async fn hide_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
     let overlay = window
         .app_handle()
         .get_webview_window("subtitle")
         .ok_or("悬浮字幕窗不可用。")?;
-    overlay.hide().map_err(|_| "无法隐藏悬浮字幕窗。".into())
+    hide_subtitle_window(overlay).await
 }
 
 #[tauri::command]
-pub fn focus_main(window: tauri::WebviewWindow) -> Result<(), String> {
+pub async fn focus_main(window: tauri::WebviewWindow) -> Result<(), String> {
     let main = window
         .app_handle()
         .get_webview_window("main")
@@ -241,9 +289,7 @@ pub fn focus_main(window: tauri::WebviewWindow) -> Result<(), String> {
         .and_then(|_| main.set_focus())
         .map_err(|_| "无法返回主窗口。".to_string())?;
     if window.label() == "subtitle" {
-        window
-            .hide()
-            .map_err(|_| "主窗口已打开，但无法收起字幕窗。".to_string())?;
+        hide_subtitle_window(window).await?;
     }
     Ok(())
 }
@@ -375,8 +421,7 @@ mod tests {
         let allowed = [
             "core:event:allow-listen",
             "core:event:allow-unlisten",
-            "core:window:allow-start-dragging",
-            "core:window:allow-internal-toggle-maximize",
+            "allow-drag-overlay",
             "allow-read-overlay",
             "allow-focus-main",
             "allow-stop-overlay-listening",
