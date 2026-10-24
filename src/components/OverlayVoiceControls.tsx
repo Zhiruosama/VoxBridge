@@ -143,12 +143,13 @@ export default function OverlayVoiceControls({
           <>
             {length > 1800 && <span className="overlay-voice-count">{length}/2000</span>}
             <button
-              aria-label="清空悬浮窗语音草稿"
-              title="清空草稿"
-              disabled={disabled || !idle}
+              type="button"
+              aria-label="关闭悬浮窗输入框"
+              title="收起输入框，保留草稿"
+              aria-controls="overlay-text-input"
               onClick={() => {
-                setDraft('');
-                void request({ action: 'discard' });
+                setTextOpen(false);
+                editorRef.current?.blur();
               }}
             >
               <X size={15} />
