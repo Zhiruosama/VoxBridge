@@ -1,3 +1,4 @@
+import { captionColorDefaults, parseCaptionColors } from './caption-colors';
 import type { OverlaySnapshot, Session, SubtitleAppearance } from './types';
 
 export const subtitleColors = ['#ffffff', '#ffe082', '#a5d6a7', '#80deea', '#ffcc80', '#f8bbd0'];
@@ -6,6 +7,7 @@ export const subtitleDefaults: SubtitleAppearance = {
   backgroundOpacity: 0.82,
   mode: 'continuous',
   content: 'translation',
+  colorMode: 'workspace',
   textColor: '#ffffff',
   lineHeight: 1.65,
 };
@@ -20,9 +22,10 @@ export function parseSubtitleAppearance(value: unknown): SubtitleAppearance {
       input.content === 'bilingual' || input.content === 'source'
         ? input.content
         : subtitleDefaults.content,
+    colorMode: input.colorMode === 'custom' ? 'custom' : 'workspace',
     textColor:
-      typeof input.textColor === 'string' && subtitleColors.includes(input.textColor)
-        ? input.textColor
+      typeof input.textColor === 'string' && /^#[\da-f]{6}$/i.test(input.textColor)
+        ? input.textColor.toLowerCase()
         : subtitleDefaults.textColor,
     lineHeight:
       typeof input.lineHeight === 'number' && Number.isFinite(input.lineHeight)
@@ -44,8 +47,10 @@ export function overlaySnapshot(
   phase: OverlaySnapshot['phase'],
   appearance: SubtitleAppearance,
   version: number,
+  captionColors = captionColorDefaults,
 ): OverlaySnapshot {
   const parsed = parseSubtitleAppearance(appearance);
+  const colors = parseCaptionColors(captionColors);
   // Always send a complete bounded snapshot: dropped events and reopening need no delta replay.
   const lines: OverlaySnapshot['lines'] = [];
   let budget = overlayCharacterBudget;
@@ -62,6 +67,10 @@ export function overlaySnapshot(
     budget -= cost;
     lines.unshift({
       segmentId: segment.id,
+      color:
+        parsed.colorMode === 'workspace'
+          ? colors[segment.id.startsWith('expression:') ? 'expression' : 'recognition']
+          : parsed.textColor,
       revision: segment.revision,
       final: segment.final,
       translationState: translation ? 'ready' : segment.translationError ? 'failed' : 'pending',

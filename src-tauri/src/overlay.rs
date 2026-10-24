@@ -9,6 +9,8 @@ use tauri::{Emitter, Manager};
 #[serde(rename_all = "camelCase")]
 pub struct OverlayLine {
     segment_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    color: Option<String>,
     revision: u32,
     r#final: bool,
     translation_state: String,
@@ -28,8 +30,19 @@ pub struct OverlaySnapshot {
     mode: String,
     content: String,
     text_color: String,
+    #[serde(default = "default_color_mode")]
+    color_mode: String,
     line_height: f64,
     lines: Vec<OverlayLine>,
+}
+
+fn default_color_mode() -> String {
+    "workspace".into()
+}
+fn valid_color(color: &str) -> bool {
+    color.len() == 7
+        && color.starts_with('#')
+        && color.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit)
 }
 
 impl Default for OverlaySnapshot {
@@ -43,6 +56,7 @@ impl Default for OverlaySnapshot {
             mode: "continuous".into(),
             content: "translation".into(),
             text_color: "#ffffff".into(),
+            color_mode: default_color_mode(),
             line_height: 1.65,
             lines: vec![],
         }
@@ -79,10 +93,8 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
             snapshot.content.as_str(),
             "translation" | "bilingual" | "source"
         )
-        || ![
-            "#ffffff", "#ffe082", "#a5d6a7", "#80deea", "#ffcc80", "#f8bbd0",
-        ]
-        .contains(&snapshot.text_color.as_str())
+        || !valid_color(&snapshot.text_color)
+        || !matches!(snapshot.color_mode.as_str(), "workspace" | "custom")
         || !snapshot.line_height.is_finite()
         || !(1.2..=2.2).contains(&snapshot.line_height)
         || snapshot.lines.len() > if snapshot.mode == "compact" { 3 } else { 160 }
@@ -103,7 +115,8 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
                 .any(|line| !ids.insert(&line.segment_id))
         }
         || snapshot.lines.iter().any(|line| {
-            line.segment_id.is_empty()
+            line.color.as_ref().is_some_and(|color| !valid_color(color))
+                || line.segment_id.is_empty()
                 || line.segment_id.len() > 256
                 || line.revision == 0
                 || !matches!(
@@ -371,6 +384,7 @@ mod tests {
         invalid.lines = (0..4)
             .map(|id| OverlayLine {
                 segment_id: format!("s-{id}"),
+                color: None,
                 revision: 1,
                 r#final: true,
                 translation_state: "pending".into(),
@@ -388,6 +402,7 @@ mod tests {
         value.lines = (0..160)
             .map(|id| OverlayLine {
                 segment_id: format!("caption-{id}"),
+                color: None,
                 revision: 1,
                 r#final: true,
                 translation_state: "ready".into(),
@@ -411,6 +426,30 @@ mod tests {
         value.text_color = "#ffffff".into();
         value.line_height = f64::INFINITY;
         assert!(validate(&value).is_err());
+    }
+
+    #[test]
+    fn custom_rgb_colors_are_supported_but_css_values_are_rejected() {
+        let mut value = snapshot(1);
+        value.color_mode = "custom".into();
+        value.text_color = "#12Ab34".into();
+        value.lines.push(OverlayLine {
+            segment_id: "expression:test".into(),
+            color: Some("#80deea".into()),
+            revision: 1,
+            r#final: true,
+            translation_state: "pending".into(),
+            source: "你好".into(),
+            translation: None,
+            time: "00:00:00".into(),
+        });
+        assert!(validate(&value).is_ok());
+        value.lines[0].color = Some("url(secret)".into());
+        assert!(validate(&value).is_err());
+        let mut old = serde_json::to_value(snapshot(1)).unwrap();
+        old.as_object_mut().unwrap().remove("colorMode");
+        let migrated: OverlaySnapshot = serde_json::from_value(old).unwrap();
+        assert_eq!(migrated.color_mode, "workspace");
     }
 
     #[test]

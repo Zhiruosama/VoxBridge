@@ -1285,7 +1285,7 @@ input:focus {
   overflow-wrap: anywhere;
 }
 .subtitle-overlay-source {
-  color: #e0e2e8;
+  color: var(--overlay-source-color, #e0e2e8);
   font-size: 0.85em;
 }
 .subtitle-overlay-translation {

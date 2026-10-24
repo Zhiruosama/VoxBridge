@@ -442,22 +442,61 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title="文字颜色">
-                <div className="subtitle-color-options" role="group" aria-label="悬浮字幕文字颜色">
-                  {subtitleColors.map((color, index) => (
-                    <button
-                      key={color}
-                      className="subtitle-color"
-                      aria-label={['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index]}
-                      aria-pressed={draft.subtitle.textColor === color}
-                      style={{ backgroundColor: color }}
-                      onClick={() =>
-                        setDraft({ ...draft, subtitle: { ...draft.subtitle, textColor: color } })
-                      }
-                    />
-                  ))}
-                </div>
+              <SettingRow title="配色来源">
+                <Select
+                  label="悬浮字幕配色来源"
+                  value={draft.subtitle.colorMode}
+                  options={[
+                    { value: 'workspace', label: '跟随工作台字幕配色' },
+                    { value: 'custom', label: '单独设置' },
+                  ]}
+                  onChange={(value) =>
+                    setDraft({
+                      ...draft,
+                      subtitle: { ...draft.subtitle, colorMode: value as 'workspace' | 'custom' },
+                    })
+                  }
+                />
               </SettingRow>
+              {draft.subtitle.colorMode === 'custom' && (
+                <>
+                  <SettingRow title="文字颜色">
+                    <div
+                      className="subtitle-color-options"
+                      role="group"
+                      aria-label="悬浮字幕文字颜色"
+                    >
+                      {subtitleColors.map((color, index) => (
+                        <button
+                          key={color}
+                          className="subtitle-color"
+                          aria-label={['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index]}
+                          aria-pressed={draft.subtitle.textColor === color}
+                          style={{ backgroundColor: color }}
+                          onClick={() =>
+                            setDraft({
+                              ...draft,
+                              subtitle: { ...draft.subtitle, textColor: color },
+                            })
+                          }
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        aria-label="悬浮字幕自定义颜色"
+                        className="caption-custom-color"
+                        value={draft.subtitle.textColor}
+                        onChange={(event) =>
+                          setDraft({
+                            ...draft,
+                            subtitle: { ...draft.subtitle, textColor: event.target.value },
+                          })
+                        }
+                      />
+                    </div>
+                  </SettingRow>
+                </>
+              )}
               <SettingRow title="行距">
                 <input
                   type="range"

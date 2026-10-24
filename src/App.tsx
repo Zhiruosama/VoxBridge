@@ -193,15 +193,15 @@ export default function App() {
     if (!desktop || !overlayReady) return;
     let disposed = false;
     const version = ++overlayVersionRef.current;
-    void publishOverlay(overlaySnapshot(session, listenPhase, settings.subtitle, version)).catch(
-      () => {
-        if (!disposed) setOverlayError('悬浮字幕同步失败，请返回主窗口测试。');
-      },
-    );
+    void publishOverlay(
+      overlaySnapshot(session, listenPhase, settings.subtitle, version, settings.captionColors),
+    ).catch(() => {
+      if (!disposed) setOverlayError('悬浮字幕同步失败，请返回主窗口测试。');
+    });
     return () => {
       disposed = true;
     };
-  }, [session, listenPhase, settings.subtitle, overlayReady]);
+  }, [session, listenPhase, settings.subtitle, settings.captionColors, overlayReady]);
   useEffect(() => {
     if (!desktop || !overlayReady) return;
     void publishOverlayVoice({

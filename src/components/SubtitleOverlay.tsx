@@ -1,5 +1,5 @@
 import OverlayVoiceControls from './OverlayVoiceControls';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { focusMain, readOverlay, stopOverlayListening } from '../bridge';
 import { newerOverlay, subtitleDefaults } from '../core/overlay';
@@ -100,7 +100,16 @@ export default function SubtitleOverlay() {
       >
         {lines.length ? (
           lines.map((line) => (
-            <article key={line.segmentId} data-caption-id={line.segmentId}>
+            <article
+              key={line.segmentId}
+              data-caption-id={line.segmentId}
+              style={
+                {
+                  color: line.color ?? snapshot.textColor,
+                  '--overlay-source-color': `color-mix(in srgb, ${line.color ?? snapshot.textColor} 72%, #16181d)`,
+                } as CSSProperties
+              }
+            >
               {(snapshot.content !== 'translation' || !line.translation) && (
                 <p
                   className={

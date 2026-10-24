@@ -36,6 +36,7 @@ export interface ProviderProfile {
   translationPrompt?: string;
 }
 export interface SubtitleAppearance {
+  colorMode: 'workspace' | 'custom';
   fontSize: number;
   backgroundOpacity: number;
   mode: 'compact' | 'continuous';
@@ -49,6 +50,7 @@ export interface OverlaySnapshot extends SubtitleAppearance {
   phase: 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
   lines: {
     segmentId: string;
+    color?: string;
     revision: number;
     final: boolean;
     translationState: 'pending' | 'ready' | 'failed';

@@ -39,6 +39,7 @@ describe('subtitle overlay', () => {
     expect(snapshot.lines[0].source).toBe('line 2');
     expect(Object.keys(snapshot).sort()).toEqual([
       'backgroundOpacity',
+      'colorMode',
       'content',
       'fontSize',
       'lineHeight',
@@ -154,5 +155,38 @@ describe('subtitle overlay', () => {
       textColor: '#80deea',
       lineHeight: 2.2,
     });
+  });
+});
+
+it('follows workspace colors separately for recognition and expression captions', () => {
+  const session: Session = {
+    id: null,
+    segments: [
+      { id: 'heard', revision: 1, final: true, source: 'hello', time: '00:00:00' },
+      { id: 'expression:spoken', revision: 1, final: true, source: '你好', time: '00:00:01' },
+    ],
+  };
+  const colors = { recognition: '#80deea', expression: '#ffcc80' };
+  expect(
+    overlaySnapshot(session, 'idle', subtitleDefaults, 1, colors).lines.map((line) => line.color),
+  ).toEqual(['#80deea', '#ffcc80']);
+  expect(
+    overlaySnapshot(
+      session,
+      'idle',
+      { ...subtitleDefaults, colorMode: 'custom', textColor: '#12ab34' },
+      2,
+      colors,
+    ).lines.map((line) => line.color),
+  ).toEqual(['#12ab34', '#12ab34']);
+});
+it('keeps a custom color available when migrating to workspace sync', () => {
+  expect(parseSubtitleAppearance({ textColor: '#12AB34' })).toMatchObject({
+    colorMode: 'workspace',
+    textColor: '#12ab34',
+  });
+  expect(parseSubtitleAppearance({ colorMode: 'custom', textColor: 'url(secret)' })).toMatchObject({
+    colorMode: 'custom',
+    textColor: '#ffffff',
   });
 });
