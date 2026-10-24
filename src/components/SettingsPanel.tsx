@@ -297,6 +297,7 @@ export default function SettingsPanel({
                     '韩语',
                     '西班牙语',
                     '印尼语',
+                    '粤语',
                   ].map((language) => ({
                     value: language,
                     label: language,
@@ -310,7 +311,7 @@ export default function SettingsPanel({
                 <Select
                   label="字幕语言"
                   value={draft.listening.targetLanguage}
-                  options={['简体中文', '英语', '日语', '韩语', '西班牙语', '印尼语'].map(
+                  options={['简体中文', '英语', '日语', '韩语', '西班牙语', '印尼语', '粤语'].map(
                     (language) => ({
                       value: language,
                       label: language,
@@ -330,7 +331,7 @@ export default function SettingsPanel({
                 <Select
                   label="文字输入语言"
                   value={draft.sourceLanguage}
-                  options={['简体中文', '英语', '日语', '韩语', '西班牙语', '印尼语'].map(
+                  options={['简体中文', '英语', '日语', '韩语', '西班牙语', '印尼语', '粤语'].map(
                     (language) => ({
                       value: language,
                       label: language,
@@ -343,7 +344,7 @@ export default function SettingsPanel({
                 <Select
                   label="文字输出语言"
                   value={draft.targetLanguage}
-                  options={['简体中文', '英语', '日语', '韩语', '西班牙语', '印尼语'].map(
+                  options={['简体中文', '英语', '日语', '韩语', '西班牙语', '印尼语', '粤语'].map(
                     (language) => ({
                       value: language,
                       label: language,

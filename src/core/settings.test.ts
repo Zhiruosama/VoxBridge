@@ -352,3 +352,14 @@ it('retains Indonesian for incoming captions and outgoing speech after settings 
   expect(restored.targetLanguage).toBe('印尼语');
   expect(restored.listening).toEqual(settings.listening);
 });
+
+it('retains Cantonese across reload for both caption and speech settings', () => {
+  const settings = structuredClone(defaults);
+  settings.sourceLanguage = '粤语';
+  settings.targetLanguage = '粤语';
+  settings.listening = { sourceLanguage: '粤语', targetLanguage: '粤语' };
+  const restored = parseSettings(settings);
+  expect(restored.sourceLanguage).toBe('粤语');
+  expect(restored.targetLanguage).toBe('粤语');
+  expect(restored.listening).toEqual(settings.listening);
+});

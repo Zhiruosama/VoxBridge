@@ -296,57 +296,59 @@ async fn cancellation_drops_a_waiting_connection() {
 
 #[tokio::test]
 async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let mut p = profile(
-        "minimax_tts_ws",
-        format!("ws://{}", listener.local_addr().unwrap()),
-    );
-    p.language = Some("日语".into());
-    p.speed = 1.35;
-    let server = async {
-        let (stream, _) = listener.accept().await.unwrap();
-        let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
-        ws.send(Message::Text(
-            json!({"event":"connected_success","base_resp":{"status_code":0}})
-                .to_string()
-                .into(),
-        ))
-        .await
-        .unwrap();
-        let start: Value =
-            serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
-        assert_eq!(start["event"], "task_start");
-        assert_eq!(start["language_boost"], "Japanese");
-        assert_eq!(start["voice_setting"]["voice_id"], "test-voice");
-        assert_eq!(start["voice_setting"]["speed"], 1.35);
-        assert_eq!(start["audio_setting"]["format"], "mp3");
-        ws.send(Message::Text(
-            json!({"event":"task_started"}).to_string().into(),
-        ))
-        .await
-        .unwrap();
-        let text: Value =
-            serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
-        assert_eq!(text["text"], "hello");
-        for (index, chunk) in MP3.chunks(MP3.len().div_ceil(2)).enumerate() {
+    for (language, boost) in [("日语", "Japanese"), ("粤语", "Chinese,Yue")] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut p = profile(
+            "minimax_tts_ws",
+            format!("ws://{}", listener.local_addr().unwrap()),
+        );
+        p.language = Some(language.into());
+        p.speed = 1.35;
+        let server = async {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
             ws.send(Message::Text(
-                json!({"data":{"audio":hex::encode(chunk)},"is_final":index==1})
+                json!({"event":"connected_success","base_resp":{"status_code":0}})
                     .to_string()
                     .into(),
             ))
             .await
             .unwrap();
-        }
-        let finish: Value =
-            serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
-        assert_eq!(finish["event"], "task_finish");
-        let _ = ws.close(None).await;
-    };
-    let (audio, _) = tokio::join!(
-        synthesize(&p, endpoint(&p).unwrap(), "hello", "mock-key"),
-        server
-    );
-    assert_eq!(audio.unwrap(), MP3);
+            let start: Value =
+                serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
+            assert_eq!(start["event"], "task_start");
+            assert_eq!(start["language_boost"], boost);
+            assert_eq!(start["voice_setting"]["voice_id"], "test-voice");
+            assert_eq!(start["voice_setting"]["speed"], 1.35);
+            assert_eq!(start["audio_setting"]["format"], "mp3");
+            ws.send(Message::Text(
+                json!({"event":"task_started"}).to_string().into(),
+            ))
+            .await
+            .unwrap();
+            let text: Value =
+                serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
+            assert_eq!(text["text"], "hello");
+            for (index, chunk) in MP3.chunks(MP3.len().div_ceil(2)).enumerate() {
+                ws.send(Message::Text(
+                    json!({"data":{"audio":hex::encode(chunk)},"is_final":index==1})
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .unwrap();
+            }
+            let finish: Value =
+                serde_json::from_str(ws.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
+            assert_eq!(finish["event"], "task_finish");
+            let _ = ws.close(None).await;
+        };
+        let (audio, _) = tokio::join!(
+            synthesize(&p, endpoint(&p).unwrap(), "hello", "mock-key"),
+            server
+        );
+        assert_eq!(audio.unwrap(), MP3);
+    }
 }
 
 #[tokio::test]

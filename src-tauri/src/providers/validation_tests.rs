@@ -456,3 +456,32 @@ async fn custom_prompt_applies_to_plain_text_without_history() {
         .starts_with("Keep it casual. CUSTOM_PLAIN"));
     assert_eq!(requests[0]["messages"][1]["content"], "最近怎么样？");
 }
+
+#[tokio::test]
+async fn cantonese_translation_preserves_dialect_rule_on_retry_and_accepts_han_text() {
+    let (url, server) = sequence(vec![
+        "How have you been lately?",
+        "你最近點呀？得閒一齊傾吓偈啦。",
+    ]);
+    let result = request_translation_with_context(
+        url,
+        "fixture".into(),
+        "test",
+        "How have you been lately?",
+        "英语",
+        "粤语",
+        None,
+        &TranslationContext::default(),
+        Some("Keep it casual."),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result, "你最近點呀？得閒一齊傾吓偈啦。");
+    let requests = server.join().unwrap();
+    assert_eq!(requests.len(), 2);
+    for request in requests {
+        let prompt = request["messages"][0]["content"].as_str().unwrap();
+        assert!(prompt.contains("conversational Cantonese"));
+        assert!(prompt.starts_with("Keep it casual."));
+    }
+}

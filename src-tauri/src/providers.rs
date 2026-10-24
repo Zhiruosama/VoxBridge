@@ -353,6 +353,11 @@ async fn request_translation_with_context(
     prompt: Option<&str>,
 ) -> Result<String, String> {
     let style = translation_style(prompt)?;
+    let style = if target == "粤语" {
+        format!("{style}\nUse natural conversational Cantonese (廣東話) with Cantonese vocabulary and grammar, written in Chinese characters, not Mandarin prose or romanization.")
+    } else {
+        style.to_owned()
+    };
     let client = translation_client()?;
     let mut payload = serde_json::json!({
         "model": model, "stream": false,
@@ -430,8 +435,14 @@ pub(crate) const INVALID_TRANSLATION: &str = "翻译服务未返回有效译文�
 
 fn valid_translation(source: &str, result: &str, target: &str) -> bool {
     if let Some(actual) = crate::language::detect(result) {
-        if ["英语", "简体中文", "日语", "韩语", "西班牙语", "印尼语"].contains(&target)
-            && actual != target
+        // Offline Han-script detection cannot distinguish written Cantonese from Mandarin.
+        let expected = if target == "粤语" {
+            "简体中文"
+        } else {
+            target
+        };
+        if ["英语", "简体中文", "日语", "韩语", "西班牙语", "印尼语"].contains(&expected)
+            && actual != expected
         {
             return false;
         }
@@ -466,7 +477,7 @@ fn valid_translation(source: &str, result: &str, target: &str) -> bool {
         .filter(|c| matches!(c, '\u{3400}'..='\u{9fff}'))
         .count();
     let letters = source.chars().filter(|c| c.is_ascii_alphabetic()).count();
-    if target.contains("中文") && letters >= 4 && han == 0 {
+    if (target.contains("中文") || target == "粤语") && letters >= 4 && han == 0 {
         // Numbers and proper names are allowed unchanged; source-language prose is not.
         let words = source.split_whitespace().count();
         let name = words <= 4

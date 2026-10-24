@@ -80,6 +80,7 @@ pub fn speech_language(language: Option<&str>) -> Result<&'static str, String> {
         Some("韩语") => Ok("Korean"),
         Some("西班牙语") => Ok("Spanish"),
         Some("印尼语") => Ok("Indonesian"),
+        Some("粤语") => Ok("Chinese,Yue"),
         _ => Err("不支持所选语音语言。".into()),
     }
 }
@@ -138,6 +139,7 @@ mod tests {
             ("韩语", "Korean"),
             ("西班牙语", "Spanish"),
             ("印尼语", "Indonesian"),
+            ("粤语", "Chinese,Yue"),
         ] {
             assert_eq!(speech_language(Some(language)).unwrap(), expected);
         }
