@@ -101,7 +101,10 @@ export default function SendQueueControls({
               {view.items.map((item) => (
                 <article key={item.id}>
                   <div className="queue-item-heading">
-                    <span>{labels[item.status] || '准备中'}</span>
+                    <span>
+                      {labels[item.status] || '准备中'}
+                      {item.targetLanguage ? ` · ${item.targetLanguage}` : ''}
+                    </span>
                     <button onClick={() => onAction({ action: 'queueCancel', id: item.id })}>
                       取消
                     </button>

@@ -196,3 +196,15 @@ it('applies monitoring changes when a prefetched message reaches playback', asyn
   f.playing.get('two:0')!.resolve();
   await b;
 });
+
+it('shows each queued message target from its submission snapshot', async () => {
+  const f = fixture();
+  f.settings.targetLanguage = '英语';
+  const a = f.enqueue('one');
+  f.settings.targetLanguage = '日语';
+  const b = f.enqueue('two');
+  f.settings.targetLanguage = '简体中文';
+  expect(f.queue.snapshot().items.map((item) => item.targetLanguage)).toEqual(['英语', '日语']);
+  await f.queue.clear();
+  await Promise.all([a, b]);
+});

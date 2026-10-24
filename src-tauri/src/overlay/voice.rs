@@ -24,7 +24,10 @@ struct QueueSnapshot {
     items: Vec<QueueItem>,
 }
 #[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct QueueItem {
+    #[serde(default)]
+    target_language: String,
     id: String,
     text: String,
     status: String,
@@ -71,7 +74,8 @@ pub enum VoiceRequest {
 fn validate(state: &VoiceSnapshot) -> Result<(), String> {
     if state.queue.items.len() > 10
         || state.queue.items.iter().any(|item| {
-            item.id.len() > 128
+            item.target_language.chars().count() > 32
+                || item.id.len() > 128
                 || item.text.chars().count() > 2000
                 || item.status.len() > 32
                 || item.error.chars().count() > 400

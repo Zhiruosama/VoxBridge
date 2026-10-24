@@ -22,7 +22,14 @@ export type QueueAction =
   | { action: 'queueEdit'; id: string; text: string };
 export type QueueView = {
   paused: boolean;
-  items: { id: string; text: string; status: string; error: string; active: boolean }[];
+  items: {
+    id: string;
+    text: string;
+    status: string;
+    error: string;
+    active: boolean;
+    targetLanguage: string;
+  }[];
 };
 type Input = Parameters<ComposerController['run']>[0];
 type Callbacks = Omit<Parameters<ComposerController['run']>[1], 'translation'> & {
@@ -63,6 +70,7 @@ export class SendQueue {
       items: this.jobs.map((j) => ({
         id: j.id,
         text: j.input.text,
+        targetLanguage: j.input.settings.targetLanguage,
         status: j.status,
         error: j.error,
         active: this.playing === j,

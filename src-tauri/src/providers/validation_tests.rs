@@ -99,7 +99,12 @@ async fn repeated_wrong_language_returns_only_a_sanitized_error() {
         None,
     )
     .await;
-    assert_eq!(result.unwrap_err(), INVALID_TRANSLATION);
+    let error = result.unwrap_err();
+    assert!(error.starts_with(INVALID_TRANSLATION));
+    assert!(error.contains("目标：简体中文"));
+    assert!(error.contains("返回语言识别："));
+    assert!(!error.contains("test-key"));
+    assert!(!error.contains("Are you pushing it?"));
     assert_eq!(server.join().unwrap().len(), 2);
 }
 
@@ -520,4 +525,33 @@ async fn short_japanese_kanji_is_accepted_without_retrying_a_successful_translat
     assert_eq!(requests.len(), 1);
     let prompt = requests[0]["messages"][0]["content"].as_str().unwrap();
     assert!(prompt.contains("Translate standalone words and commands literally"));
+}
+
+#[tokio::test]
+async fn retries_conversational_mixed_script_input_as_data_and_preserves_the_full_source() {
+    let source = "对我这是麦克，然后他识别的语言可能就会有点奇怪。我当前只开发了mac的版本，我后面会开发windows版本的。";
+    let english = "Yeah this is me, Mike, so the language it recognizes might be a bit weird. I've only developed the Mac version so far, I'll do a Windows version later.";
+    assert!(valid_translation(source, english, "英语"));
+    let (url, server) = sequence(vec!["好的，我知道你之后会开发 Windows 版本。", english]);
+    let result = request_translation(
+        url,
+        "fixture".into(),
+        "test",
+        source,
+        "简体中文",
+        "英语",
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(result, english);
+    let requests = server.join().unwrap();
+    assert_eq!(requests.len(), 2);
+    let retry: serde_json::Value =
+        serde_json::from_str(requests[1]["messages"][1]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(retry["currentText"], source);
+    assert!(requests[1]["messages"][0]["content"]
+        .as_str()
+        .unwrap()
+        .contains("Translate ONLY currentText"));
 }
