@@ -240,12 +240,18 @@ export function parseSettings(value: unknown): Settings {
     subtitle: parseSubtitleAppearance(input.subtitle),
     composer: parseComposerSettings(input.composer),
     listening: {
-      sourceLanguage: ['自动识别', '英语', '简体中文', '日语', '韩语', '西班牙语'].includes(
-        (input.listening as Record<string, unknown> | undefined)?.sourceLanguage as string,
-      )
+      sourceLanguage: [
+        '自动识别',
+        '英语',
+        '简体中文',
+        '日语',
+        '韩语',
+        '西班牙语',
+        '印尼语',
+      ].includes((input.listening as Record<string, unknown> | undefined)?.sourceLanguage as string)
         ? (input.listening as Record<string, string>).sourceLanguage
         : defaults.listening.sourceLanguage,
-      targetLanguage: ['英语', '简体中文', '日语', '韩语', '西班牙语'].includes(
+      targetLanguage: ['英语', '简体中文', '日语', '韩语', '西班牙语', '印尼语'].includes(
         (input.listening as Record<string, unknown> | undefined)?.targetLanguage as string,
       )
         ? (input.listening as Record<string, string>).targetLanguage

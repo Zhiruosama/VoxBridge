@@ -341,3 +341,14 @@ it('persists per-profile speech speed and migrates old profiles to normal speed'
     ).toThrow();
   }
 });
+
+it('retains Indonesian for incoming captions and outgoing speech after settings reload', () => {
+  const settings = structuredClone(defaults);
+  settings.sourceLanguage = '印尼语';
+  settings.targetLanguage = '印尼语';
+  settings.listening = { sourceLanguage: '印尼语', targetLanguage: '印尼语' };
+  const restored = parseSettings(JSON.parse(JSON.stringify(settings)));
+  expect(restored.sourceLanguage).toBe('印尼语');
+  expect(restored.targetLanguage).toBe('印尼语');
+  expect(restored.listening).toEqual(settings.listening);
+});
