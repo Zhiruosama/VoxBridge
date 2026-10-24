@@ -167,13 +167,58 @@ pub fn read_overlay(state: tauri::State<'_, OverlayState>) -> Result<OverlaySnap
 }
 
 #[tauri::command]
-pub fn show_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
+pub async fn show_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
     require_main(window.label())?;
     let overlay = window
         .app_handle()
         .get_webview_window("subtitle")
         .ok_or("悬浮字幕窗不可用。")?;
-    overlay.show().map_err(|_| "无法显示悬浮字幕窗。".into())
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let subtitle = overlay.clone();
+    overlay
+        .run_on_main_thread(move || {
+            let result = configure_subtitle_window(&subtitle)
+                .and_then(|()| subtitle.show().map_err(|_| "无法显示悬浮字幕窗。".into()));
+            let _ = tx.send(result);
+        })
+        .map_err(|_| "无法设置悬浮字幕窗。")?;
+    rx.await.map_err(|_| "悬浮字幕窗已关闭。")?
+}
+
+// Called on AppKit's main thread immediately before showing, including reopens.
+fn configure_subtitle_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let pointer = window.ns_window().map_err(|_| "无法读取悬浮字幕窗。")?;
+        if pointer.is_null() {
+            return Err("悬浮字幕窗不可用。".into());
+        }
+        // The WebviewWindow remains alive throughout this main-thread closure.
+        let native = unsafe { &*pointer.cast::<objc2_app_kit::NSWindow>() };
+        native.setCollectionBehavior(subtitle_collection_behavior(native.collectionBehavior()));
+        native.setHidesOnDeactivate(false);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn subtitle_collection_behavior(
+    current: objc2_app_kit::NSWindowCollectionBehavior,
+) -> objc2_app_kit::NSWindowCollectionBehavior {
+    use objc2_app_kit::NSWindowCollectionBehavior as Behavior;
+    // AppKit requires mutually exclusive choices within both the Spaces and
+    // Stage Manager groups. Preserve unrelated behavior managed by Tauri.
+    (current
+        & !(Behavior::MoveToActiveSpace
+            | Behavior::FullScreenPrimary
+            | Behavior::FullScreenNone
+            | Behavior::Primary
+            | Behavior::Auxiliary))
+        | Behavior::CanJoinAllSpaces
+        | Behavior::FullScreenAuxiliary
+        | Behavior::CanJoinAllApplications
 }
 
 #[tauri::command]
@@ -218,6 +263,31 @@ pub fn stop_overlay_listening(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn subtitle_joins_spaces_and_fullscreen_without_conflicting_window_roles() {
+        use objc2_app_kit::NSWindowCollectionBehavior as Behavior;
+        let original = Behavior::MoveToActiveSpace
+            | Behavior::FullScreenPrimary
+            | Behavior::Primary
+            | Behavior::IgnoresCycle;
+        let actual = subtitle_collection_behavior(original);
+        assert!(actual.contains(
+            Behavior::CanJoinAllSpaces
+                | Behavior::FullScreenAuxiliary
+                | Behavior::CanJoinAllApplications
+                | Behavior::IgnoresCycle
+        ));
+        assert!(!actual.intersects(
+            Behavior::MoveToActiveSpace
+                | Behavior::FullScreenPrimary
+                | Behavior::FullScreenNone
+                | Behavior::Primary
+                | Behavior::Auxiliary
+        ));
+        assert_eq!(subtitle_collection_behavior(actual), actual);
+    }
 
     fn snapshot(version: u64) -> OverlaySnapshot {
         OverlaySnapshot {
