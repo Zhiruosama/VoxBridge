@@ -45,6 +45,7 @@ pub fn run() {
         .manage(asr::AsrState::default())
         .manage(microphone::MicrophoneState::default())
         .manage(overlay::OverlayState::default())
+        .manage(overlay::voice::OverlayVoiceState::default())
         .manage(speech::SpeechState::default())
         .manage(speech::AudioGate::new())
         .invoke_handler(tauri::generate_handler![
@@ -56,6 +57,9 @@ pub fn run() {
             language::detect_text_language,
             overlay::publish_overlay,
             overlay::read_overlay,
+            overlay::voice::read_overlay_voice,
+            overlay::voice::publish_overlay_voice,
+            overlay::voice::overlay_voice_action,
             overlay::show_overlay,
             overlay::hide_overlay,
             overlay::drag_overlay,

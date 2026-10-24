@@ -1,3 +1,4 @@
+import OverlayVoiceControls from './OverlayVoiceControls';
 import { useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { focusMain, readOverlay, stopOverlayListening } from '../bridge';
@@ -125,11 +126,15 @@ export default function SubtitleOverlay() {
           <p className="subtitle-overlay-empty">{active ? '等待字幕…' : '暂无字幕'}</p>
         )}
       </main>
-      {!reading.follow && lines.length > 0 && (
-        <button className="subtitle-overlay-latest" onClick={reading.jumpLatest}>
-          ↓ 回到最新
-        </button>
-      )}
+      <OverlayVoiceControls
+        leading={
+          !reading.follow && lines.length > 0 ? (
+            <button className="subtitle-overlay-latest" onClick={reading.jumpLatest}>
+              ↓ 回到最新
+            </button>
+          ) : undefined
+        }
+      />
     </div>
   );
 }

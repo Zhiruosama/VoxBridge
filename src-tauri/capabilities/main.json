@@ -9,7 +9,7 @@
     "allow-detect-text-language", "allow-cancel-translation", "allow-transcribe-wav",
     "allow-stop-asr", "allow-list-outputs", "allow-test-tone", "allow-stop-tone",
     "allow-list-capture-sources", "allow-capture-diagnostic", "allow-stop-capture", "allow-finish-listening", "allow-start-listening",
-    "allow-speak", "allow-stop-speech", "allow-set-speech-monitoring", "allow-open-virtual-mic-installer", "allow-publish-overlay", "allow-read-overlay",
+    "allow-speak", "allow-stop-speech", "allow-set-speech-monitoring", "allow-open-virtual-mic-installer", "allow-publish-overlay", "allow-read-overlay", "allow-read-overlay-voice", "allow-publish-overlay-voice",
     "allow-show-overlay", "allow-hide-overlay", "allow-focus-main", "allow-stop-overlay-listening"
   ]
 }

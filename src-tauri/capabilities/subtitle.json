@@ -5,6 +5,6 @@
   "windows": ["subtitle"],
   "permissions": [
     "core:event:allow-listen", "core:event:allow-unlisten", "allow-drag-overlay",
-    "allow-read-overlay", "allow-focus-main", "allow-stop-overlay-listening"
+    "allow-read-overlay", "allow-read-overlay-voice", "allow-overlay-voice-action", "allow-focus-main", "allow-stop-overlay-listening"
   ]
 }

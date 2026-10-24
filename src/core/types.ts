@@ -194,3 +194,29 @@ export interface CaptureProgress {
   droppedFrames: number;
   rms: number;
 }
+
+export interface OverlayVoiceState {
+  version: number;
+  phase:
+    | 'idle'
+    | 'starting'
+    | 'recording'
+    | 'recognizing'
+    | 'cancelling'
+    | 'waitingDevice'
+    | 'detecting'
+    | 'translating'
+    | 'synthesizing'
+    | 'decoding'
+    | 'playing'
+    | 'stopping';
+  level: number;
+  mode: 'send' | 'dictate';
+  enabled: boolean;
+  targetLanguage: string;
+  error: string;
+  draft: string;
+}
+export type OverlayVoiceRequest =
+  | { action: 'start' | 'finish' | 'cancel' | 'stop' | 'discard' }
+  | { action: 'send'; text: string };

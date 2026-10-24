@@ -1,5 +1,6 @@
 #[cfg(target_os = "macos")]
 mod panel;
+pub mod voice;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -422,6 +423,8 @@ mod tests {
             "core:event:allow-listen",
             "core:event:allow-unlisten",
             "allow-drag-overlay",
+            "allow-read-overlay-voice",
+            "allow-overlay-voice-action",
             "allow-read-overlay",
             "allow-focus-main",
             "allow-stop-overlay-listening",

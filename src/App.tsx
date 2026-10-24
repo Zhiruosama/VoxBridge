@@ -24,7 +24,14 @@ import ListeningStatus, {
   type ListeningProgress,
 } from './components/ListeningStatus';
 import { defaults, loadSettings, profileFor, saveSettings, validateProfile } from './core/settings';
-import type { CaptureSource, ListeningEvent, RuntimeInfo, Session, Settings } from './core/types';
+import type {
+  CaptureSource,
+  ListeningEvent,
+  RuntimeInfo,
+  Session,
+  Settings,
+  OverlayVoiceRequest,
+} from './core/types';
 import {
   appendExpression,
   applyTranscript,
@@ -52,6 +59,8 @@ import {
   desktop,
   listCaptureSources,
   publishOverlay,
+  publishOverlayVoice,
+  readOverlayVoice,
   readOverlay,
   showOverlay,
   runtimeInfo,
@@ -120,7 +129,12 @@ export default function App() {
   const listening = listenPhase !== 'idle';
   const [text, setText] = useState('');
   const draftRevisionRef = useRef(0);
-  const voiceRef = useRef<{ id: string; cancelled: boolean; finishing: boolean } | null>(null);
+  const voiceRef = useRef<{
+    id: string;
+    cancelled: boolean;
+    finishing: boolean;
+    origin: 'main' | 'overlay';
+  } | null>(null);
   const [voice, setVoice] = useState<{
     phase: 'starting' | 'recording' | 'recognizing' | 'cancelling';
     seconds: number;
@@ -139,6 +153,10 @@ export default function App() {
         setMonitoring: setSpeechMonitoring,
       }),
   );
+  const [overlayDraft, setOverlayDraft] = useState('');
+  const [overlayVoiceError, setOverlayVoiceError] = useState('');
+  const [overlayVoiceReady, setOverlayVoiceReady] = useState(false);
+  const overlayActionsRef = useRef<(request: OverlayVoiceRequest) => void>(() => {});
   const mountedRef = useRef(true);
   const composingRef = useRef(false);
   const [follow, setFollow] = useState(true);
@@ -153,10 +171,14 @@ export default function App() {
   useEffect(() => {
     if (!desktop) return;
     let disposed = false;
-    void readOverlay()
-      .then((snapshot) => {
+    void Promise.all([readOverlay(), readOverlayVoice()])
+      .then(([snapshot, voiceState]) => {
         if (!disposed) {
-          overlayVersionRef.current = Math.max(overlayVersionRef.current, snapshot.version);
+          overlayVersionRef.current = Math.max(
+            overlayVersionRef.current,
+            snapshot.version,
+            voiceState.version,
+          );
           setOverlayReady(true);
         }
       })
@@ -180,6 +202,84 @@ export default function App() {
       disposed = true;
     };
   }, [session, listenPhase, settings.subtitle, overlayReady]);
+  useEffect(() => {
+    if (!desktop || !overlayReady) return;
+    void publishOverlayVoice({
+      version: ++overlayVersionRef.current,
+      phase: voice?.phase ?? composerPhase,
+      level: voice?.level ?? 0,
+      mode: settings.composer.voiceInputMode || 'dictate',
+      enabled: page === 'workspace' && overlayVoiceReady,
+      targetLanguage: settings.targetLanguage,
+      error: Array.from(overlayVoiceError).slice(0, 400).join(''),
+      draft: overlayDraft,
+    }).catch(() => {});
+  }, [
+    voice,
+    composerPhase,
+    settings.composer.voiceInputMode,
+    settings.targetLanguage,
+    page,
+    overlayReady,
+    overlayVoiceReady,
+    overlayVoiceError,
+    overlayDraft,
+  ]);
+  useEffect(() => {
+    if (!desktop) return;
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    void listen<OverlayVoiceRequest>('overlay-voice-request', (event) =>
+      overlayActionsRef.current(event.payload),
+    )
+      .then((unlisten) => {
+        if (disposed) unlisten();
+        else {
+          unsubscribe = unlisten;
+          setOverlayVoiceReady(true);
+        }
+      })
+      .catch(() => {
+        if (!disposed) setOverlayVoiceError('悬浮窗语音入口未就绪，请重启软件。');
+      });
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+    };
+  }, []);
+  overlayActionsRef.current = (request) => {
+    if (request.action === 'cancel') {
+      void cancelVoice();
+      return;
+    }
+    if (request.action === 'finish') {
+      void finishVoice();
+      return;
+    }
+    if (request.action === 'stop') {
+      void stopComposer();
+      return;
+    }
+    if (page !== 'workspace') {
+      setOverlayVoiceError('请先在主窗口保存设置并返回字幕页。');
+      return;
+    }
+    if (voiceRef.current || composer.busy) return;
+    if (request.action === 'start') {
+      if (overlayDraft.trim()) {
+        setOverlayVoiceError('请先发送或清空悬浮窗中的草稿。');
+        return;
+      }
+      void beginVoice('overlay');
+    } else if (request.action === 'send') {
+      setOverlayDraft(request.text);
+      setOverlayVoiceError('');
+      void sendOverlaySource(request.text);
+    } else if (request.action === 'discard') {
+      setOverlayDraft('');
+      setOverlayVoiceError('');
+    }
+  };
   useEffect(() => {
     if (!desktop) return;
     let disposed = false;
@@ -381,6 +481,11 @@ export default function App() {
     action: 'speak' | 'translate',
     route = settings.composer.route,
     sourceOverride?: string,
+    options?: {
+      preserveDraft: boolean;
+      onError: (message: string) => void;
+      onComplete: () => void;
+    },
   ) {
     if (composer.busy || voiceRef.current) return;
     if (!desktop) {
@@ -416,6 +521,7 @@ export default function App() {
           notice: notify,
           accepted: () => {
             if (
+              !options?.preserveDraft &&
               action === 'speak' &&
               route === 'send' &&
               draftRevisionRef.current === sourceRevision
@@ -436,21 +542,35 @@ export default function App() {
         },
       );
       if (outcome === 'stopped') restoreSubmittedDraft();
+      if (outcome === 'completed' && mountedRef.current) options?.onComplete();
     } catch (error) {
       restoreSubmittedDraft();
-      if (mountedRef.current) notify(String(error));
+      if (mountedRef.current) {
+        notify(String(error));
+        options?.onError(String(error));
+      }
     }
   }
 
-  async function beginVoice() {
+  async function sendOverlaySource(source: string) {
+    await runComposer('speak', settings.composer.route, source, {
+      preserveDraft: true,
+      onError: setOverlayVoiceError,
+      onComplete: () => setOverlayDraft(''),
+    });
+  }
+
+  async function beginVoice(origin: 'main' | 'overlay' = 'main') {
     if (voiceRef.current || composer.busy || !desktop) return;
     const profile = profileFor(settings, 'asr');
     const invalid = validateProfile(profile);
     if (invalid) {
+      if (origin === 'overlay') setOverlayVoiceError(invalid);
       notify(invalid);
       return;
     }
-    const operation = { id: crypto.randomUUID(), cancelled: false, finishing: false };
+    const operation = { id: crypto.randomUUID(), cancelled: false, finishing: false, origin };
+    setOverlayVoiceError('');
     const revision = draftRevisionRef.current;
     const previous = text;
     const mode = settings.composer.voiceInputMode || 'dictate';
@@ -472,6 +592,15 @@ export default function App() {
         },
       );
       if (!mountedRef.current || voiceRef.current !== operation || operation.cancelled) return;
+      if (origin === 'overlay') {
+        if (Array.from(result.text).length > 6000)
+          throw new Error('识别内容过长，请缩短录音后重试。');
+        setOverlayDraft(result.text);
+        voiceRef.current = null;
+        setVoice(null);
+        if (mode === 'send') await sendOverlaySource(result.text);
+        return;
+      }
       if (draftRevisionRef.current !== revision) {
         notify('录音期间输入内容有修改，识别结果已追加，请确认后发送。');
         draftRevisionRef.current++;
@@ -491,7 +620,10 @@ export default function App() {
         await runComposer('speak', settings.composer.route, combined);
       }
     } catch (error) {
-      if (mountedRef.current && !operation.cancelled) notify(String(error));
+      if (mountedRef.current && !operation.cancelled) {
+        notify(String(error));
+        if (origin === 'overlay') setOverlayVoiceError(String(error));
+      }
     } finally {
       if (voiceRef.current === operation) {
         voiceRef.current = null;

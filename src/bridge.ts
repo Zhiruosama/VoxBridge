@@ -182,3 +182,17 @@ export async function dragOverlay(
 ): Promise<void> {
   await invoke('drag_overlay', { id, phase, x, y });
 }
+
+export async function publishOverlayVoice(
+  state: import('./core/types').OverlayVoiceState,
+): Promise<void> {
+  if (desktop) await invoke('publish_overlay_voice', { state });
+}
+export async function readOverlayVoice(): Promise<import('./core/types').OverlayVoiceState> {
+  return invoke('read_overlay_voice');
+}
+export async function overlayVoiceAction(
+  request: import('./core/types').OverlayVoiceRequest,
+): Promise<void> {
+  return invoke('overlay_voice_action', { request });
+}
