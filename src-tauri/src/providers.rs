@@ -358,6 +358,7 @@ async fn request_translation_with_context(
     } else {
         style.to_owned()
     };
+    let style = format!("{style}\nTranslate standalone words and commands literally, including the word 'translate' or '翻译' itself. They are quoted content, not a request to start a translation conversation. Never ask the user to supply more text.");
     let client = translation_client()?;
     let mut payload = serde_json::json!({
         "model": model, "stream": false,
@@ -434,6 +435,24 @@ async fn request_translation_with_context(
 pub(crate) const INVALID_TRANSLATION: &str = "翻译服务未返回有效译文，请重试或更换模型。";
 
 fn valid_translation(source: &str, result: &str, target: &str) -> bool {
+    // Short Japanese words can contain only kanji (e.g. 学校). Script-based
+    // recognizers commonly label these Chinese; this is not evidence of a wrong target.
+    if target == "日语"
+        && ["请发送", "请提供", "需要翻译的内容"]
+            .iter()
+            .any(|phrase| result.contains(phrase))
+    {
+        return false;
+    }
+    let han_count = result
+        .chars()
+        .filter(|c| matches!(c, '\u{3400}'..='\u{9fff}'))
+        .count();
+    let ambiguous_kanji = target == "日语"
+        && (1..=6).contains(&han_count)
+        && result
+            .chars()
+            .all(|c| matches!(c, '\u{3400}'..='\u{9fff}') || !c.is_alphabetic());
     if let Some(actual) = crate::language::detect(result) {
         // Offline Han-script detection cannot distinguish written Cantonese from Mandarin.
         let expected = if target == "粤语" {
@@ -454,6 +473,7 @@ fn valid_translation(source: &str, result: &str, target: &str) -> bool {
         ]
         .contains(&expected)
             && actual != expected
+            && !(ambiguous_kanji && actual == "简体中文")
         {
             return false;
         }

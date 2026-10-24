@@ -78,6 +78,12 @@ export default function SendQueueControls({
             <header>
               <strong>发送队列 · {view.items.length}</strong>
               <button
+                disabled={view.paused && view.items.some((item) => item.status === 'failed')}
+                title={
+                  view.paused && view.items.some((item) => item.status === 'failed')
+                    ? '请先重试或取消失败项，再继续队列'
+                    : undefined
+                }
                 onClick={() => onAction({ action: view.paused ? 'queueResume' : 'queuePause' })}
               >
                 {view.paused ? '继续' : '暂停'}
@@ -86,6 +92,11 @@ export default function SendQueueControls({
                 ×
               </button>
             </header>
+            {view.paused && view.items.some((item) => item.status === 'failed') && (
+              <p className="queue-error" role="status">
+                请重试或取消失败项，再继续发送。
+              </p>
+            )}
             <div className="send-queue-items">
               {view.items.map((item) => (
                 <article key={item.id}>

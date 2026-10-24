@@ -485,3 +485,39 @@ async fn cantonese_translation_preserves_dialect_rule_on_retry_and_accepts_han_t
         assert!(prompt.starts_with("Keep it casual."));
     }
 }
+
+#[tokio::test]
+async fn short_japanese_kanji_is_accepted_without_retrying_a_successful_translation() {
+    for result in ["翻訳", "学校", "東京", "日本語。"] {
+        assert!(valid_translation("翻译", result, "日语"));
+    }
+    assert!(!valid_translation(
+        "翻译",
+        "This is an untranslated English sentence.",
+        "日语"
+    ));
+    assert!(!valid_translation(
+        "翻译",
+        "这是一段没有翻译成日语的完整中文句子，不能作为日文译文接受。",
+        "日语"
+    ));
+    assert!(!valid_translation("翻译", "请发送需要翻译的内容。", "日语"));
+    assert!(!valid_translation("翻译", "请提供原文", "日语"));
+    let (url, server) = sequence(vec!["翻訳"]);
+    let translated = request_translation(
+        url,
+        "fixture".into(),
+        "test",
+        "翻译",
+        "简体中文",
+        "日语",
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(translated, "翻訳");
+    let requests = server.join().unwrap();
+    assert_eq!(requests.len(), 1);
+    let prompt = requests[0]["messages"][0]["content"].as_str().unwrap();
+    assert!(prompt.contains("Translate standalone words and commands literally"));
+}
