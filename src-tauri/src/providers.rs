@@ -450,6 +450,7 @@ fn valid_translation(source: &str, result: &str, target: &str) -> bool {
             "印尼语",
             "芬兰语",
             "俄语",
+            "德语",
         ]
         .contains(&expected)
             && actual != expected
@@ -523,6 +524,7 @@ mod tests {
             "印尼语",
             "芬兰语",
             "俄语",
+            "德语",
         ] {
             assert!(!valid_translation(
                 "今天很适合和朋友一起聊天。",

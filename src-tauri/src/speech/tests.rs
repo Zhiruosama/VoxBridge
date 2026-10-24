@@ -301,6 +301,7 @@ async fn minimax_websocket_orders_messages_and_combines_audio_chunks() {
         ("粤语", "Chinese,Yue"),
         ("芬兰语", "Finnish"),
         ("俄语", "Russian"),
+        ("德语", "German"),
     ] {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let mut p = profile(

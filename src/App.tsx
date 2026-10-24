@@ -94,6 +94,7 @@ const languages = [
   '粤语',
   '芬兰语',
   '俄语',
+  '德语',
 ];
 type Page = 'workspace' | 'settings' | 'diagnostics';
 

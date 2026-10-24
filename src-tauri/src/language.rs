@@ -44,6 +44,7 @@ fn recognize(text: &str) -> Option<&'static str> {
         "id" => Some("印尼语"),
         "fi" => Some("芬兰语"),
         "ru" => Some("俄语"),
+        "de" => Some("德语"),
         _ => None,
     }
 }
@@ -63,6 +64,7 @@ fn recognize(text: &str) -> Option<&'static str> {
         whatlang::Lang::Ind => "印尼语",
         whatlang::Lang::Fin => "芬兰语",
         whatlang::Lang::Rus => "俄语",
+        whatlang::Lang::Deu => "德语",
         _ => return None,
     })
 }
@@ -87,6 +89,7 @@ pub fn speech_language(language: Option<&str>) -> Result<&'static str, String> {
         Some("粤语") => Ok("Chinese,Yue"),
         Some("芬兰语") => Ok("Finnish"),
         Some("俄语") => Ok("Russian"),
+        Some("德语") => Ok("German"),
         _ => Err("不支持所选语音语言。".into()),
     }
 }
@@ -106,7 +109,8 @@ mod tests {
         ] {
             assert_eq!(detect(text), Some(expected));
         }
-        assert_eq!(detect("Guten Morgen, wie geht es dir heute?"), None);
+        assert_eq!(detect("Guten Morgen, wie geht es dir heute?"), Some("德语"));
+        assert_eq!(detect("Bonjour, comment allez-vous aujourd’hui ?"), None);
     }
     #[test]
     #[cfg(target_os = "macos")]
@@ -150,6 +154,7 @@ mod tests {
             ("粤语", "Chinese,Yue"),
             ("芬兰语", "Finnish"),
             ("俄语", "Russian"),
+            ("德语", "German"),
         ] {
             assert_eq!(speech_language(Some(language)).unwrap(), expected);
         }

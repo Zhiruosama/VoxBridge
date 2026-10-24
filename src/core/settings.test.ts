@@ -385,3 +385,14 @@ it('retains Russian for incoming captions and outgoing speech after reload', () 
   expect(restored.targetLanguage).toBe('俄语');
   expect(restored.listening).toEqual(settings.listening);
 });
+
+it('retains German for incoming captions and outgoing speech after reload', () => {
+  const settings = structuredClone(defaults);
+  settings.sourceLanguage = '德语';
+  settings.targetLanguage = '德语';
+  settings.listening = { sourceLanguage: '自动识别', targetLanguage: '德语' };
+  const restored = parseSettings(JSON.parse(JSON.stringify(settings)));
+  expect(restored.sourceLanguage).toBe('德语');
+  expect(restored.targetLanguage).toBe('德语');
+  expect(restored.listening).toEqual(settings.listening);
+});

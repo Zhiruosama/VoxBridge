@@ -251,6 +251,7 @@ export function parseSettings(value: unknown): Settings {
         '粤语',
         '芬兰语',
         '俄语',
+        '德语',
       ].includes((input.listening as Record<string, unknown> | undefined)?.sourceLanguage as string)
         ? (input.listening as Record<string, string>).sourceLanguage
         : defaults.listening.sourceLanguage,
@@ -264,6 +265,7 @@ export function parseSettings(value: unknown): Settings {
         '粤语',
         '芬兰语',
         '俄语',
+        '德语',
       ].includes((input.listening as Record<string, unknown> | undefined)?.targetLanguage as string)
         ? (input.listening as Record<string, string>).targetLanguage
         : defaults.listening.targetLanguage,

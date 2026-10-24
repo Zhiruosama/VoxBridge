@@ -66,18 +66,26 @@ describe('selected language and direct speech', () => {
       modelId: 'next-model',
     });
   });
-  it.each(['英语', '简体中文', '日语', '韩语', '西班牙语', '印尼语', '粤语', '芬兰语', '俄语'])(
-    'passes %s as both translation target and synthesized speech language',
-    async (target) => {
-      const { input, dependencies, controller, callbacks } = fixture();
-      input.settings.targetLanguage = target;
-      input.settings.listening = { sourceLanguage: '英语', targetLanguage: '简体中文' };
-      await controller.run({ ...input, listening: true }, callbacks);
-      expect(dependencies.translate.mock.calls[0]?.[3]).toBe(target);
-      expect(dependencies.speak.mock.calls[0]?.[0].language).toBe(target);
-      expect(dependencies.speak.mock.calls[0]?.[1]).toBe('Hello');
-    },
-  );
+  it.each([
+    '英语',
+    '简体中文',
+    '日语',
+    '韩语',
+    '西班牙语',
+    '印尼语',
+    '粤语',
+    '芬兰语',
+    '俄语',
+    '德语',
+  ])('passes %s as both translation target and synthesized speech language', async (target) => {
+    const { input, dependencies, controller, callbacks } = fixture();
+    input.settings.targetLanguage = target;
+    input.settings.listening = { sourceLanguage: '英语', targetLanguage: '简体中文' };
+    await controller.run({ ...input, listening: true }, callbacks);
+    expect(dependencies.translate.mock.calls[0]?.[3]).toBe(target);
+    expect(dependencies.speak.mock.calls[0]?.[0].language).toBe(target);
+    expect(dependencies.speak.mock.calls[0]?.[1]).toBe('Hello');
+  });
   it('skips translation and its configuration requirements when actual input matches target', async () => {
     const { input, dependencies, callbacks } = fixture();
     input.text = '今日はとてもいい天気ですね。';
