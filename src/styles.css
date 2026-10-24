@@ -517,6 +517,7 @@ nav button[aria-current='page'] {
   color: var(--text);
 }
 .speech-picker-panel {
+  grid-template-columns: minmax(0, 1fr);
   position: absolute;
   bottom: calc(100% + 12px);
   right: 0;
@@ -535,6 +536,7 @@ nav button[aria-current='page'] {
   font-size: 11px;
 }
 .speech-picker-panel .select-trigger {
+  min-width: 0;
   width: 100%;
   max-width: 100%;
 }
@@ -1016,6 +1018,7 @@ nav button[aria-current='page'] {
 }
 
 .select-trigger {
+  min-width: 0;
   display: flex;
   width: 100%;
   min-height: 40px;
@@ -1029,6 +1032,8 @@ nav button[aria-current='page'] {
   text-align: left;
 }
 .select-trigger > span:first-child {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1084,6 +1089,8 @@ nav button[aria-current='page'] {
   user-select: none;
 }
 .select-option > span:first-child {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -29,9 +29,20 @@ export default function Select({
   onOpenChange?: (open: boolean) => void;
   emptyLabel?: string;
 }) {
+  const selected = options.find((option) => option.value === value);
   const groups = [...new Set(options.map((option) => option.group ?? ''))];
   const renderOption = (option: Option) => (
-    <Primitive.Item className="select-option" value={option.value} key={option.value}>
+    <Primitive.Item
+      className="select-option"
+      value={option.value}
+      key={option.value}
+      title={
+        option.label === option.value
+          ? option.label
+          : `${option.label}
+${option.value}`
+      }
+    >
       <Primitive.ItemText>{option.label}</Primitive.ItemText>
       <Primitive.ItemIndicator className="select-check">
         <Check size={14} strokeWidth={2} />
@@ -47,6 +58,14 @@ export default function Select({
     >
       <Primitive.Trigger
         aria-label={label}
+        title={
+          selected
+            ? selected.label === value
+              ? value
+              : `${selected.label}
+${value}`
+            : undefined
+        }
         className={`select-trigger ${compact ? 'select-compact' : ''}`}
       >
         <Primitive.Value placeholder={placeholder} />
