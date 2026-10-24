@@ -11,8 +11,13 @@ pub struct VoiceSnapshot {
     mode: String,
     enabled: bool,
     target_language: String,
+    #[serde(default = "normal_speed")]
+    speed: f64,
     error: String,
     draft: String,
+}
+fn normal_speed() -> f64 {
+    1.0
 }
 impl Default for VoiceSnapshot {
     fn default() -> Self {
@@ -23,6 +28,7 @@ impl Default for VoiceSnapshot {
             mode: "dictate".into(),
             enabled: false,
             target_language: "英语".into(),
+            speed: 1.0,
             error: String::new(),
             draft: String::new(),
         }
@@ -39,10 +45,13 @@ pub enum VoiceRequest {
     Stop,
     Discard,
     Send { text: String },
+    Speed { speed: f64 },
 }
 fn validate(state: &VoiceSnapshot) -> Result<(), String> {
     if state.version == 0
         || state.version > 9_007_199_254_740_991
+        || !state.speed.is_finite()
+        || !(0.5..=2.0).contains(&state.speed)
         || !state.level.is_finite()
         || !(0.0..=1.0).contains(&state.level)
         || !matches!(state.mode.as_str(), "dictate" | "send")
@@ -72,6 +81,11 @@ fn validate(state: &VoiceSnapshot) -> Result<(), String> {
 fn validate_request(label: &str, request: &VoiceRequest) -> Result<(), String> {
     if label != "subtitle" {
         return Err("此操作仅限字幕窗。".into());
+    }
+    if let VoiceRequest::Speed { speed } = request {
+        if !speed.is_finite() || !(0.5..=2.0).contains(speed) {
+            return Err("语速应在 0.5–2.0 倍之间。".into());
+        }
     }
     if let VoiceRequest::Send { text } = request {
         if text.trim().is_empty() || text.chars().count() > 2000 {
@@ -137,6 +151,22 @@ mod tests {
             }
         )
         .is_ok());
+    }
+    #[test]
+    fn speed_changes_require_subtitle_origin_and_valid_bounds() {
+        assert!(validate_request("main", &VoiceRequest::Speed { speed: 1.25 }).is_err());
+        for speed in [0.5, 1.25, 2.0] {
+            assert!(validate_request("subtitle", &VoiceRequest::Speed { speed }).is_ok());
+        }
+        for speed in [0.49, 2.01, f64::NAN, f64::INFINITY] {
+            assert!(validate_request("subtitle", &VoiceRequest::Speed { speed }).is_err());
+            assert!(validate(&VoiceSnapshot {
+                version: 1,
+                speed,
+                ..Default::default()
+            })
+            .is_err());
+        }
     }
     #[test]
     fn voice_state_rejects_invalid_progress_and_unbounded_content() {

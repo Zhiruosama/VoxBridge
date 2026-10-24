@@ -1927,3 +1927,39 @@ input:focus {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
+.speech-speed-trigger {
+  flex-shrink: 0;
+  padding: 4px 7px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.speech-speed-trigger:hover,
+.speech-speed-trigger[aria-expanded='true'] {
+  background: var(--hover);
+  color: var(--text);
+}
+.speech-speed-popover {
+  position: fixed;
+  z-index: 120;
+  display: grid;
+  gap: 12px;
+  width: 220px;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--menu);
+  color: var(--text);
+  box-shadow: 0 8px 24px #0004;
+  font-size: 12px;
+}
+:root[data-overlay='true'] .speech-speed-popover {
+  --text: #f5f5f7;
+  --muted: #bfc5d1;
+  --menu: #25272d;
+  --accent: #dedede;
+}

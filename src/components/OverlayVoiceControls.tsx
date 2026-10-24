@@ -11,6 +11,7 @@ import {
 } from '../core/overlay-voice';
 import type { OverlayVoiceRequest, OverlayVoiceState } from '../core/types';
 import VoiceActivity from './VoiceActivity';
+import SpeechSpeedPicker from './SpeechSpeedPicker';
 
 export default function OverlayVoiceControls({
   leading,
@@ -124,6 +125,11 @@ export default function OverlayVoiceControls({
         )}
       <div className="overlay-voice-actions">
         {leading}
+        <SpeechSpeedPicker
+          value={voice.speed}
+          disabled={!ready || !voice.enabled}
+          onChange={(speed) => void request({ action: 'speed', speed })}
+        />
         {recording ? (
           <VoiceActivity phase="recording" level={voice.level} />
         ) : (

@@ -6,6 +6,7 @@ export const overlayVoiceDefaults: OverlayVoiceState = {
   mode: 'dictate',
   enabled: false,
   targetLanguage: '英语',
+  speed: 1,
   error: '',
   draft: '',
 };

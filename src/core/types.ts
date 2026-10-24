@@ -224,9 +224,11 @@ export interface OverlayVoiceState {
   mode: 'send' | 'dictate';
   enabled: boolean;
   targetLanguage: string;
+  speed: number;
   error: string;
   draft: string;
 }
 export type OverlayVoiceRequest =
   | { action: 'start' | 'finish' | 'cancel' | 'stop' | 'discard' }
-  | { action: 'send'; text: string };
+  | { action: 'send'; text: string }
+  | { action: 'speed'; speed: number };

@@ -1,3 +1,5 @@
+import SpeechSpeedPicker from './components/SpeechSpeedPicker';
+import { updateSpeechProfile } from './core/speech-presets';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import ExpressionReveal from './components/ExpressionReveal';
 import VoiceActivity from './components/VoiceActivity';
@@ -165,6 +167,7 @@ export default function App() {
   const [sidebar, setSidebar] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const translationProfile = profileFor(settings, 'translation');
+  const speechSpeed = profileFor(settings, 'tts').speed ?? 1;
   const overlayVersionRef = useRef(0);
   const [overlayReady, setOverlayReady] = useState(!desktop);
   const [overlayError, setOverlayError] = useState('');
@@ -213,6 +216,7 @@ export default function App() {
       mode: settings.composer.voiceInputMode || 'dictate',
       enabled: page === 'workspace' && overlayVoiceReady,
       targetLanguage: settings.targetLanguage,
+      speed: speechSpeed,
       error: Array.from(overlayVoiceError).slice(0, 400).join(''),
       draft: overlayDraft,
     }).catch(() => {});
@@ -221,6 +225,7 @@ export default function App() {
     composerPhase,
     settings.composer.voiceInputMode,
     settings.targetLanguage,
+    speechSpeed,
     page,
     overlayReady,
     overlayVoiceReady,
@@ -264,6 +269,11 @@ export default function App() {
     }
     if (page !== 'workspace') {
       setOverlayVoiceError('请先在主窗口保存设置并返回字幕页。');
+      return;
+    }
+    if (request.action === 'speed') {
+      if (Number.isFinite(request.speed) && request.speed >= 0.5 && request.speed <= 2)
+        persist(updateSpeechProfile(settings, { speed: request.speed }), true);
       return;
     }
     if (voiceRef.current || composer.busy) return;
@@ -1055,6 +1065,10 @@ export default function App() {
                       settings={settings}
                       onChange={(next) => persist(next, true)}
                       onSettings={() => openSettings('tts')}
+                    />
+                    <SpeechSpeedPicker
+                      value={speechSpeed}
+                      onChange={(speed) => persist(updateSpeechProfile(settings, { speed }), true)}
                     />
                     {text.length > 1800 && <span className="input-count">{text.length}/2000</span>}
                     <div className="composer-actions">
