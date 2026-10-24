@@ -44,6 +44,28 @@ function deferred<T>() {
 }
 
 describe('selected language and direct speech', () => {
+  it('keeps the current voice snapshot while later submissions use the changed voice', async () => {
+    const { input, dependencies, controller, callbacks } = fixture();
+    const translation = deferred<string>();
+    dependencies.translate.mockImplementationOnce(() => translation.promise);
+    const current = controller.run({ ...input, listening: true }, callbacks);
+    input.settings.profiles[2] = {
+      ...input.settings.profiles[2],
+      voice: 'next-voice',
+      modelId: 'next-model',
+    };
+    translation.resolve('Hello');
+    await current;
+    expect(dependencies.speak.mock.calls[0]?.[0]).toMatchObject({
+      voice: 'voice',
+      modelId: 'speech-model',
+    });
+    await controller.run({ ...input, id: 'next-request', listening: true }, callbacks);
+    expect(dependencies.speak.mock.calls[1]?.[0]).toMatchObject({
+      voice: 'next-voice',
+      modelId: 'next-model',
+    });
+  });
   it.each(['英语', '简体中文', '日语', '韩语', '西班牙语'])(
     'passes %s as both translation target and synthesized speech language',
     async (target) => {

@@ -18,6 +18,12 @@ import { subtitleColors, subtitleDefaults } from '../core/overlay';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import { applyProviderPreset, providerPresets } from '../core/provider-presets';
+import {
+  modelOptions,
+  voiceOptions,
+  speechProvider,
+  speechModelChange,
+} from '../core/speech-presets';
 
 export type SettingsSection = 'general' | Stage;
 const sectionTitles: Record<SettingsSection, string> = {
@@ -707,7 +713,11 @@ export default function SettingsPanel({
                   { value: 'custom', label: '空白配置' },
                   ...providerPresets
                     .filter((preset) => preset.stage === stage)
-                    .map((preset) => ({ value: preset.id, label: preset.name })),
+                    .map((preset) => ({
+                      value: preset.id,
+                      label: preset.name,
+                      group: speechProvider(preset),
+                    })),
                 ]}
                 onChange={(value) => {
                   if (value === 'custom') addProfile();
@@ -801,13 +811,24 @@ export default function SettingsPanel({
                 />
               </SettingRow>
               <SettingRow title="模型 ID">
-                <input
-                  aria-label="模型 ID"
-                  value={profile.modelId}
-                  placeholder="model-id"
-                  spellCheck={false}
-                  onChange={(e) => update({ modelId: e.target.value })}
-                />
+                <div className="preset-field">
+                  {(stage === 'asr' || stage === 'tts') && (
+                    <Select
+                      label="模型预设"
+                      value={profile.modelId}
+                      options={modelOptions(profile)}
+                      placeholder="选择模型预设"
+                      onChange={(modelId) => update(speechModelChange(profile, modelId))}
+                    />
+                  )}
+                  <input
+                    aria-label="模型 ID"
+                    value={profile.modelId}
+                    placeholder="model-id"
+                    spellCheck={false}
+                    onChange={(e) => update({ modelId: e.target.value })}
+                  />
+                </div>
               </SettingRow>
               <SettingRow title="接口协议">
                 {stage === 'tts' ? (
@@ -864,12 +885,21 @@ export default function SettingsPanel({
               )}
               {stage === 'tts' && (
                 <SettingRow title="音色 ID">
-                  <input
-                    aria-label="音色 ID"
-                    value={profile.voice}
-                    onChange={(e) => update({ voice: e.target.value })}
-                    placeholder="voice-id"
-                  />
+                  <div className="preset-field">
+                    <Select
+                      label="音色预设"
+                      value={profile.voice}
+                      options={voiceOptions(profile)}
+                      placeholder="选择音色预设"
+                      onChange={(voice) => update({ voice })}
+                    />
+                    <input
+                      aria-label="音色 ID"
+                      value={profile.voice}
+                      onChange={(e) => update({ voice: e.target.value })}
+                      placeholder="voice-id"
+                    />
+                  </div>
                 </SettingRow>
               )}
             </div>

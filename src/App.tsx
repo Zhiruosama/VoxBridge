@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import ExpressionReveal from './components/ExpressionReveal';
 import VoiceActivity from './components/VoiceActivity';
+import SpeechPicker from './components/SpeechPicker';
 import {
   ArrowDown,
   ArrowRight,
@@ -675,7 +676,7 @@ export default function App() {
       notify('正在停止当前操作，结束后可进入设置。');
       return;
     }
-    if (listeningRef.current) {
+    if (listeningRef.current && section !== 'tts') {
       void endListening();
       notify('正在停止监听，结束后可进入设置。');
       return;
@@ -1018,6 +1019,11 @@ export default function App() {
                       onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
                       options={languages.map((language) => ({ value: language, label: language }))}
                       compact
+                    />
+                    <SpeechPicker
+                      settings={settings}
+                      onChange={(next) => persist(next, true)}
+                      onSettings={() => openSettings('tts')}
                     />
                     {text.length > 1800 && <span className="input-count">{text.length}/2000</span>}
                     <div className="composer-actions">

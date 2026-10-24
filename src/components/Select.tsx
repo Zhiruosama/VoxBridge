@@ -4,6 +4,7 @@ import { Check, ChevronDown } from 'lucide-react';
 interface Option {
   value: string;
   label: string;
+  group?: string;
 }
 
 /** Shared desktop select: consistent styling, keyboard navigation and managed focus. */
@@ -28,6 +29,15 @@ export default function Select({
   onOpenChange?: (open: boolean) => void;
   emptyLabel?: string;
 }) {
+  const groups = [...new Set(options.map((option) => option.group ?? ''))];
+  const renderOption = (option: Option) => (
+    <Primitive.Item className="select-option" value={option.value} key={option.value}>
+      <Primitive.ItemText>{option.label}</Primitive.ItemText>
+      <Primitive.ItemIndicator className="select-check">
+        <Check size={14} strokeWidth={2} />
+      </Primitive.ItemIndicator>
+    </Primitive.Item>
+  );
   return (
     <Primitive.Root
       value={value}
@@ -58,14 +68,16 @@ export default function Select({
                 <Primitive.ItemText>{emptyLabel}</Primitive.ItemText>
               </Primitive.Item>
             )}
-            {options.map((option) => (
-              <Primitive.Item className="select-option" value={option.value} key={option.value}>
-                <Primitive.ItemText>{option.label}</Primitive.ItemText>
-                <Primitive.ItemIndicator className="select-check">
-                  <Check size={14} strokeWidth={2} />
-                </Primitive.ItemIndicator>
-              </Primitive.Item>
-            ))}
+            {groups.map((group) =>
+              group ? (
+                <Primitive.Group key={group}>
+                  <Primitive.Label className="select-group-label">{group}</Primitive.Label>
+                  {options.filter((option) => option.group === group).map(renderOption)}
+                </Primitive.Group>
+              ) : (
+                options.filter((option) => !option.group).map(renderOption)
+              ),
+            )}
           </Primitive.Viewport>
         </Primitive.Content>
       </Primitive.Portal>

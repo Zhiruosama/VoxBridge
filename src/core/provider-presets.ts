@@ -33,6 +33,15 @@ export const providerPresets: ProviderProfile[] = [
     thinking: 'disabled',
   },
   {
+    id: 'provider-openai-tts',
+    name: 'OpenAI 语音',
+    stage: 'tts',
+    adapter: 'openai_audio_speech',
+    baseUrl: 'https://api.openai.com/v1',
+    modelId: 'gpt-4o-mini-tts',
+    voice: 'coral',
+  },
+  {
     id: 'provider-minimax-cn',
     name: 'MiniMax Speech 2.8',
     stage: 'tts',

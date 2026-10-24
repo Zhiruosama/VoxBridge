@@ -459,7 +459,7 @@ nav button[aria-current='page'] {
   background: var(--raised);
   border: 1px solid #414141;
   border-radius: 20px;
-  overflow: hidden;
+  overflow: visible;
 }
 .composer-box:focus-within {
   border-color: var(--focus);
@@ -486,6 +486,85 @@ nav button[aria-current='page'] {
   align-items: center;
   gap: 8px;
   padding: 6px 12px 12px;
+}
+.speech-picker {
+  position: relative;
+  color: var(--muted);
+  font-size: 12px;
+}
+.speech-picker summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  list-style: none;
+}
+.speech-picker summary::-webkit-details-marker {
+  display: none;
+}
+.speech-picker summary span {
+  max-width: 105px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.speech-picker summary:hover,
+.speech-picker[open] summary {
+  background: var(--hover);
+  color: var(--text);
+}
+.speech-picker-panel {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 30;
+  width: min(300px, calc(100vw - 48px));
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--raised);
+  box-shadow: 0 12px 40px #0005;
+}
+.speech-picker-panel > label {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.speech-picker-panel .select-trigger {
+  width: 100%;
+  max-width: 100%;
+}
+.speech-picker-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+.speech-picker-bottom button {
+  font-size: 12px;
+}
+.preset-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+.preset-field > input,
+.preset-field > .select-trigger {
+  width: 100%;
+  min-height: 38px;
+  font-size: 13px;
+  background: var(--bg);
+}
+.select-group-label {
+  padding: 10px 12px 4px;
+  font-size: 11px;
+  color: var(--muted);
 }
 .model-button {
   border: 0;
