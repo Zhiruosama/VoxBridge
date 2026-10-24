@@ -21,7 +21,17 @@
 - Recreated the same public aggregate before restarting QQ. With the user confirming there was no active call or screen share and authorizing a restart, fully exited QQ and its audio helper, then launched QQ again. Both processes had new process IDs.
 - The user reported that a microphone appeared, then explicitly identified its name as **`VoxBridge 兼容性测试`**. This verifies QQ's ability to list the aggregate after a full application restart in this test. It does not verify that QQ listed the original virtual device or establish every detail of its runtime filtering/caching path.
 - Kept this second aggregate available for the user's audio test. It is still owned by the diagnostic helper; creation, persistence and cleanup have not been integrated into the product. No system default input change, physical microphone capture or test audio transmission was performed.
-- Actual capture of VoxBridge speech through this device in QQ is **not yet verified**. Device-list visibility is a separate result from audio reception.
+- Audio reception within QQ itself is **not yet verified**. Device-list visibility and the local cross-device capture test below are separate results from the QQ call path.
+
+## Cross-device audio test and display name
+
+- The user explicitly confirmed QQ, WeChat and Discord had no active call, broadcast or audio share and authorized the test tone.
+- Used separate streams: the existing probe wrote a 3-second, 440 Hz, amplitude-0.1 signal to the original VoxBridge output; an AudioQueue input explicitly selected the aggregate UID and measured six seconds of its input. No default/physical microphone was opened, no recording file was saved, and no call was initiated.
+- Before renaming: original input peak 0.1 / RMS 0.07049137; aggregate peak 0.1, 288384 measured frames, 143663 nonzero frames, RMS 0.05003701 over the six-second window. The longer window includes approximately three seconds of silence.
+- Renamed only the identified aggregate's `kAudioObjectPropertyName` to **VoxBridge**, preserving its UID and subdevice. Read-back confirmed the new system name. The `compatibility-test` UID still identifies this diagnostic device; naming does not turn the prototype into a shipped feature.
+- Repeated after renaming: original input peak 0.1 / RMS 0.07049160; aggregate peak 0.1, 288384 measured frames, 143472 nonzero frames, RMS 0.05000239 and estimated 440 Hz amplitude 0.05000477 over the full six-second window. This confirms signal reaches the renamed aggregate from the original output; it is not a speech-quality or QQ call-quality result.
+- Default input remained unchanged after the tests. Both raw and aggregate devices now have the system display name VoxBridge; clients listing both may show duplicate names. QQ's refreshed display name and WeChat's enumeration have not been user-verified after this rename.
+- The aggregate is still retained by the diagnostic helper, without product lifecycle integration or restart/reboot guarantees. It must not be presented as a completed installation fix.
 
 ## WeChat: unresolved
 
