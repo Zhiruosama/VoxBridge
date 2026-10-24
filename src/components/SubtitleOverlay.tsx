@@ -59,82 +59,86 @@ export default function SubtitleOverlay() {
   return (
     <div
       className="subtitle-overlay"
-      style={{
-        backgroundColor: `rgba(22, 24, 29, ${snapshot.backgroundOpacity})`,
-        fontSize: snapshot.fontSize,
-        color: snapshot.textColor,
-        lineHeight: snapshot.lineHeight,
-      }}
+      style={
+        {
+          '--overlay-background': `rgba(22, 24, 29, ${snapshot.backgroundOpacity})`,
+          fontSize: snapshot.fontSize,
+          color: snapshot.textColor,
+          lineHeight: snapshot.lineHeight,
+        } as CSSProperties
+      }
     >
-      <header className="subtitle-overlay-toolbar" title="拖动字幕窗口" {...drag}>
-        <span>
-          {snapshot.phase === 'recovering' ? '正在恢复监听…' : active ? '字幕' : '监听已停止'}
-        </span>
-        <div>
-          <button
-            onClick={() => {
-              setHiddenThrough(new Set(snapshot.lines.map((line) => line.segmentId)));
-              reading.jumpLatest();
-            }}
-            title="清空此浮窗中的当前字幕，继续监听"
-          >
-            清空
-          </button>
-          {active && <button onClick={() => void action(stopOverlayListening)}>停止监听</button>}
-          <button onClick={() => void action(focusMain)} title="收起字幕窗并返回主窗口，继续监听">
-            返回主窗口
-          </button>
-        </div>
-      </header>
-      {error && (
-        <div className="subtitle-overlay-error" role="alert">
-          {error}
-        </div>
-      )}
-      <main
-        ref={reading.ref}
-        onScroll={reading.onScroll}
-        className={`subtitle-overlay-content is-${snapshot.mode}`}
-        data-selection-scope
-        aria-label="字幕内容"
-      >
-        {lines.length ? (
-          lines.map((line) => (
-            <article
-              key={line.segmentId}
-              data-caption-id={line.segmentId}
-              style={
-                {
-                  color: line.color ?? snapshot.textColor,
-                  '--overlay-source-color': `color-mix(in srgb, ${line.color ?? snapshot.textColor} 72%, #16181d)`,
-                } as CSSProperties
-              }
+      <section className="subtitle-overlay-panel" aria-label="悬浮字幕">
+        <header className="subtitle-overlay-toolbar" title="拖动字幕窗口" {...drag}>
+          <span>
+            {snapshot.phase === 'recovering' ? '正在恢复监听…' : active ? '字幕' : '监听已停止'}
+          </span>
+          <div>
+            <button
+              onClick={() => {
+                setHiddenThrough(new Set(snapshot.lines.map((line) => line.segmentId)));
+                reading.jumpLatest();
+              }}
+              title="清空此浮窗中的当前字幕，继续监听"
             >
-              {(snapshot.content !== 'translation' || !line.translation) && (
-                <p
-                  className={
-                    snapshot.content === 'bilingual' || snapshot.content === 'translation'
-                      ? 'subtitle-overlay-source'
-                      : 'subtitle-overlay-translation'
-                  }
-                >
-                  {line.source}
-                </p>
-              )}
-              {snapshot.content !== 'source' && line.translation && (
-                <p className="subtitle-overlay-translation">{line.translation}</p>
-              )}
-              {snapshot.content !== 'source' && !line.translation && line.final && (
-                <span className="subtitle-overlay-pending">
-                  {line.translationState === 'failed' ? '暂未译出' : '翻译中…'}
-                </span>
-              )}
-            </article>
-          ))
-        ) : (
-          <p className="subtitle-overlay-empty">{active ? '等待字幕…' : '暂无字幕'}</p>
+              清空
+            </button>
+            {active && <button onClick={() => void action(stopOverlayListening)}>停止监听</button>}
+            <button onClick={() => void action(focusMain)} title="收起字幕窗并返回主窗口，继续监听">
+              返回主窗口
+            </button>
+          </div>
+        </header>
+        {error && (
+          <div className="subtitle-overlay-error" role="alert">
+            {error}
+          </div>
         )}
-      </main>
+        <main
+          ref={reading.ref}
+          onScroll={reading.onScroll}
+          className={`subtitle-overlay-content is-${snapshot.mode}`}
+          data-selection-scope
+          aria-label="字幕内容"
+        >
+          {lines.length ? (
+            lines.map((line) => (
+              <article
+                key={line.segmentId}
+                data-caption-id={line.segmentId}
+                style={
+                  {
+                    color: line.color ?? snapshot.textColor,
+                    '--overlay-source-color': `color-mix(in srgb, ${line.color ?? snapshot.textColor} 72%, #16181d)`,
+                  } as CSSProperties
+                }
+              >
+                {(snapshot.content !== 'translation' || !line.translation) && (
+                  <p
+                    className={
+                      snapshot.content === 'bilingual' || snapshot.content === 'translation'
+                        ? 'subtitle-overlay-source'
+                        : 'subtitle-overlay-translation'
+                    }
+                  >
+                    {line.source}
+                  </p>
+                )}
+                {snapshot.content !== 'source' && line.translation && (
+                  <p className="subtitle-overlay-translation">{line.translation}</p>
+                )}
+                {snapshot.content !== 'source' && !line.translation && line.final && (
+                  <span className="subtitle-overlay-pending">
+                    {line.translationState === 'failed' ? '暂未译出' : '翻译中…'}
+                  </span>
+                )}
+              </article>
+            ))
+          ) : (
+            <p className="subtitle-overlay-empty">{active ? '等待字幕…' : '暂无字幕'}</p>
+          )}
+        </main>
+      </section>
       <OverlayVoiceControls
         leading={
           !reading.follow && lines.length > 0 ? (

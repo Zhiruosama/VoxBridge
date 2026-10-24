@@ -1396,7 +1396,17 @@ input:focus {
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  gap: 8px;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.subtitle-overlay-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--overlay-background);
   padding: 14px 20px 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
@@ -1791,11 +1801,15 @@ input:focus {
 }
 
 .overlay-voice-footer {
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: var(--overlay-background);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: auto;
 }
 .overlay-voice-actions {
   display: flex;
@@ -1844,11 +1858,11 @@ input:focus {
   width: 100%;
   min-height: 58px;
   max-height: 110px;
-  resize: vertical;
-  padding: 9px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  resize: none;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: #fff;
   font-size: 14px;
   line-height: 1.6;
@@ -1871,4 +1885,10 @@ input:focus {
 .overlay-voice-actions .overlay-text-button[aria-expanded='true'] {
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
+}
+
+.overlay-voice-footer textarea:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.25);
+  outline-offset: 2px;
+  box-shadow: none;
 }
