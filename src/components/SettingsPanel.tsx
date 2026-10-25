@@ -6,11 +6,7 @@ import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
 import { blankProfile, profileFor, captionColorDefaults } from '../core/settings';
-import {
-  outputDeviceOptions,
-  previewDeviceOptions,
-  migrateLegacyOutputRouting,
-} from '../core/audio-routing';
+import { previewDeviceOptions, migrateLegacyOutputRouting } from '../core/audio-routing';
 import {
   credentialStatus,
   desktop,
@@ -58,6 +54,7 @@ export default function SettingsPanel({
   captureSupported,
   section,
   onBusyChange,
+  focusSection,
 }: {
   settings: Settings;
   savedSettings: Settings;
@@ -70,6 +67,7 @@ export default function SettingsPanel({
   captureSupported: boolean;
   section: SettingsSection;
   onBusyChange: (busy: boolean) => void;
+  focusSection?: { id: string; version: number } | null;
 }) {
   const draft = settings;
   const setDraft = onDraftChange;
@@ -86,6 +84,12 @@ export default function SettingsPanel({
   const [devices, setDevices] = useState<OutputDevice[]>([]);
   const [inputs, setInputs] = useState<OutputDevice[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    if (!focusSection?.id) return;
+    const heading = document.getElementById(focusSection.id);
+    heading?.scrollIntoView({ block: 'start' });
+    heading?.focus({ preventScroll: true });
+  }, [focusSection]);
   async function refreshDevices() {
     setRefreshing(true);
     try {
@@ -123,9 +127,6 @@ export default function SettingsPanel({
       active = false;
     };
   }, [section]);
-  function deviceOptions(value: string) {
-    return outputDeviceOptions(devices, value);
-  }
   useEffect(() => {
     let active = true;
     setSecret('');
@@ -627,7 +628,9 @@ export default function SettingsPanel({
           </section>
           <section className="preference-section" aria-labelledby="audio-heading">
             <div className="preference-section-title">
-              <h2 id="audio-heading">{t('音频')}</h2>
+              <h2 id="audio-heading" tabIndex={-1}>
+                {t('音频')}
+              </h2>
               <button
                 className="subtle"
                 disabled={!desktop || refreshing}
@@ -721,8 +724,8 @@ export default function SettingsPanel({
                   label={t('发送设备')}
                   value={draft.audio.sendDeviceId}
                   disabled={!desktop || refreshing}
-                  placeholder={t('选择虚拟音频设备')}
-                  options={deviceOptions(draft.audio.sendDeviceId)}
+                  placeholder={t('系统默认')}
+                  options={previewDeviceOptions(devices, draft.audio.sendDeviceId)}
                   onChange={(value) =>
                     setDraft({ ...draft, audio: { ...draft.audio, sendDeviceId: value } })
                   }
@@ -734,6 +737,13 @@ export default function SettingsPanel({
                   <ArrowUpRight size={14} />
                 </button>
               </SettingRow>
+              <div className="virtual-mic-help">
+                <p>
+                  {t(
+                    '未指定输出设备时跟随系统默认耳机或扬声器；要让聊天软件收到语音，请将发送设备改为虚拟麦克风。',
+                  )}
+                </p>
+              </div>
             </div>
           </section>
           <section className="preference-section" aria-labelledby="about-heading">

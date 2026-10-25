@@ -117,7 +117,7 @@ export class SendQueue {
     if (!input.text.trim() || [...input.text].length > 2000)
       throw new Error('请输入 1–2000 字的内容。');
     const invalid = validateProfile(profileFor(settings, 'tts'));
-    if (invalid) throw new Error(invalid);
+    if (invalid) throw new Error(`${invalid} 请到设置页完善语音合成服务。`);
     if (!(route === 'preview' ? settings.audio.previewDeviceId : settings.audio.sendDeviceId))
       throw new Error('请先选择语音输出设备。');
     if (route === 'send' && settings.audio.monitorEnabled && !settings.audio.previewDeviceId)

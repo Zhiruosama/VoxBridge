@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ComposerController, composerKeyAction, composerLanguages } from './composer';
-import { defaults } from './settings';
+import { defaults, parseSettings } from './settings';
 
 function fixture() {
   const settings = structuredClone(defaults);
@@ -133,6 +133,26 @@ describe('selected language and direct speech', () => {
 });
 
 describe('composer operation', () => {
+  it('uses the system output for an unconfigured route before any settings visit', async () => {
+    const { controller, input, callbacks, dependencies } = fixture();
+    input.settings = parseSettings({
+      ...input.settings,
+      audio: { sendDeviceId: '', previewDeviceId: '', monitorEnabled: true },
+    });
+    await controller.run(input, callbacks);
+    expect(dependencies.speak).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      {
+        previewDeviceId: '__system_default__',
+        sendDeviceId: '__system_default__',
+        monitorEnabled: true,
+      },
+      'send',
+      expect.any(String),
+      expect.any(Function),
+    );
+  });
   it('accepts a validated submission once while holding the operation lock', async () => {
     const { controller, input, callbacks, dependencies } = fixture();
     const speech = deferred<void>();

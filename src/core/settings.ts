@@ -17,7 +17,11 @@ export const defaults: Settings = {
   theme: 'dark',
   captionColors: { ...captionColorDefaults },
   captionSpacing: 26,
-  audio: { previewDeviceId: systemDefaultOutputId, sendDeviceId: '', monitorEnabled: false },
+  audio: {
+    previewDeviceId: systemDefaultOutputId,
+    sendDeviceId: systemDefaultOutputId,
+    monitorEnabled: false,
+  },
   subtitle: { ...subtitleDefaults },
   composer: {
     voiceInputMode: 'dictate',
@@ -289,8 +293,8 @@ export function parseSettings(value: unknown): Settings {
           : systemDefaultOutputId,
       sendDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.sendDeviceId === 'string'
-          ? (input.audio as Record<string, string>).sendDeviceId
-          : '',
+          ? (input.audio as Record<string, string>).sendDeviceId || systemDefaultOutputId
+          : systemDefaultOutputId,
     },
     profiles,
     active: {

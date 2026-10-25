@@ -1377,6 +1377,9 @@ nav button[aria-current='page'] {
 .preference-section > h2 {
   margin-bottom: 14px;
 }
+.preference-section-title > h2 {
+  scroll-margin-top: 80px;
+}
 .preference-section-title {
   display: flex;
   justify-content: space-between;

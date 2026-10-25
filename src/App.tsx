@@ -2,6 +2,7 @@ import { watchFrontendErrors, recordDiagnostic } from './diagnostics';
 import { useTheme } from './hooks/useTheme';
 import SidebarResizeHandle from './components/SidebarResizeHandle';
 import WindowChrome from './components/WindowChrome';
+import { configurationSection, type ConfigurationSection } from './core/configuration-guidance';
 import { useSidebarLayout } from './hooks/useSidebarLayout';
 import { t, setUiLanguage, useUiLanguage } from './i18n';
 import SendQueueControls from './components/SendQueueControls';
@@ -137,11 +138,20 @@ export default function App() {
       });
   }, [initial]);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
+  const [settingsFocus, setSettingsFocus] = useState<{ id: string; version: number } | null>(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
-  const [notice, setNotice] = useState({ message: initial.error, id: 0 });
-  const notify = useCallback((message: string) => {
-    setNotice((current) => ({ message, id: current.id + 1 }));
+  const [notice, setNotice] = useState<{
+    message: string;
+    id: number;
+    section: ConfigurationSection | null;
+  }>({ message: initial.error, id: 0, section: null });
+  const notify = useCallback((message: string, section?: ConfigurationSection) => {
+    setNotice((current) => ({
+      message,
+      id: current.id + 1,
+      section: section ?? configurationSection(message),
+    }));
   }, []);
   const dismissNotice = useCallback(() => {
     setNotice((current) => ({ ...current, message: '' }));
@@ -548,6 +558,7 @@ export default function App() {
       !['qwen_chat_asr', 'qwen_dashscope_asr'].includes(asrProfile.adapter)
     ) {
       setListenError(invalid || '请刷新并选择监听应用，配置语音识别与文字翻译服务。');
+      if (invalid) notify(invalid, validateProfile(asrProfile) ? 'asr' : 'translation');
       return;
     }
     const id = crypto.randomUUID();
@@ -719,7 +730,7 @@ export default function App() {
     const invalid = validateProfile(profile);
     if (invalid) {
       if (origin === 'overlay') setOverlayVoiceError(invalid);
-      notify(invalid);
+      notify(invalid, 'asr');
       return;
     }
     const operation = { id: crypto.randomUUID(), cancelled: false, finishing: false, origin };
@@ -822,23 +833,25 @@ export default function App() {
     }
   }
 
-  function openSettings(section: SettingsSection = 'general') {
+  function openSettings(section: SettingsSection = 'general', anchor = '') {
     if (voiceRef.current) {
       notify('请先结束或取消录音。');
-      return;
+      return false;
     }
     if (composer.busy) {
       void stopComposer();
       notify('正在停止当前操作，结束后可进入设置。');
-      return;
+      return false;
     }
     if (listeningRef.current && section !== 'tts') {
       void endListening();
       notify('正在停止监听，结束后可进入设置。');
-      return;
+      return false;
     }
     setSettingsSection(section);
+    setSettingsFocus((current) => ({ id: anchor, version: (current?.version ?? 0) + 1 }));
     setPage('settings');
+    return true;
   }
 
   const direction = composerLanguages(settings, listening);
@@ -962,6 +975,10 @@ export default function App() {
           </div>
           {page === 'workspace' && (
             <div className="toolbar-actions">
+              <button className="subtle" onClick={() => openSettings('general', 'audio-heading')}>
+                <Settings2 size={14} aria-hidden="true" />
+                {t('音频设置')}
+              </button>
               <button
                 disabled={!desktop || !overlayReady}
                 onClick={() => void showOverlay().catch(() => notify('无法打开悬浮字幕窗。'))}
@@ -990,7 +1007,24 @@ export default function App() {
           )}
         </header>
         {notice.message && (
-          <Toast key={notice.id} message={notice.message} onClose={dismissNotice} />
+          <Toast
+            key={notice.id}
+            message={notice.message}
+            onClose={dismissNotice}
+            onConfigure={
+              notice.section
+                ? () => {
+                    if (
+                      openSettings(
+                        notice.section!,
+                        notice.section === 'general' ? 'audio-heading' : '',
+                      )
+                    )
+                      dismissNotice();
+                  }
+                : undefined
+            }
+          />
         )}
         <main
           key={page}
@@ -1000,6 +1034,7 @@ export default function App() {
           {page === 'settings' && (
             <SettingsPanel
               section={settingsSection}
+              focusSection={settingsFocus}
               onBusyChange={setSettingsBusy}
               settings={settings}
               savedSettings={savedSettings}

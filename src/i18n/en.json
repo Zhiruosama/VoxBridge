@@ -773,5 +773,8 @@
   "还原窗口": "Restore window",
   "关闭窗口": "Close window",
   "无法读取窗口状态，请重启应用。": "Unable to read window state. Restart the app.",
-  "无法操作窗口，请重试。": "Unable to control the window. Try again."
+  "无法操作窗口，请重试。": "Unable to control the window. Try again.",
+  "前往设置": "Open settings",
+  "音频设置": "Audio settings",
+  "未指定输出设备时跟随系统默认耳机或扬声器；要让聊天软件收到语音，请将发送设备改为虚拟麦克风。": "Unconfigured outputs follow your system headphones or speakers. To send audio to a chat app, select a virtual microphone as the send device."
 }

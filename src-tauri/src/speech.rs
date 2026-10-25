@@ -190,9 +190,8 @@ impl Routing {
         if id.is_empty() {
             return Err("请在常规设置中选择对应的音频输出设备。".into());
         }
-        if matches!(route, Route::Send) && self.preview_device_id == self.send_device_id {
-            return Err("试听与发送必须使用不同设备，请检查音频设置。".into());
-        }
+        // Preview may follow the same system default as send. Monitor output
+        // resolves endpoint identity and suppresses the duplicate stream.
         if matches!(route, Route::Send) && self.monitor_enabled && self.preview_device_id.is_empty()
         {
             return Err("请先选择试听设备，或关闭发送时试听。".into());
