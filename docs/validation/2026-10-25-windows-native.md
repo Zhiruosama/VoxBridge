@@ -126,3 +126,9 @@ cargo test --offline --manifest-path src-tauri/Cargo.toml --locked live_native_c
 Check 的 Windows job 在 Rust 测试阶段失败，macOS 与前端通过。原工作流只在测试前构建 macOS 驱动；Windows 的 VB-CABLE 资源直到后面的桌面打包钩子才准备，导致全新 runner 的 Tauri build.rs 提前校验资源时失败。本机缓存掩盖了这个依赖。
 
 临时移走源资源目录后执行同样的 locked Cargo 构建，复现 `resource path ... VBCABLE_Driver_Pack45 doesn't exist`；目录已在 finally 中恢复。工作流改为两个平台都在 Rust 编译/测试前运行统一 `build-desktop-resources.mjs`。独立空目录验证 Windows 官方包首次下载、摘要与签名校验成功，再按修正后的顺序运行资源准备、rustfmt 和完整 locked Cargo 测试，138 项通过、19 项手动测试跳过。本批仅修改 CI 与验证记录，应用行为及安装资源内容未变。
+
+## 滑块焦点外框
+
+语速弹层与设置页的 range 控件继承通用 `input:focus` 的文本框阴影；语速还单独绘制了矩形 focus-visible 外框。现将 range 排除出通用输入框焦点规则，统一取消滑块容器的 outline / box-shadow，并将键盘 focus-visible 提示改为圆形 thumb 上的局部光圈。覆盖语速、字幕段落间距、悬浮字幕行距、字号和背景不透明度；普通文本输入框焦点提示继续保留。
+
+前端及 Windows Debug/NSIS 构建通过，应用已重启。通过 Windows 原生界面实际点击语速、字幕间距和背景不透明度滑块，确认没有矩形外框；语速及字幕间距分别用方向键增减，确认只在圆形 thumb 处显示键盘焦点提示。测试后语速恢复 1.10×、段落间距恢复 15px，设置页无待保存更改。此为 Windows 本机验收；共享 CSS 同时包含 Chromium/WebView2 与 Firefox thumb 规则，macOS 实际显示未在本机验收。

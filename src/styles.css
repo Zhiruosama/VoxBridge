@@ -217,7 +217,7 @@ button:disabled {
   cursor: not-allowed;
 }
 button:focus-visible,
-input:focus-visible,
+input:not([type='range']):focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
@@ -1505,7 +1505,7 @@ nav button[aria-current='page'] {
   }
 }
 
-input:focus {
+input:not([type='range']):focus {
   outline: none;
   border-color: var(--focus);
   box-shadow: 0 0 0 1px var(--focus);
@@ -2356,10 +2356,16 @@ input:focus {
     var(--border) var(--range-progress)
   );
 }
-.speech-speed-control input[type='range']:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 3px;
+/* Range controls use their thumb as the focus target, never a text-field frame. */
+input[type='range']:focus {
+  outline: none;
   box-shadow: none;
+}
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--focus);
+}
+input[type='range']:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--focus);
 }
 
 .sidebar-resize-handle {
