@@ -1,7 +1,5 @@
 # VoxBridge
 
-**Understand others. Let them understand you.**
-
 [简体中文](README.md) · **English** · [日本語](README.ja.md)
 
 [Download](https://github.com/Zhiruosama/VoxBridge/releases) · [User guide (中文)](docs/user-guide.md) · [Report an issue](https://github.com/Zhiruosama/VoxBridge/issues)

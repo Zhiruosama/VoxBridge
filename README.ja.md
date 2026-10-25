@@ -1,7 +1,5 @@
 # VoxBridge
 
-**相手の言葉を理解し、自分の言葉も届ける。**
-
 [简体中文](README.md) · [English](README.en.md) · **日本語**
 
 [ダウンロード](https://github.com/Zhiruosama/VoxBridge/releases) · [使い方（中国語）](docs/user-guide.md) · [不具合の報告](https://github.com/Zhiruosama/VoxBridge/issues)

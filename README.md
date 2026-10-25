@@ -1,7 +1,5 @@
 # VoxBridge
 
-**听懂对方，也让对方听懂你。**
-
 **简体中文** · [English](README.en.md) · [日本語](README.ja.md)
 
 [下载测试版](https://github.com/Zhiruosama/VoxBridge/releases) · [使用指南](docs/user-guide.md) · [问题反馈](https://github.com/Zhiruosama/VoxBridge/issues)
