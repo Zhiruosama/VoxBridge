@@ -347,6 +347,7 @@
   "请选择": "Select an option",
   "请选择小于 1 MB 的短 WAV 音频。": "Choose a short WAV file smaller than 1 MB.",
   "请通过桌面应用使用翻译和语音输出。": "Use the desktop app for translation and speech output.",
+  "失败项不会阻塞后续发送，可单独重试或取消。": "Failed items do not block later messages. Retry or cancel them individually.",
   "请重试或取消失败项，再继续发送。": "Retry or cancel failed items before sending more messages.",
   "读取中…": "Loading…",
   "调整措辞和语气，目标语言由语言设置决定。留空使用默认提示词。": "Adjust wording and tone. Language settings determine the target language. Leave blank for default instructions.",

@@ -244,7 +244,7 @@ export default function App() {
   );
   useEffect(
     () => () => {
-      if (sendQueue.busy) void sendQueue.clear();
+      void sendQueue.clear();
     },
     [sendQueue],
   );
@@ -1433,11 +1433,7 @@ export default function App() {
                         <button
                           className="subtle"
                           disabled={
-                            busy ||
-                            queueView.items.length > 0 ||
-                            !text.trim() ||
-                            !desktop ||
-                            Boolean(voice)
+                            busy || sendQueue.busy || !text.trim() || !desktop || Boolean(voice)
                           }
                           onClick={() => void runComposer('translate')}
                           aria-description={t('仅翻译，不输出语音')}

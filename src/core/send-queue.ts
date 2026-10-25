@@ -59,7 +59,10 @@ export class SendQueue {
   private listeners = new Set<(view: QueueView) => void>();
   constructor(private readonly deps: Dependencies) {}
   get busy() {
-    return this.jobs.length > 0;
+    return this.jobs.some((job) => job.status !== 'failed');
+  }
+  private get head() {
+    return this.jobs.find((job) => job.status !== 'failed');
   }
   subscribe(listener: (view: QueueView) => void) {
     this.listeners.add(listener);
@@ -156,7 +159,7 @@ export class SendQueue {
     let translated: string | undefined;
     const turn = async () => {
       let wake: (() => void) | undefined;
-      while (valid() && (this.paused || this.jobs[0] !== job || this.playing))
+      while (valid() && (this.paused || this.head !== job || this.playing))
         await new Promise<void>((resolve) => {
           wake = resolve;
           job.wake = resolve;
@@ -179,7 +182,7 @@ export class SendQueue {
       },
       speak: async (profile, text, audio, route, request, progress) => {
         // Keep first-response latency: stream the head, prepare only the following item.
-        if (valid() && this.jobs[0] === job && !this.paused && !this.playing) {
+        if (valid() && this.head === job && !this.paused && !this.playing) {
           await turn();
           await this.deps.speak(profile, text, audio, route, request, progress);
         } else {
@@ -241,7 +244,6 @@ export class SendQueue {
         job.error = Array.from(String(error).replace(/^Error: /, ''))
           .slice(0, 400)
           .join('');
-        this.paused = true;
         job.callbacks.notice?.(job.error);
       }
     } finally {
@@ -258,7 +260,6 @@ export class SendQueue {
     this.emit();
   }
   resume() {
-    if (this.jobs.some((j) => j.status === 'failed')) return;
     this.paused = false;
     this.emit();
     this.pump();
@@ -284,23 +285,27 @@ export class SendQueue {
     this.pause();
     if (this.playing) await this.cancel(this.playing.id);
     else {
-      const head = this.jobs[0];
-      if (head && head.status !== 'failed') await this.cancel(head.id);
+      const head = this.head;
+      if (head) await this.cancel(head.id);
     }
   }
   async retry(id: string, settings?: Settings) {
     const job = this.jobs.find((j) => j.id === id);
     if (!job || job.status !== 'failed') return;
+    // Retried content joins the end instead of overtaking messages already waiting.
+    this.jobs = [...this.jobs.filter((j) => j !== job), job];
     job.generation++;
     if (settings) job.input = { ...job.input, settings: structuredClone(settings) };
     job.error = '';
     job.status = 'queued';
-    this.resume();
+    this.emit();
+    this.pump();
   }
   async edit(id: string, text: string) {
     const job = this.jobs.find((j) => j.id === id);
     if (!job || this.playing === job || !text.trim() || [...text].length > 2000) return;
     const old = job.controller;
+    if (job.status === 'failed') this.jobs = [...this.jobs.filter((j) => j !== job), job];
     job.generation++;
     job.wake?.();
     job.input = { ...job.input, text };

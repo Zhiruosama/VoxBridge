@@ -98,21 +98,102 @@ it('stop cancels current output and pauses remaining prepared messages until res
   f.playing.get('two:0')!.resolve();
   await b;
 });
-it('failure keeps the original message and pauses the queue; retry uses a new attempt ID', async () => {
+it('skips a failed message and retries it after content already waiting', async () => {
   const f = fixture();
   f.deps.translate.mockRejectedValueOnce(new Error('network failed'));
   const a = f.enqueue('one'),
-    b = f.enqueue('two');
-  await vi.waitFor(() => expect(f.queue.snapshot().items[0].status).toBe('failed'));
-  expect(f.queue.snapshot().paused).toBe(true);
-  expect(f.order).toEqual([]);
+    b = f.enqueue('two'),
+    c = f.enqueue('three');
+  await vi.waitFor(() => expect(f.order).toEqual(['two:0']));
+  expect(f.queue.snapshot().items[0]).toMatchObject({ status: 'failed', text: 'one' });
+  expect(f.queue.snapshot().paused).toBe(false);
   await f.queue.retry('one');
-  await vi.waitFor(() => expect(f.order).toEqual(['one:1']));
-  f.playing.get('one:1')!.resolve();
-  await a;
-  await vi.waitFor(() => expect(f.order).toEqual(['one:1', 'two:0']));
+  expect(f.queue.snapshot().items.map((item) => item.id)).toEqual(['two', 'three', 'one']);
   f.playing.get('two:0')!.resolve();
   await b;
+  await vi.waitFor(() => expect(f.order).toEqual(['two:0', 'three:0']));
+  f.playing.get('three:0')!.resolve();
+  await c;
+  await vi.waitFor(() => expect(f.order).toEqual(['two:0', 'three:0', 'one:1']));
+  f.playing.get('one:1')!.resolve();
+  await a;
+});
+it('repeated retry failures do not block new submissions or leave the composer busy', async () => {
+  const f = fixture();
+  f.deps.translate.mockImplementation(async (_p, text) => {
+    if (text === 'bad') throw new Error('network failed');
+    return text;
+  });
+  const bad = f.enqueue('bad');
+  await vi.waitFor(() => expect(f.queue.snapshot().items[0].status).toBe('failed'));
+  expect(f.queue.busy).toBe(false);
+  await f.queue.retry('bad');
+  const good = f.enqueue('good');
+  await vi.waitFor(() => expect(f.order).toEqual(['good:0']));
+  expect(f.queue.snapshot().items[0].status).toBe('failed');
+  f.playing.get('good:0')!.resolve();
+  await good;
+  expect(f.queue.busy).toBe(false);
+  await f.queue.cancel('bad');
+  expect(await bad).toBe('stopped');
+});
+it('skips a prefetch failure without interrupting current playback or later messages', async () => {
+  const f = fixture();
+  f.deps.prepare.mockRejectedValueOnce(new Error('synthesis failed'));
+  const a = f.enqueue('one'),
+    b = f.enqueue('two'),
+    c = f.enqueue('three');
+  await vi.waitFor(() => expect(f.queue.snapshot().items[1].status).toBe('failed'));
+  await vi.waitFor(() => expect(f.queue.snapshot().items[2].status).toBe('ready'));
+  expect(f.order).toEqual(['one:0']);
+  f.playing.get('one:0')!.resolve();
+  await a;
+  await vi.waitFor(() => expect(f.order).toEqual(['one:0', 'three:0']));
+  f.playing.get('three:0')!.resolve();
+  await c;
+  await f.queue.cancel('two');
+  await b;
+});
+it('continues after playback failure and keeps failed entries available', async () => {
+  const f = fixture();
+  f.deps.speak.mockRejectedValueOnce(new Error('output failed'));
+  const a = f.enqueue('one'),
+    b = f.enqueue('two');
+  await vi.waitFor(() => expect(f.order).toEqual(['two:0']));
+  expect(f.queue.snapshot().items[0].status).toBe('failed');
+  f.playing.get('two:0')!.resolve();
+  await b;
+  await f.queue.cancel('one');
+  await a;
+});
+it('preserves manual pause during failure and retry, then resumes despite failed rows', async () => {
+  const f = fixture(),
+    gate = deferred();
+  f.deps.translate.mockImplementation(async (_p, text) => {
+    if (text === 'bad') {
+      await gate.promise;
+      throw new Error('network failed');
+    }
+    return text;
+  });
+  const bad = f.enqueue('bad'),
+    good = f.enqueue('good');
+  f.queue.pause();
+  gate.resolve();
+  await vi.waitFor(() => expect(f.queue.snapshot().items[0].status).toBe('failed'));
+  expect(f.queue.snapshot().paused).toBe(true);
+  f.queue.resume();
+  await vi.waitFor(() => expect(f.order).toEqual(['good:0']));
+  f.queue.pause();
+  await f.queue.retry('bad');
+  expect(f.queue.snapshot().paused).toBe(true);
+  f.playing.get('good:0')!.resolve();
+  await good;
+  expect(f.order).toEqual(['good:0']);
+  f.queue.resume();
+  await vi.waitFor(() => expect(f.queue.snapshot().items[0].status).toBe('failed'));
+  await f.queue.cancel('bad');
+  await bad;
 });
 it('editing a prepared waiting message discards the old audio and keeps FIFO position', async () => {
   const f = fixture();
@@ -207,4 +288,41 @@ it('shows each queued message target from its submission snapshot', async () => 
   expect(f.queue.snapshot().items.map((item) => item.targetLanguage)).toEqual(['英语', '日语']);
   await f.queue.clear();
   await Promise.all([a, b]);
+});
+
+it('editing a failed row rejoins the tail without blocking content already playing', async () => {
+  const f = fixture();
+  f.deps.translate.mockRejectedValueOnce(new Error('network failed'));
+  const a = f.enqueue('one'),
+    b = f.enqueue('two');
+  await vi.waitFor(() => expect(f.order).toEqual(['two:0']));
+  await f.queue.edit('one', 'replacement');
+  expect(f.queue.snapshot().items.map((item) => item.id)).toEqual(['two', 'one']);
+  expect(f.order).toEqual(['two:0']);
+  f.playing.get('two:0')!.resolve();
+  await b;
+  await vi.waitFor(() => expect(f.order).toEqual(['two:0', 'one:1']));
+  expect(f.translation).toHaveBeenLastCalledWith('replacement translated', 'replacement');
+  f.playing.get('one:1')!.resolve();
+  await a;
+});
+it('stop skips retained failures when cancelling the next pending request', async () => {
+  const f = fixture(),
+    gate = deferred();
+  f.deps.translate.mockRejectedValueOnce(new Error('network failed'));
+  const bad = f.enqueue('bad');
+  await vi.waitFor(() => expect(f.queue.snapshot().items[0].status).toBe('failed'));
+  f.deps.translate.mockImplementation(async () => {
+    await gate.promise;
+    return 'translated';
+  });
+  const good = f.enqueue('good');
+  await vi.waitFor(() => expect(f.deps.translate).toHaveBeenCalledTimes(2));
+  await f.queue.stop();
+  expect(await good).toBe('stopped');
+  expect(f.queue.snapshot().items.map((item) => item.id)).toEqual(['bad']);
+  expect(f.queue.snapshot().paused).toBe(true);
+  gate.resolve();
+  await f.queue.cancel('bad');
+  await bad;
 });
