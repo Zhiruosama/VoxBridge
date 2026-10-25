@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AlertCircle } from 'lucide-react';
 import type { QueueAction, QueueView } from '../core/send-queue';
 export default function SendQueueControls({
   view,
@@ -42,6 +43,7 @@ export default function SendQueueControls({
     };
   }, [open]);
   if (!view.items.length) return null;
+  const hasFailure = view.items.some((item) => item.status === 'failed');
   const labels: Record<string, string> = {
     queued: '待处理',
     preparing: '准备中',
@@ -59,8 +61,8 @@ export default function SendQueueControls({
     <>
       <button
         ref={trigger}
-        className="queue-trigger"
-        aria-label={t('查看发送队列')}
+        className={`queue-trigger${hasFailure ? ' has-failure' : ''}`}
+        aria-label={t(hasFailure ? '查看发送队列，有失败项' : '查看发送队列')}
         aria-expanded={open}
         onClick={() => {
           const r = trigger.current!.getBoundingClientRect();
@@ -71,7 +73,8 @@ export default function SendQueueControls({
           setOpen(!open);
         }}
       >
-        {t(view.paused ? '已暂停' : '队列')} {view.items.length}
+        {hasFailure && <AlertCircle size={13} aria-hidden="true" />}
+        {t('队列')}
       </button>
       {open &&
         createPortal(

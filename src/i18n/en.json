@@ -781,5 +781,6 @@
   "工作台字幕字号": "Workspace caption font size",
   "工作台字幕预览": "Workspace caption preview",
   "这是原文预览": "Original text preview",
-  "这是译文预览": "Translation preview"
+  "这是译文预览": "Translation preview",
+  "查看发送队列，有失败项": "View send queue, contains failed items"
 }

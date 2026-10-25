@@ -2306,6 +2306,9 @@ input:not([type='range']):focus {
   border: 0;
   padding: 4px 7px;
 }
+.queue-trigger.has-failure {
+  color: var(--danger);
+}
 .send-queue-panel {
   position: fixed;
   z-index: 125;
