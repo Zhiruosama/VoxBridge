@@ -551,6 +551,8 @@ fn open_device_output(
 
 mod monitor;
 mod streaming;
+#[cfg(all(test, target_os = "windows"))]
+mod windows_cable_test;
 
 #[allow(clippy::too_many_arguments)]
 fn playback(

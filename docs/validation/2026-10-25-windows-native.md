@@ -184,3 +184,11 @@ Windows NSIS 增加安装后可选的驱动安装流程，显示 VB-Audio 来源
 交互安装器检测已有安装后启用 UpdateMode，旧应用卸载阶段跳过数据删除；没有维护一份独立完整 NSIS 模板，而是在 hooks 内延迟扩展 MUI GUI-init 宏并保留其原有回调，适配 Tauri 在变量声明前引入 hooks 的顺序。需要随 NSIS/Tauri 更新继续编译和验收该宏。
 
 验证：180 项前端测试、格式检查、PowerShell 语法解析及最终 Windows Debug/NSIS 打包通过。实机运行无 /UPDATE 参数的安装包覆盖已有 0.2.1，重启后比较持久化设置值与之前一致，凭据文件逐字节一致；WebView 的日志文件正常追加，不将其误判为配置变化。最后另一次 `/S /UPDATE` 更新，在启动应用前对全部配置与凭据文件指纹比较，完全一致，安装 exe 与构建产物仅有预期 NSS/UNK 三字节标记差异。驱动在更新后保留，安装版已重新启动。本机测试为同版本覆盖，不声称已在独立电脑完成跨发布版本升级；新版路径使用相同保留数据机制。未读取或输出密钥明文，未调用收费服务，未自动重启整台电脑。VB-CABLE 官方要求用户安装后重启 Windows。
+
+## Windows 重启后的真实虚拟麦克风回环验收
+
+用户重启电脑后，PnP 的 VB-Audio Virtual Cable、CABLE Input、CABLE In 16ch 和 CABLE Output 均为 OK。原生只读资源/端点验收通过，两端完整且发送端稳定 ID 与重启前一致。已安装软件的设置页显示 VB-CABLE 已就绪、已设为发送设备，保存按钮禁用，没有修改用户配置。
+
+新增仅限 Windows、默认忽略的 `speech::windows_cable_test::windows_cable_roundtrip`，人工显式执行。测试只打开名称与厂商同时匹配的基础版 CABLE Output 虚拟输入，不使用默认或物理麦克风，不调用语音供应商，不保存音频。通过实际生产 `playback` 路径解析稳定输出 ID、解码本地生成的 WAV、播放三段 24kHz 单声道提示音，在虚拟录音端以 48kHz 接收，覆盖格式转换与驱动传输。三个频率分别为 523 / 941 / 1511Hz，测得幅度 0.201 / 0.200 / 0.198，与发送的 0.2 相符；对应峰值位置按顺序递增。共接收 127680 个单声道帧，没有流错误、非数值或接近满幅的削波。
+
+执行命令：`cargo test --manifest-path src-tauri/Cargo.toml --lib windows_cable_roundtrip -- --ignored --nocapture`。手动回环验收通过，常规 Rust 回归为 139 项通过、20 项默认忽略。此批只增加测试及验收记录，不改变安装版运行逻辑。未将纯音回环结果等同于真实 TTS 音质、网络延迟或 Oopz/KOOK 实际通话收音验收。
