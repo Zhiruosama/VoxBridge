@@ -766,5 +766,12 @@
   "安装 VB-CABLE 时请允许系统权限，并在安装器中点击 Install Driver。完成后请重启电脑，再回来刷新设备。": "Allow the system permission request and click Install Driver in the VB-CABLE installer. Restart your computer afterward, then return and refresh devices.",
   "正在等待虚拟麦克风就绪…": "Waiting for the virtual microphone…",
   "捐赠软件，欢迎支持作者。": "Donationware. Contributions to the author are welcome.",
-  "官网与捐赠": "Website and donation"
+  "官网与捐赠": "Website and donation",
+  "窗口控制": "Window controls",
+  "最小化": "Minimize",
+  "最大化": "Maximize",
+  "还原窗口": "Restore window",
+  "关闭窗口": "Close window",
+  "无法读取窗口状态，请重启应用。": "Unable to read window state. Restart the app.",
+  "无法操作窗口，请重试。": "Unable to control the window. Try again."
 }

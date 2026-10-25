@@ -1,6 +1,7 @@
 import { watchFrontendErrors, recordDiagnostic } from './diagnostics';
 import { useTheme } from './hooks/useTheme';
 import SidebarResizeHandle from './components/SidebarResizeHandle';
+import WindowChrome from './components/WindowChrome';
 import { useSidebarLayout } from './hooks/useSidebarLayout';
 import { t, setUiLanguage, useUiLanguage } from './i18n';
 import SendQueueControls from './components/SendQueueControls';
@@ -858,12 +859,19 @@ export default function App() {
   return (
     <div
       ref={sidebarLayout.shellRef}
-      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}
+      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'} ${runtime?.platform === 'windows' ? 'has-window-chrome' : ''}`}
       style={{ '--sidebar-width': `${sidebarLayout.width}px` } as CSSProperties}
     >
       <a className="skip-link" href="#main-content">
         {t('跳到主内容')}
       </a>
+      {runtime?.platform === 'windows' && (
+        <WindowChrome
+          sidebar={sidebar}
+          onToggleSidebar={() => setSidebar(!sidebar)}
+          notify={notify}
+        />
+      )}
       <aside className="sidebar">
         <div className="brand">
           <AudioLines size={19} strokeWidth={1.5} />
@@ -942,7 +950,7 @@ export default function App() {
         <header className="titlebar">
           <div>
             <button
-              className="icon-button"
+              className="icon-button page-sidebar-toggle"
               aria-label={t(sidebar ? '收起侧栏' : '展开侧栏')}
               onClick={() => setSidebar(!sidebar)}
             >
