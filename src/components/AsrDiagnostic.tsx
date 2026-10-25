@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
-import { Square } from 'lucide-react';
+import { FileAudio, FolderOpen, Square } from 'lucide-react';
 import { desktop, stopAsr, transcribeWav } from '../bridge';
 import { profileFor, validateProfile } from '../core/settings';
 import type { Settings, Transcript } from '../core/types';
@@ -9,9 +9,11 @@ import SettingRow from './SettingRow';
 export default function AsrDiagnostic({ settings }: { settings: Settings }) {
   const profile = profileFor(settings, 'asr');
   const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<Transcript | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const fileDisabled = !desktop || busy || profile.adapter !== 'qwen_chat_asr';
   const [stopping, setStopping] = useState(false);
   const requestRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
@@ -85,22 +87,43 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
       <h2 id="asr-test-heading">{t('ASR 短音频验证')}</h2>
       <div className="preference-card">
         <SettingRow title={t('当前识别配置')}>
-          <span className="preference-value">
-            {profile.name} · {t(profile.modelId || '未配置模型')}
-          </span>
+          <div className="asr-profile-summary">
+            <div className="asr-profile-heading">
+              <span className="asr-profile-name">{profile.name}</span>
+              <span className="protocol-value">
+                {profile.adapter === 'qwen_dashscope_asr' ? 'WebSocket' : 'HTTP'}
+              </span>
+            </div>
+            <span className="asr-profile-model">{profile.modelId || t('未配置模型')}</span>
+          </div>
         </SettingRow>
         <SettingRow title={t('测试音频')}>
-          <input
-            aria-label={t('ASR 测试 WAV 文件')}
-            type="file"
-            accept=".wav,audio/wav"
-            disabled={!desktop || busy || profile.adapter !== 'qwen_chat_asr'}
-            onChange={(event) => {
-              setFile(event.target.files?.[0] ?? null);
-              setResult(null);
-              setError('');
-            }}
-          />
+          <div className="asr-file-picker">
+            <FileAudio size={18} aria-hidden="true" />
+            <div className="asr-file-details">
+              <span className="asr-file-name">{file?.name || t('未选择文件')}</span>
+              <span className="asr-file-format">
+                WAV · {file ? `${(file.size / 1000).toFixed(1)} KB` : '≤ 1 MB'}
+              </span>
+            </div>
+            <button type="button" disabled={fileDisabled} onClick={() => fileRef.current?.click()}>
+              <FolderOpen size={14} aria-hidden="true" />
+              {t(file ? '更换文件' : '选择文件')}
+            </button>
+            <input
+              ref={fileRef}
+              hidden
+              aria-label={t('ASR 测试 WAV 文件')}
+              type="file"
+              accept=".wav,audio/wav"
+              disabled={fileDisabled}
+              onChange={(event) => {
+                setFile(event.target.files?.[0] ?? null);
+                setResult(null);
+                setError('');
+              }}
+            />
+          </div>
         </SettingRow>
         <SettingRow title={t('识别测试')}>
           {busy ? (

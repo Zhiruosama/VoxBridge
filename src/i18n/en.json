@@ -726,5 +726,8 @@
   "音频输出正忙，请先停止当前任务。": "Audio output is busy. Stop the current task first.",
   "字幕段落间距": "Caption paragraph spacing",
   "调整侧栏宽度": "Resize sidebar",
-  "左右拖动或使用方向键调整，双击恢复默认宽度。": "Drag horizontally or use arrow keys to resize. Double-click to reset."
+  "左右拖动或使用方向键调整，双击恢复默认宽度。": "Drag horizontally or use arrow keys to resize. Double-click to reset.",
+  "未选择文件": "No file selected",
+  "选择文件": "Choose file",
+  "更换文件": "Change file"
 }
