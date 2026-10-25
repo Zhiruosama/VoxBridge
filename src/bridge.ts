@@ -10,6 +10,7 @@ import type {
   CaptureSource,
   ListeningEvent,
   OutputDevice,
+  VirtualMicStatus,
   OverlaySnapshot,
   ProviderProfile,
   RuntimeInfo,
@@ -149,8 +150,16 @@ export async function setSpeechMonitoring(requestId: string, enabled: boolean) {
   if (desktop) await invoke('set_speech_monitoring', { requestId, enabled });
 }
 export async function openVirtualMicInstaller() {
-  if (!desktop) throw new Error('安装虚拟麦克风需要 Mac 桌面版。');
+  if (!desktop) throw new Error('安装虚拟麦克风需要桌面版。');
   await invoke('open_virtual_mic_installer');
+}
+export async function virtualMicStatus(): Promise<VirtualMicStatus> {
+  return desktop
+    ? invoke('virtual_mic_status')
+    : { provider: 'unsupported', output: null, inputName: null, partial: false };
+}
+export async function openVirtualMicVendor() {
+  if (desktop) await invoke('open_virtual_mic_vendor');
 }
 
 export interface VoiceProgress {

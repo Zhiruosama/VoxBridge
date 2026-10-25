@@ -93,6 +93,13 @@ fn device_id(device: &cpal::Device) -> Result<String, String> {
         .map_err(|_| "无法读取麦克风标识。".into())
 }
 fn physical(device: &cpal::Device) -> bool {
+    #[cfg(target_os = "windows")]
+    if device.description().is_ok_and(|d| {
+        let name = d.extended().first().map(String::as_str).unwrap_or(d.name());
+        crate::platform::is_cable_endpoint(name, "output")
+    }) {
+        return false;
+    }
     device
         .description()
         .is_ok_and(|d| !d.name().to_lowercase().contains("voxbridge"))

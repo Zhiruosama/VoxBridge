@@ -29,6 +29,8 @@ fn main() {
             "stop_speech",
             "set_speech_monitoring",
             "open_virtual_mic_installer",
+            "virtual_mic_status",
+            "open_virtual_mic_vendor",
             "publish_overlay",
             "read_overlay",
             "read_overlay_voice",

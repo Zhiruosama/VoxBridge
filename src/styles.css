@@ -1332,6 +1332,24 @@ nav button[aria-current='page'] {
   justify-content: flex-end;
   min-width: 0;
 }
+.virtual-mic-help {
+  padding: 0 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.virtual-mic-help p {
+  margin: 5px 0;
+}
+.virtual-mic-help strong {
+  color: var(--text);
+  font-weight: 550;
+}
+.virtual-mic-credit .subtle {
+  display: inline-flex;
+  font-size: inherit;
+}
 .preference-control > input:not([type='range']) {
   width: 100%;
   min-height: 38px;

@@ -1,6 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
+    "resources": {
+      "../native/windows/.build/VBCABLE_Driver_Pack45/": "virtual-microphone/vb-cable/"
+    },
     "windows": {
       "nsis": {
         "languages": ["SimpChinese", "English"],

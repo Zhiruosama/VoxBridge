@@ -98,6 +98,8 @@ pub fn run() {
             speech::stop_speech,
             speech::set_speech_monitoring,
             platform::open_virtual_mic_installer,
+            platform::virtual_mic::virtual_mic_status,
+            platform::virtual_mic::open_virtual_mic_vendor,
         ])
         .on_window_event(|window, event| {
             use tauri::Manager;

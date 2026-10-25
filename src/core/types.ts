@@ -116,6 +116,12 @@ export interface RuntimeInfo {
   nativeCapture: boolean;
   message: string;
 }
+export interface VirtualMicStatus {
+  provider: 'vb-cable' | 'voxbridge' | 'unsupported';
+  output: OutputDevice | null;
+  inputName: string | null;
+  partial: boolean;
+}
 export interface OutputDevice {
   id: string;
   name: string;

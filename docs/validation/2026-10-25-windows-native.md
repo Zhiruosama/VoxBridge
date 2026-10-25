@@ -110,3 +110,13 @@ cargo test --offline --manifest-path src-tauri/Cargo.toml --locked live_native_c
 原入口只在非 Debug 构建设置 Windows GUI 子系统，本地一直交付的 Debug 测试程序因此仍是 Console 子系统，会随启动出现终端。已改为 Windows 上所有构建均使用 GUI 子系统；应用的 JSONL 诊断日志不依赖终端输出，保留原有记录和导出功能。验证时检查生成 exe 的 PE 子系统字段，并在无开发服务器情况下重新启动应用。
 
 实际结果：修改前 PE 子系统为 `3`（Console），修改后为 `2`（Windows GUI）；格式检查、桌面构建和 NSIS 打包通过，新版启动并保持 VoxBridge 窗口运行。
+
+## Windows 虚拟麦克风：VB-CABLE 首版接入
+
+用户选择先使用官方签名的基础版 VB-CABLE。Windows 设置页现提供固定安装器入口、独立的播放/录音两端检测、部分就绪提示、稳定发送端点快捷选择和聊天软件 CABLE Output 指引。首次安装须在厂商窗口点击 Install Driver，按厂商要求重启电脑；不静默安装或自动重启。虚拟录音端从 VoxBridge 的实体录音列表与默认录音选择中排除，防止回采自身输出。试听继续使用原有独立路由和同端点去重。
+
+构建从官方固定地址获取 Pack45，核对 ZIP SHA-256、31 个原包文件摘要与 x64 安装器有效 Authenticode 签名（BUREL VINCENT）。安装入口在提权前再次校验全部文件。原始包包含的 readme、许可证与驱动保持不变，UI 和 Windows 说明保留 VB-Audio 来源与 Donationware/捐赠提示；依据厂商当前官网基础包分发条款，不包含 A+B/C+D。
+
+验证：前端 166 项通过；Rust 默认 138 项通过，另外显式运行资源/只读库存检查通过，覆盖完整包可用、缺失包拒绝、篡改文件拒绝。严格 Clippy、格式检查、前端构建及 Windows Debug/NSIS 构建通过，安装包约 9.96 MiB。检查生成的 NSIS 脚本与 exe 相邻资源目录，31 个文件均正确包含且摘要一致。
+
+只读本机检测返回 `provider=vb-cable, output=null, inputName=null, partial=false`：当前机器尚未安装 VB-CABLE，没有把 Steam 设备误报为就绪。尚未执行驱动安装、重启、音频回录或聊天通话；真实链路与音质需用户安装后继续验收。本批不将 W4 的真实收音标准或 W7 的自有驱动标为完成。使用步骤见 [Windows 虚拟麦克风说明](../../native/windows/README.md)。

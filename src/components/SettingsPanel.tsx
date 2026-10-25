@@ -9,11 +9,9 @@ import { blankProfile, profileFor, captionColorDefaults } from '../core/settings
 import {
   outputDeviceOptions,
   previewDeviceOptions,
-  voxBridgeOutputId,
   migrateLegacyOutputRouting,
 } from '../core/audio-routing';
 import {
-  openVirtualMicInstaller,
   credentialStatus,
   desktop,
   listOutputs,
@@ -25,6 +23,7 @@ import { subtitleDefaults } from '../core/overlay';
 import CaptionColorPicker from './CaptionColorPicker';
 import Select from './Select';
 import SettingRow from './SettingRow';
+import VirtualMicrophone from './VirtualMicrophone';
 import PresetEditor from './PresetEditor';
 import PresetSelect from './PresetSelect';
 import {
@@ -649,41 +648,18 @@ export default function SettingsPanel({
                   {t(refreshingApplications ? '刷新中…' : '刷新应用')}
                 </button>
               </SettingRow>
-              <SettingRow title={t('虚拟麦克风')}>
-                <span className="preference-value">
-                  {t(
-                    devices.some((d) => d.id === voxBridgeOutputId)
-                      ? 'VoxBridge 已就绪'
-                      : '尚未安装',
-                  )}
-                </span>
-                {devices.some((d) => d.id === voxBridgeOutputId) ? (
-                  <button
-                    className="subtle"
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        audio: {
-                          ...draft.audio,
-                          sendDeviceId: voxBridgeOutputId,
-                        },
-                      })
-                    }
-                  >
-                    {t('用作发送设备')}
-                  </button>
-                ) : (
-                  <button
-                    className="subtle"
-                    disabled={!desktop}
-                    onClick={() =>
-                      void openVirtualMicInstaller().catch((error) => notify(String(error)))
-                    }
-                  >
-                    {t('安装虚拟麦克风')}
-                  </button>
-                )}
-              </SettingRow>
+              <VirtualMicrophone
+                devices={devices}
+                selected={draft.audio.sendDeviceId}
+                onSelect={(id) =>
+                  setDraft((current) => ({
+                    ...current,
+                    audio: { ...current.audio, sendDeviceId: id },
+                  }))
+                }
+                onRefresh={refreshDevices}
+                notify={notify}
+              />
               <SettingRow title={t('发送时试听')}>
                 <button
                   role="switch"

@@ -5,6 +5,9 @@ use serde::Serialize;
 
 #[cfg(target_os = "macos")]
 mod macos;
+pub(crate) mod virtual_mic;
+#[cfg(target_os = "windows")]
+pub(crate) use virtual_mic::is_cable_endpoint;
 
 #[derive(Serialize)]
 pub struct OutputDevice {
@@ -425,7 +428,7 @@ mod recovery_tests {
 }
 
 #[tauri::command]
-pub fn open_virtual_mic_installer(window: tauri::WebviewWindow) -> Result<(), String> {
+pub async fn open_virtual_mic_installer(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "main" {
         return Err("此操作仅限主窗口。".into());
     }
@@ -458,6 +461,12 @@ pub fn open_virtual_mic_installer(window: tauri::WebviewWindow) -> Result<(), St
             }
         })
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        tauri::async_runtime::spawn_blocking(move || virtual_mic::open_installer(&window))
+            .await
+            .map_err(|_| "无法打开虚拟麦克风安装器。".to_string())?
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     Err("虚拟麦克风安装目前仅支持 Mac。".into())
 }

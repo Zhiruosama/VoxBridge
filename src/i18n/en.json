@@ -751,5 +751,20 @@
   "无法写入诊断日志。": "Unable to write diagnostic logs.",
   "无法保护诊断日志。": "Unable to secure diagnostic logs.",
   "诊断日志不可用。": "Diagnostic logs are unavailable.",
-  "诊断日志刷新失败。": "Refreshing diagnostic logs failed."
+  "诊断日志刷新失败。": "Refreshing diagnostic logs failed.",
+  "虚拟麦克风已就绪，请用作发送设备并保存更改。": "Virtual microphone ready. Use it for sending and save changes.",
+  "安装器已打开，请按提示安装；安装完成后按驱动要求重启电脑。": "The installer is open. Follow its instructions and restart your computer after installation.",
+  "检测失败": "Detection failed",
+  "检测中…": "Checking…",
+  "已就绪": "Ready",
+  "设备未完整就绪": "Device partially available",
+  "已设为发送设备": "Selected for sending",
+  "正在打开…": "Opening…",
+  "VoxBridge 发送声音到 CABLE Input；聊天软件的麦克风请选择：": "VoxBridge sends audio to CABLE Input. In your chat app, select this microphone:",
+  "试听设备请选择真实耳机或扬声器，然后保存更改。": "Select real headphones or speakers for preview, then save changes.",
+  "仅检测到一端设备，请启用 Windows 声音设置中的 CABLE Input 和 CABLE Output；安装后请先重启电脑，再刷新设备。": "Only one endpoint was detected. Enable CABLE Input and CABLE Output in Windows Sound settings. After installation, restart your computer, then refresh devices.",
+  "安装 VB-CABLE 时请允许系统权限，并在安装器中点击 Install Driver。完成后请重启电脑，再回来刷新设备。": "Allow the system permission request and click Install Driver in the VB-CABLE installer. Restart your computer afterward, then return and refresh devices.",
+  "正在等待虚拟麦克风就绪…": "Waiting for the virtual microphone…",
+  "捐赠软件，欢迎支持作者。": "Donationware. Contributions to the author are welcome.",
+  "官网与捐赠": "Website and donation"
 }

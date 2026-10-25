@@ -40,6 +40,8 @@ const OPERATIONS: &[&str] = &[
     "stop_overlay_listening",
     "set_speech_monitoring",
     "open_virtual_mic_installer",
+    "virtual_mic_status",
+    "open_virtual_mic_vendor",
     "list_inputs",
     "start_voice_input",
     "finish_voice_input",
