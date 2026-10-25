@@ -19,9 +19,9 @@ _界面演示，字幕为示例内容。_
 
 ## 下载与安装
 
-下载 [**0.2.0 测试版 DMG**](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.0)，打开后将 VoxBridge 拖入「应用程序」。
+下载 [**0.2.1 测试版 DMG**](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1)，打开后将 VoxBridge 拖入「应用程序」。
 
-目前提供 **Apple Silicon（M 系列）Mac、macOS 14.2+** 安装包，无需安装开发工具。测试版尚未公证，首次打开可能被 macOS 拦截，处理步骤见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.0)。
+目前提供 **Apple Silicon（M 系列）Mac、macOS 14.2+** 安装包，无需安装开发工具。测试版尚未公证，首次打开可能被 macOS 拦截，处理步骤见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1)。
 
 ## 开始使用
 

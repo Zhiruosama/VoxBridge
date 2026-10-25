@@ -19,9 +19,9 @@ _字幕はサンプルを使用した画面イメージです。_
 
 ## ダウンロードとインストール
 
-[**0.2.0 テスト版 DMG**](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.0) をダウンロードし、開いたら VoxBridge を「アプリケーション」にドラッグしてください。
+[**0.2.1 テスト版 DMG**](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1) をダウンロードし、開いたら VoxBridge を「アプリケーション」にドラッグしてください。
 
-インストーラの対象は **Apple Silicon（M シリーズ）搭載 Mac、macOS 14.2 以降**です。開発ツールのインストールは不要です。テスト版は Apple の公証を受けていないため、初回起動時に macOS によってブロックされる場合があります。対処方法は[リリースノート（中国語）](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.0)をご覧ください。
+インストーラの対象は **Apple Silicon（M シリーズ）搭載 Mac、macOS 14.2 以降**です。開発ツールのインストールは不要です。テスト版は Apple の公証を受けていないため、初回起動時に macOS によってブロックされる場合があります。対処方法は[リリースノート（中国語）](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1)をご覧ください。
 
 ## 使い始める
 
