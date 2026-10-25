@@ -1154,7 +1154,7 @@ nav button[aria-current='page'] {
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
-  padding: 36px 38px 60px;
+  padding: 40px 44px 64px;
   container-type: inline-size;
   container-name: preferences;
 }
@@ -1168,10 +1168,10 @@ nav button[aria-current='page'] {
   z-index: 2;
   background: var(--bg);
   padding-block: 12px;
-  margin: -12px 0 28px;
+  margin: -12px 0 32px;
 }
 .preferences-heading h1 {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 650;
   letter-spacing: -0.5px;
 }
@@ -1190,7 +1190,7 @@ nav button[aria-current='page'] {
   font-size: 12px;
 }
 .preference-section {
-  margin-bottom: 36px;
+  margin-bottom: 32px;
 }
 .preference-section > h2 {
   margin-bottom: 14px;
@@ -1206,10 +1206,10 @@ nav button[aria-current='page'] {
   font-size: 12px;
 }
 .preference-card {
-  padding: 0 20px;
+  padding: 0 18px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--raised);
+  border-radius: 16px;
+  background: transparent;
 }
 .preference-card > * + * {
   border-top: 1px solid var(--border);
@@ -1218,9 +1218,9 @@ nav button[aria-current='page'] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 330px);
   align-items: center;
-  gap: 24px;
-  padding: 18px 0;
-  min-height: 68px;
+  gap: 28px;
+  padding: 14px 0;
+  min-height: 64px;
 }
 .preference-copy {
   min-width: 0;
@@ -1244,7 +1244,8 @@ nav button[aria-current='page'] {
   font-weight: 450;
   background: var(--bg);
 }
-.preference-control > input[type='range'] {
+.preference-control > input[type='range'],
+.speech-speed-control input[type='range'] {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
@@ -1257,12 +1258,14 @@ nav button[aria-current='page'] {
   background: transparent;
   cursor: pointer;
 }
-.preference-control > input[type='range']::-webkit-slider-runnable-track {
+.preference-control > input[type='range']::-webkit-slider-runnable-track,
+.speech-speed-control input[type='range']::-webkit-slider-runnable-track {
   height: 3px;
   border-radius: 3px;
   background: var(--border);
 }
-.preference-control > input[type='range']::-webkit-slider-thumb {
+.preference-control > input[type='range']::-webkit-slider-thumb,
+.speech-speed-control input[type='range']::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
   width: 12px;
@@ -1273,16 +1276,19 @@ nav button[aria-current='page'] {
   background: var(--accent);
   box-shadow: 0 1px 3px #0002;
 }
-.preference-control > input[type='range']::-moz-range-track {
+.preference-control > input[type='range']::-moz-range-track,
+.speech-speed-control input[type='range']::-moz-range-track {
   height: 3px;
   border-radius: 3px;
   background: var(--border);
 }
-.preference-control > input[type='range']::-moz-range-progress {
+.preference-control > input[type='range']::-moz-range-progress,
+.speech-speed-control input[type='range']::-moz-range-progress {
   height: 3px;
   background: var(--border);
 }
-.preference-control > input[type='range']::-moz-range-thumb {
+.preference-control > input[type='range']::-moz-range-thumb,
+.speech-speed-control input[type='range']::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border: 1px solid var(--muted);
@@ -1972,7 +1978,7 @@ input:focus {
   min-width: 0;
   width: 100%;
 }
-.speech-speed-control input {
+.speech-speed-control input[type='range'] {
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -1980,7 +1986,7 @@ input:focus {
   min-width: 0;
   width: 100%;
   padding: 0;
-  accent-color: var(--accent);
+  margin: 0;
 }
 .speech-speed-control output {
   flex-shrink: 0;
@@ -2123,4 +2129,60 @@ input:focus {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* Settings use quiet grouped rows and one consistent surface for editable controls. */
+.preferences-page .preference-control > input:not([type='range']),
+.preferences-page .preference-control > .select-trigger,
+.preferences-page .preset-field > .select-trigger,
+.preferences-page .profile-picker > .select-trigger,
+.preferences-page .profile-picker > input,
+.preferences-page .preset-custom-input {
+  height: 36px;
+  min-height: 36px;
+  border-radius: 9px;
+  background: var(--raised);
+  font-size: 13px;
+}
+.preset-custom-input {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  padding-right: 4px;
+}
+.preset-custom-input:focus-within {
+  border-color: var(--focus);
+}
+.preset-custom-input input {
+  width: 0;
+  min-width: 0;
+  flex: 1;
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+}
+.preset-custom-input input:focus {
+  box-shadow: none;
+}
+.preset-custom-input .icon-button {
+  flex-shrink: 0;
+  width: 28px;
+  min-height: 28px;
+  padding: 4px;
+}
+.speech-speed-control input[type='range']::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--range-progress),
+    var(--border) var(--range-progress)
+  );
+}
+.speech-speed-control input[type='range']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  box-shadow: none;
 }

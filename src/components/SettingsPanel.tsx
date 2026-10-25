@@ -23,6 +23,7 @@ import { subtitleColors, subtitleDefaults } from '../core/overlay';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import PresetEditor from './PresetEditor';
+import PresetSelect from './PresetSelect';
 import {
   applyProviderPreset,
   providerPresets,
@@ -904,25 +905,16 @@ export default function SettingsPanel({
                   spellCheck={false}
                 />
               </SettingRow>
-              <SettingRow title="模型 ID">
-                <div className="preset-field">
-                  <Select
-                    label="模型预设"
-                    value={profile.modelId}
-                    options={modelOptions(profile)}
-                    placeholder="选择模型预设"
-                    onChange={(modelId) => update(speechModelChange(profile, modelId))}
-                  />
-                  <input
-                    aria-label="模型 ID"
-                    value={profile.modelId}
-                    placeholder="model-id"
-                    spellCheck={false}
-                    onChange={(e) => update({ modelId: e.target.value })}
-                  />
-                </div>
+              <SettingRow title="模型">
+                <PresetSelect
+                  key={`${profile.id}:${profile.adapter}:model`}
+                  label="模型"
+                  value={profile.modelId}
+                  options={modelOptions(profile)}
+                  onChange={(modelId) => update(speechModelChange(profile, modelId))}
+                />
               </SettingRow>
-              <SettingRow title="接口协议">
+              <SettingRow title="接口类型">
                 {stage === 'tts' ? (
                   <Select
                     label="语音合成协议"
@@ -981,22 +973,14 @@ export default function SettingsPanel({
                 </SettingRow>
               )}
               {stage === 'tts' && (
-                <SettingRow title="音色 ID">
-                  <div className="preset-field">
-                    <Select
-                      label="音色预设"
-                      value={profile.voice}
-                      options={voiceOptions(profile)}
-                      placeholder="选择音色预设"
-                      onChange={(voice) => update({ voice })}
-                    />
-                    <input
-                      aria-label="音色 ID"
-                      value={profile.voice}
-                      onChange={(e) => update({ voice: e.target.value })}
-                      placeholder="voice-id"
-                    />
-                  </div>
+                <SettingRow title="音色">
+                  <PresetSelect
+                    key={`${profile.id}:${profile.adapter}:voice`}
+                    label="音色"
+                    value={profile.voice}
+                    options={voiceOptions(profile)}
+                    onChange={(voice) => update({ voice })}
+                  />
                 </SettingRow>
               )}
             </div>
@@ -1023,7 +1007,7 @@ export default function SettingsPanel({
           {stage === 'translation' && (
             <section className="preference-section" aria-labelledby="translation-prompt-heading">
               <div className="preference-section-title">
-                <h2 id="translation-prompt-heading">前置 Prompt</h2>
+                <h2 id="translation-prompt-heading">翻译风格</h2>
                 <button
                   className="subtle"
                   onClick={() => update({ translationPrompt: defaultTranslationPrompt })}
@@ -1046,7 +1030,7 @@ export default function SettingsPanel({
             </section>
           )}
           <section className="preference-section" aria-labelledby="credential-heading">
-            <h2 id="credential-heading">访问凭据</h2>
+            <h2 id="credential-heading">API 密钥</h2>
             <div className="preference-card">
               <SettingRow title="API Key">
                 <span className={`credential-status ${hasKey ? 'positive' : ''}`}>

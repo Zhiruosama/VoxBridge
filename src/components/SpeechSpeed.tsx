@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 export default function SpeechSpeed({
   value = 1,
   onChange,
@@ -6,7 +8,10 @@ export default function SpeechSpeed({
   onChange: (speed: number) => void;
 }) {
   return (
-    <div className="speech-speed-control">
+    <div
+      className="speech-speed-control"
+      style={{ '--range-progress': `${((value - 0.5) / 1.5) * 100}%` } as CSSProperties}
+    >
       <input
         type="range"
         aria-label="语音生成速度"
