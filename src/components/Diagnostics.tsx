@@ -180,9 +180,7 @@ export default function Diagnostics({
           </p>
         )}
       </section>
-      <CaptureDiagnostic
-        enabled={desktop && runtime?.platform === 'macos' && runtime.nativeCapture}
-      />
+      <CaptureDiagnostic enabled={desktop && runtime?.nativeCapture === true} />
       <AsrDiagnostic settings={settings} />
       <section className="preference-section" aria-labelledby="diagnostic-logs-heading">
         <h2 id="diagnostic-logs-heading">{t('本机诊断日志')}</h2>

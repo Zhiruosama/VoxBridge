@@ -1,7 +1,7 @@
 use super::{CaptureSource, CaptureState};
 use crate::{asr::AsrProfile, providers::TranslationProfile};
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -10,11 +10,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod http;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod realtime;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod recovery;
 
 #[derive(Clone, Deserialize)]
@@ -128,7 +128,7 @@ pub enum ListeningEvent {
     },
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn segment_id(session: &str, generation: u32, sequence: u64) -> String {
     if generation == 0 {
         format!("{session}-{sequence}")
@@ -137,13 +137,13 @@ fn segment_id(session: &str, generation: u32, sequence: u64) -> String {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 struct QueuedSegment {
     audio: crate::audio_pipeline::AudioSegment,
     created: Instant,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn send(
     channel: &tauri::ipc::Channel<ListeningEvent>,
     event: ListeningEvent,
@@ -151,7 +151,7 @@ fn send(
     channel.send(event).map_err(|_| "字幕界面已关闭。".into())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 struct SegmentProcessor<'a> {
     profile: &'a AsrProfile,
     key: &'a str,
@@ -163,7 +163,7 @@ struct SegmentProcessor<'a> {
     offset_ms: u64,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 impl SegmentProcessor<'_> {
     async fn process(
         &self,
@@ -203,7 +203,7 @@ impl SegmentProcessor<'_> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn capture_segments(
     source: CaptureSource,
     session_id: String,
@@ -294,7 +294,7 @@ pub async fn start_listening(
     asr_state: tauri::State<'_, crate::asr::AsrState>,
     translations: tauri::State<'_, crate::providers::Requests>,
 ) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
         if request.source.pid <= 0
             || request.source.pid as u32 == std::process::id()
@@ -347,7 +347,7 @@ pub async fn start_listening(
         );
         result
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = (request, on_event, state, asr_state, translations);
         Err("分段监听暂仅支持 Mac 桌面版。".into())
@@ -390,7 +390,7 @@ mod tests {
         assert_eq!(progress["sampleRate"], 48000);
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     fn http_response(text: &str) -> (String, std::thread::JoinHandle<serde_json::Value>) {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -430,7 +430,7 @@ mod tests {
         (url, server)
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[tokio::test]
     async fn pcm_segment_reaches_asr_then_corresponding_translation_without_real_credentials() {
         let (asr_url, asr_server) = http_response("Good morning");
@@ -503,7 +503,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[tokio::test]
     async fn cancelled_pipeline_emits_no_events_and_translation_slot_is_released() {
         let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":"http://127.0.0.1:1/v1","modelId":"test"})).unwrap();
@@ -678,7 +678,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[tokio::test]
     async fn full_queue_rejects_new_segments_without_blocking() {
         let (sender, mut receiver) = tokio::sync::mpsc::channel(1);

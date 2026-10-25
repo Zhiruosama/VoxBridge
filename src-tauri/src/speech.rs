@@ -720,22 +720,25 @@ async fn execute_inner(
         .clone()
         .try_acquire_owned()
         .map_err(|_| "音频输出正忙，请等待当前播放结束。")?;
-    if let Err(error) = crate::platform::wait_for_output(&device, &job.token, || {
+    let device = match crate::platform::wait_for_output(&device, &job.token, || {
         progress(&on_progress, &request_id, "waitingDevice")
     })
     .await
     {
-        progress(
-            &on_progress,
-            &request_id,
-            if job.token.is_cancelled() {
-                "stopped"
-            } else {
-                "failed"
-            },
-        );
-        return Err(error);
-    }
+        Ok(device) => device,
+        Err(error) => {
+            progress(
+                &on_progress,
+                &request_id,
+                if job.token.is_cancelled() {
+                    "stopped"
+                } else {
+                    "failed"
+                },
+            );
+            return Err(error);
+        }
+    };
     let key = if prepared_audio.is_some() {
         String::new()
     } else {

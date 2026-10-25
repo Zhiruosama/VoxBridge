@@ -185,7 +185,7 @@ struct Record {
     event: DiagnosticEvent,
 }
 enum Message {
-    Event(Record),
+    Event(Box<Record>),
     Flush(mpsc::Sender<Result<(), String>>),
     Export(mpsc::Sender<Result<PathBuf, String>>),
 }
@@ -219,7 +219,11 @@ fn enqueue(event: DiagnosticEvent, source: &'static str) {
         source,
         event,
     };
-    if sink.sender.try_send(Message::Event(record)).is_err() {
+    if sink
+        .sender
+        .try_send(Message::Event(Box::new(record)))
+        .is_err()
+    {
         sink.dropped.fetch_add(1, Ordering::Relaxed);
     }
 }

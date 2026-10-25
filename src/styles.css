@@ -2410,8 +2410,8 @@ input:focus {
 }
 .asr-profile-model {
   color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-family: inherit;
+  font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
   max-width: 100%;

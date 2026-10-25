@@ -1,6 +1,33 @@
-import type { OutputDevice } from './types';
+import type { AudioRouting, OutputDevice } from './types';
 
 export const systemDefaultOutputId = '__system_default__';
+
+/** Upgrade only exact, unambiguous Windows device names; never guess a route. */
+export function migrateLegacyOutputRouting(
+  audio: AudioRouting,
+  devices: OutputDevice[],
+): AudioRouting {
+  function upgrade(value: string) {
+    if (
+      !value ||
+      value === systemDefaultOutputId ||
+      value.startsWith('windows-output:') ||
+      value.startsWith('macos-output:')
+    )
+      return value;
+    const candidates = new Set(
+      devices
+        .filter((device) => device.id.startsWith('windows-output:') && device.name === value)
+        .map((device) => device.id),
+    );
+    return candidates.size === 1 ? [...candidates][0] : value;
+  }
+  const previewDeviceId = upgrade(audio.previewDeviceId);
+  const sendDeviceId = upgrade(audio.sendDeviceId);
+  return previewDeviceId === audio.previewDeviceId && sendDeviceId === audio.sendDeviceId
+    ? audio
+    : { ...audio, previewDeviceId, sendDeviceId };
+}
 
 export function previewDeviceOptions(devices: OutputDevice[], value: string) {
   return [
@@ -30,9 +57,10 @@ export function outputDeviceOptions(devices: OutputDevice[], value: string) {
   if (value && !unique.some((device) => device.id === value)) {
     options.push({
       value,
-      label: value.startsWith('macos-output:')
-        ? '已保存设备（不可用，请重新选择）'
-        : `${value}（不可用，请重新选择）`,
+      label:
+        value.startsWith('macos-output:') || value.startsWith('windows-output:')
+          ? '已保存设备（不可用，请重新选择）'
+          : `${value}（不可用，请重新选择）`,
     });
   }
   return options;

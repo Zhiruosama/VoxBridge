@@ -10,6 +10,7 @@ import {
   outputDeviceOptions,
   previewDeviceOptions,
   voxBridgeOutputId,
+  migrateLegacyOutputRouting,
 } from '../core/audio-routing';
 import {
   openVirtualMicInstaller,
@@ -92,6 +93,10 @@ export default function SettingsPanel({
       const [outputs, microphones] = await Promise.all([listOutputs(), listInputs()]);
       setDevices(outputs);
       setInputs(microphones);
+      setDraft((current) => {
+        const audio = migrateLegacyOutputRouting(current.audio, outputs);
+        return audio === current.audio ? current : { ...current, audio };
+      });
     } catch (error) {
       notify(String(error));
     } finally {
@@ -106,6 +111,10 @@ export default function SettingsPanel({
         if (active) {
           setDevices(next);
           setInputs(microphones);
+          setDraft((current) => {
+            const audio = migrateLegacyOutputRouting(current.audio, next);
+            return audio === current.audio ? current : { ...current, audio };
+          });
         }
       })
       .catch((error) => {

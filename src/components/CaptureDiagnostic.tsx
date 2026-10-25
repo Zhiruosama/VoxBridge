@@ -163,8 +163,8 @@ export default function CaptureDiagnostic({ enabled }: { enabled: boolean }) {
           error ||
             (busy && phase === 'running' && signalMessage) ||
             (enabled
-              ? '只采集选定 PID；其他子进程需单独选择。最长 60 秒，离开此页会停止。不保存、不上传声音；未接入 ASR，零电平不代表权限已通过。'
-              : '应用声音采集诊断仅支持 Mac 桌面版。'),
+              ? '仅采集选定应用的声音，最长 60 秒，离开此页会停止。不保存、不上传声音；未接入 ASR，零电平不代表权限已通过。'
+              : '当前系统尚未接入应用声音采集。'),
         )}
       </p>
     </section>

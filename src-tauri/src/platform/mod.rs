@@ -19,7 +19,14 @@ pub(crate) fn output_id(device: &cpal::Device) -> Result<String, String> {
     {
         macos::output_id(device)
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        device
+            .id()
+            .map(|id| format!("windows-output:{}", hex::encode(id.1)))
+            .map_err(|_| "无法读取输出设备标识。".into())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         device
             .description()
@@ -34,11 +41,20 @@ fn output_entries() -> Result<Vec<(cpal::Device, OutputDevice)>, String> {
         .output_devices()
         .map_err(|_| "无法枚举输出设备。".to_string())?
         .map(|device| {
-            let name = device
+            let description = device
                 .description()
-                .map_err(|_| "无法读取设备名称。".to_string())?
-                .name()
-                .to_string();
+                .map_err(|_| "无法读取设备名称。".to_string())?;
+            // CPAL 0.17's short name is often just "Speakers". WASAPI puts the
+            // full friendly name used by older versions in the first extended line.
+            #[cfg(target_os = "windows")]
+            let name = description
+                .extended()
+                .first()
+                .map(String::as_str)
+                .unwrap_or(description.name())
+                .to_owned();
+            #[cfg(not(target_os = "windows"))]
+            let name = description.name().to_owned();
             let id = output_id(&device)?;
             Ok((device, OutputDevice { id, name }))
         })
@@ -82,6 +98,10 @@ pub fn resolve_output(id: &str) -> Result<cpal::Device, String> {
             .default_output_device()
             .ok_or_else(|| "系统当前没有默认输出设备，请连接耳机或扬声器。".into());
     }
+    #[cfg(target_os = "windows")]
+    let resolved_id = windows_saved_output_id(id, &list_outputs()?)?;
+    #[cfg(target_os = "windows")]
+    let id = resolved_id.as_str();
     #[cfg(target_os = "macos")]
     {
         macos::validate_output_id(id)?;
@@ -107,6 +127,97 @@ pub fn resolve_output(id: &str) -> Result<cpal::Device, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_output_identity_rejects_legacy_names_and_malformed_ids() {
+        assert!(validate_windows_output_id("Speakers").is_err());
+        assert!(validate_windows_output_id("windows-output:").is_err());
+        assert!(validate_windows_output_id("windows-output:zz").is_err());
+        assert!(validate_windows_output_id("windows-output:6162").is_ok());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_legacy_friendly_names_resolve_uniquely_without_fallback() {
+        let device = |id: &str, name: &str| OutputDevice {
+            id: id.into(),
+            name: name.into(),
+        };
+        let mut devices = vec![
+            device("windows-output:61", "扬声器 (Realtek(R) Audio)"),
+            device("windows-output:62", "扬声器 (Steam Streaming Speakers)"),
+        ];
+        assert_eq!(
+            windows_saved_output_id("扬声器 (Realtek(R) Audio)", &devices).unwrap(),
+            "windows-output:61"
+        );
+        assert!(windows_saved_output_id("扬声器", &devices).is_err());
+        assert_eq!(
+            windows_saved_output_id("", &devices).unwrap_err(),
+            "请先选择输出设备。"
+        );
+        assert!(windows_saved_output_id("macos-output:61", &devices).is_err());
+        assert!(windows_saved_output_id("windows-output:zz", &devices).is_err());
+        assert_eq!(
+            windows_saved_output_id("windows-output:99", &devices).unwrap(),
+            "windows-output:99"
+        );
+        assert_eq!(
+            windows_saved_output_id(SYSTEM_DEFAULT_OUTPUT, &devices).unwrap(),
+            SYSTEM_DEFAULT_OUTPUT
+        );
+        devices.push(device("windows-output:63", "扬声器 (Realtek(R) Audio)"));
+        assert!(
+            windows_saved_output_id("扬声器 (Realtek(R) Audio)", &devices)
+                .unwrap_err()
+                .contains("歧义")
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    #[ignore = "manual read-only Windows output inventory; no audio streams"]
+    fn windows_output_inventory_resolves_stable_endpoints() {
+        let first = list_outputs().unwrap();
+        assert!(!first.is_empty());
+        let mut ids = std::collections::HashSet::new();
+        for device in first {
+            assert!(device.id.starts_with("windows-output:"));
+            assert!(ids.insert(device.id.clone()));
+            assert_eq!(
+                output_id(&resolve_output(&device.id).unwrap()).unwrap(),
+                device.id
+            );
+            if list_outputs()
+                .unwrap()
+                .iter()
+                .filter(|other| other.name == device.name)
+                .count()
+                == 1
+            {
+                assert_eq!(
+                    output_id(&resolve_output(&device.name).unwrap()).unwrap(),
+                    device.id
+                );
+                let token = tokio_util::sync::CancellationToken::new();
+                assert_eq!(
+                    tauri::async_runtime::block_on(wait_for_output(&device.name, &token, || {}))
+                        .unwrap(),
+                    device.id
+                );
+            }
+            println!("WINDOWS_OUTPUT_RESOLVED: {}", device.name);
+        }
+        assert_eq!(
+            ids,
+            list_outputs()
+                .unwrap()
+                .into_iter()
+                .map(|device| device.id)
+                .collect()
+        );
+    }
 
     #[test]
     fn selection_is_exact_and_never_falls_back() {
@@ -190,17 +301,24 @@ pub(crate) async fn wait_for_output(
     id: &str,
     stop: &tokio_util::sync::CancellationToken,
     waiting: impl FnMut(),
-) -> Result<(), String> {
+) -> Result<String, String> {
     if id == SYSTEM_DEFAULT_OUTPUT {
         return wait_until_available(
             stop,
             || async { Ok(cpal::default_host().default_output_device().is_some()) },
             waiting,
         )
-        .await;
+        .await
+        .map(|()| id.to_owned());
     }
+    // Resolve a legacy name once, before waiting, so playback cannot switch to a
+    // different endpoint if another device later adopts that display name.
+    #[cfg(target_os = "windows")]
+    let id = windows_saved_output_id(id, &list_outputs()?)?;
+    #[cfg(not(target_os = "windows"))]
+    let id = id.to_owned();
     #[cfg(target_os = "macos")]
-    macos::validate_output_id(id)?;
+    macos::validate_output_id(&id)?;
     wait_until_available(
         stop,
         || {
@@ -223,7 +341,46 @@ pub(crate) async fn wait_for_output(
         },
         waiting,
     )
-    .await
+    .await?;
+    Ok(id)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_saved_output_id(id: &str, devices: &[OutputDevice]) -> Result<String, String> {
+    if id == SYSTEM_DEFAULT_OUTPUT {
+        return Ok(id.into());
+    }
+    if id.is_empty() {
+        return Err("请先选择输出设备。".into());
+    }
+    if id.starts_with("windows-output:") {
+        validate_windows_output_id(id)?;
+        return Ok(id.into());
+    }
+    if id.starts_with("macos-output:") {
+        return Err("已保存的输出设备不属于当前系统，请重新选择。".into());
+    }
+    let matches: std::collections::BTreeSet<_> = devices
+        .iter()
+        .filter(|device| device.name == id)
+        .map(|device| device.id.as_str())
+        .collect();
+    match matches.len() {
+        0 => Err("已保存的输出设备当前不可用，请刷新并重新选择。".into()),
+        1 => Ok(matches.into_iter().next().unwrap().into()),
+        _ => Err("输出设备名称存在歧义，请重新选择设备。".into()),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn validate_windows_output_id(id: &str) -> Result<(), String> {
+    let Some(encoded) = id.strip_prefix("windows-output:") else {
+        return Err("输出设备使用旧版名称标识，请刷新并重新选择设备。".into());
+    };
+    if encoded.is_empty() || hex::decode(encoded).is_err() {
+        return Err("输出设备标识无效，请重新选择设备。".into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]

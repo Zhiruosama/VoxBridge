@@ -115,6 +115,8 @@
   "常规": "General",
   "应用声音采集": "App audio capture",
   "应用声音采集诊断": "App audio capture test",
+  "当前系统尚未接入应用声音采集。": "App audio capture is not available on this system.",
+  "仅采集选定应用的声音，最长 60 秒，离开此页会停止。不保存、不上传声音；未接入 ASR，零电平不代表权限已通过。": "Captures only the selected app for up to 60 seconds. Leaving this page stops capture. Audio is not saved or uploaded. This test does not run recognition; a zero level does not confirm permission.",
   "应用声音采集诊断仅支持 Mac 桌面版。": "App audio capture testing requires the Mac desktop app.",
   "应用已退出，请重新选择": "App closed. Select another app.",
   "开启": "On",

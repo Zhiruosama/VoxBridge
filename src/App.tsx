@@ -71,6 +71,7 @@ import {
   detectTextLanguage,
   desktop,
   listCaptureSources,
+  listOutputs,
   publishOverlay,
   publishOverlayVoice,
   readOverlayVoice,
@@ -87,6 +88,7 @@ import {
 } from './bridge';
 
 import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
+import { migrateLegacyOutputRouting } from './core/audio-routing';
 import { useTextSelection } from './hooks/useTextSelection';
 
 const languages = [
@@ -423,6 +425,34 @@ export default function App() {
   }, [notify]);
   useTheme(settings.theme);
   useEffect(() => {
+    if (!desktop || runtime?.platform !== 'windows') return;
+    let active = true;
+    listOutputs()
+      .then((devices) => {
+        if (!active) return;
+        // Read the latest saved settings after enumeration, preserving edits saved meanwhile.
+        const saved = loadSettings();
+        const audio = migrateLegacyOutputRouting(saved.audio, devices);
+        if (audio !== saved.audio) {
+          saveSettings({ ...saved, audio });
+          setSavedSettings((current) => ({
+            ...current,
+            audio: migrateLegacyOutputRouting(current.audio, devices),
+          }));
+        }
+        setSettings((current) => {
+          const audio = migrateLegacyOutputRouting(current.audio, devices);
+          return audio === current.audio ? current : { ...current, audio };
+        });
+      })
+      .catch((error) => {
+        if (active) notify(String(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [runtime?.platform, notify]);
+  useEffect(() => {
     if (follow)
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'instant' });
   }, [session.segments, follow]);
@@ -456,7 +486,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (desktop && runtime?.platform === 'macos') void refreshCaptureSources();
+    if (desktop && runtime?.nativeCapture === true) void refreshCaptureSources();
   }, [runtime?.platform]);
 
   function receiveListening(event: ListeningEvent) {
@@ -935,7 +965,7 @@ export default function App() {
                 onClick={() => void (listening ? endListening() : beginListening())}
                 disabled={
                   !desktop ||
-                  runtime?.platform !== 'macos' ||
+                  runtime?.nativeCapture !== true ||
                   listenPhase === 'stopping' ||
                   (!listening && (!captureSourceId || refreshingSources))
                 }
@@ -971,7 +1001,7 @@ export default function App() {
               onDiagnostics={() => setPage('diagnostics')}
               onRefreshApplications={refreshCaptureSources}
               refreshingApplications={refreshingSources}
-              captureSupported={runtime?.platform === 'macos'}
+              captureSupported={runtime?.nativeCapture === true}
             />
           )}
           {page === 'diagnostics' && (
@@ -984,7 +1014,7 @@ export default function App() {
                   label={t('监听应用')}
                   value={captureSourceId}
                   onChange={setCaptureSourceId}
-                  disabled={listening || !desktop || runtime?.platform !== 'macos'}
+                  disabled={listening || !desktop || runtime?.nativeCapture !== true}
                   placeholder={t('选择监听应用')}
                   onOpenChange={(open) => {
                     if (open) void refreshCaptureSources();

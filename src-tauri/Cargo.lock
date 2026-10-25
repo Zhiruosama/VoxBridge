@@ -4433,6 +4433,8 @@ dependencies = [
  "tokio-util",
  "url",
  "whatlang",
+ "windows",
+ "windows-core",
  "zeroize",
 ]
 

@@ -30,6 +30,10 @@ pub fn channel(capacity: usize) -> (PcmWriter, rtrb::Consumer<Frame>, Arc<Atomic
 }
 
 impl PcmWriter {
+    pub(crate) fn mark_discontinuity(&mut self) {
+        self.next_index += 1;
+        self.dropped.fetch_add(1, Ordering::Relaxed);
+    }
     fn write_frames(&mut self, frames: impl Iterator<Item = [f32; 2]>) {
         let mut dropped = 0;
         for samples in frames {
@@ -99,6 +103,19 @@ impl Meter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_discontinuity_is_preserved_in_the_source_timeline() {
+        let (mut writer, mut reader, dropped) = channel(8);
+        writer.write_stereo(&[0.0, 0.0]);
+        writer.mark_discontinuity();
+        writer.write_stereo(&[0.1, 0.1]);
+        let mut meter = Meter::default();
+        meter.consume(reader.pop().unwrap());
+        meter.consume(reader.pop().unwrap());
+        assert_eq!(meter.gaps, 1);
+        assert_eq!(dropped.load(Ordering::Relaxed), 1);
+    }
 
     #[test]
     fn stereo_frames_keep_sequence_and_sanitize_invalid_samples() {

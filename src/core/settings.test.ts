@@ -1,10 +1,32 @@
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaults, loadSettings, parseSettings, saveSettings, validateProfile } from './settings';
+import { migrateLegacyOutputRouting } from './audio-routing';
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('provider profiles', () => {
+  it('persists upgraded Windows output IDs across restart without changing provider settings', () => {
+    let stored = JSON.stringify({
+      ...structuredClone(defaults),
+      audio: { previewDeviceId: 'Headphones', sendDeviceId: 'Cable', monitorEnabled: true },
+    });
+    vi.stubGlobal('localStorage', {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value;
+      },
+    });
+    const before = loadSettings();
+    const audio = migrateLegacyOutputRouting(before.audio, [
+      { id: 'windows-output:61', name: 'Headphones' },
+      { id: 'windows-output:62', name: 'Cable' },
+    ]);
+    saveSettings({ ...before, audio });
+    expect(loadSettings()).toEqual({ ...before, audio });
+    expect(loadSettings().audio.previewDeviceId).toBe('windows-output:61');
+    expect(loadSettings().audio.sendDeviceId).toBe('windows-output:62');
+  });
   it('migrates and bounds workspace caption spacing independently of overlay line height', () => {
     expect(parseSettings({ ...defaults, captionSpacing: undefined }).captionSpacing).toBe(26);
     for (const value of [null, '20', NaN, Infinity]) {

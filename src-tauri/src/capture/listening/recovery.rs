@@ -1,35 +1,8 @@
 use super::*;
 use tokio_util::sync::CancellationToken;
 
-fn select_source(
-    original: &CaptureSource,
-    candidates: Vec<CaptureSource>,
-) -> Result<CaptureSource, String> {
-    if original.app_scoped {
-        return candidates
-            .into_iter()
-            .find(|source| source.app_scoped && source.bundle_id == original.bundle_id)
-            .ok_or_else(|| "正在等待目标应用恢复声音进程。".into());
-    }
-    if let Some(source) = candidates
-        .iter()
-        .find(|s| s.pid == original.pid && s.bundle_id == original.bundle_id)
-    {
-        return Ok(source.clone());
-    }
-    // Never bind a different process on PID alone or guess among multiple browser processes.
-    if original.bundle_id.is_empty() {
-        return Err("正在等待目标应用恢复声音进程。".into());
-    }
-    let mut matching = candidates
-        .into_iter()
-        .filter(|s| s.bundle_id == original.bundle_id && s.pid as u32 != std::process::id());
-    let source = matching.next().ok_or("正在等待目标应用恢复声音进程。")?;
-    if matching.next().is_some() {
-        return Err("目标应用有多个音频进程，请刷新后重新选择。".into());
-    }
-    Ok(source)
-}
+#[cfg(test)]
+use super::super::native::select_source;
 
 fn control_finish_result(result: Result<(), String>) -> Result<(), String> {
     result.map_err(|error| {
@@ -80,17 +53,12 @@ pub(super) async fn run(
                     return Ok(());
                 }
                 if generation > 0 {
-                    let app_scoped = attempt.source.app_scoped;
-                    let candidates = tauri::async_runtime::spawn_blocking(move || {
-                        if app_scoped {
-                            super::super::native::sources()
-                        } else {
-                            super::super::native::process_sources()
-                        }
+                    let original = attempt.source.clone();
+                    attempt.source = tauri::async_runtime::spawn_blocking(move || {
+                        super::super::native::recover_source(&original)
                     })
                     .await
                     .map_err(|_| "读取音频进程失败。".to_string())??;
-                    attempt.source = select_source(&attempt.source, candidates)?;
                     if token.is_cancelled() {
                         return Ok(());
                     }
@@ -219,7 +187,11 @@ mod tests {
     async fn finishing_during_recovery_delay_does_not_open_another_capture_attempt() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("ws://{}", listener.local_addr().unwrap());
-        drop(listener);
+        // Actively reject the handshake; a closed-port TCP timeout differs across OSes.
+        let reject = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            drop(stream);
+        });
         let request:ListeningRequest=serde_json::from_value(serde_json::json!({"source":{"pid":999,"bundleId":"fixture"},"sessionId":"stop-in-backoff","asrProfile":{"id":"fixture","stage":"asr","adapter":"qwen_dashscope_asr","baseUrl":url,"modelId":"fixture"},"translationProfile":{"id":"fixture","stage":"translation","adapter":"openai_chat_completions","baseUrl":"http://127.0.0.1:1","modelId":"fixture"},"sourceLanguage":"英语","targetLanguage":"简体中文"})).unwrap();
         let registry = crate::providers::Requests::default();
         let translation = registry
@@ -260,6 +232,7 @@ mod tests {
         .await
         .unwrap()
         .unwrap();
+        reject.await.unwrap();
         let events = events.lock().unwrap();
         assert_eq!(
             events

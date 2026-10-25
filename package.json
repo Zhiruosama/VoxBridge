@@ -18,6 +18,7 @@
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:build:mac": "tauri build --bundles app,dmg",
+    "desktop:build:windows": "tauri build --bundles nsis",
     "postdesktop:build": "node scripts/verify-macos-app.mjs",
     "postdesktop:build:mac": "node scripts/verify-macos-app.mjs"
   },

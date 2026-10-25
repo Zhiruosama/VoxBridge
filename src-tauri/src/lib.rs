@@ -27,10 +27,14 @@ struct RuntimeInfo {
 
 #[tauri::command]
 fn runtime_info() -> RuntimeInfo {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let native_capture = capture::native::supported().is_ok();
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let native_capture = false;
     RuntimeInfo {
         platform: std::env::consts::OS,
-        native_capture: cfg!(target_os = "macos"),
-        message: "工作台开发版 · 支持 Mac 目标进程 HTTP 分段识别与双语字幕。实时 WebSocket、真实采集权限、延迟和声音路由仍待验收。",
+        native_capture,
+        message: "支持应用声音采集、实时识别与双语字幕；设备和权限状态以实际诊断为准。",
     }
 }
 
