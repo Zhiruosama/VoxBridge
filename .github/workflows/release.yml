@@ -21,6 +21,8 @@ jobs:
         include:
           - os: windows-latest
             platform: windows-x64
+          - os: windows-11-arm
+            platform: windows-arm64
           - os: macos-15
             platform: macos-arm64
     runs-on: ${{ matrix.os }}
@@ -89,6 +91,8 @@ jobs:
           merge-multiple: true
           path: release-assets
       - name: Verify checksums and assemble update manifest
+        env:
+          REQUIRE_WINDOWS_ARM64: '1'
         run: node scripts/prepare-release.mjs manifest
       - uses: actions/upload-artifact@v4
         with:

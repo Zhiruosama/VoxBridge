@@ -53,3 +53,15 @@ test('does not downgrade the update feed when an older tag is released', t => {
   assert.equal(f.run(['feed-check', previous], { GITHUB_OUTPUT: output }).status, 0);
   assert.equal(readFileSync(output, 'utf8'), 'advance=false\n');
 });
+test('requires and includes the ARM64 package when publishing all targets', t => {
+  const f = fixture(t);
+  assert.notEqual(f.run(['manifest'], { REQUIRE_WINDOWS_ARM64: '1' }).status, 0);
+  const name = 'VoxBridge_0.3.0_arm64-setup.exe';
+  const data = Buffer.from('arm64-fixture');
+  writeFileSync(join(f.directory, 'release-assets', name), data);
+  writeFileSync(join(f.directory, 'release-assets', name + '.sig'), 'fixture-signature');
+  writeFileSync(join(f.directory, 'release-assets/SHA256SUMS-windows-arm64.txt'), `${createHash('sha256').update(data).digest('hex')}  ${name}\n`);
+  assert.equal(f.run(['manifest'], { REQUIRE_WINDOWS_ARM64: '1' }).status, 0);
+  const manifest = JSON.parse(readFileSync(join(f.directory, 'release-assets/latest.json')));
+  assert.match(manifest.platforms['windows-aarch64'].url, /arm64-setup.exe$/);
+});

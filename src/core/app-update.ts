@@ -81,7 +81,13 @@ export class AppUpdates {
       await update.install();
       await this.restart();
     } catch {
-      this.emit({ status: 'available', error: '更新未完成，当前版本和配置已保留，请重试。' });
+      this.emit({
+        status: 'available',
+        error:
+          this.state.status === 'installing'
+            ? '安装未完成，请使用新版安装包覆盖安装，无需删除原有配置。'
+            : '下载或签名校验失败，未安装更新，请重试。',
+      });
     }
   }
 }

@@ -808,5 +808,7 @@
   "更新未完成，当前版本和配置已保留，请重试。": "Update not completed. Your current version and settings are preserved. Try again.",
   "设置麦克风名称": "Set microphone name",
   "可在 Windows 声音设置中选择该输入设备，将名称改为 VoxBridge；驱动仍由 VB-Audio 提供。": "In Windows Sound Settings, select this input device and rename it VoxBridge. The driver is still provided by VB-Audio.",
-  "VoxBridge 将声音发送到所选虚拟输出；聊天软件的麦克风请选择：": "VoxBridge sends audio to the selected virtual output. In your chat app, choose this microphone:"
+  "VoxBridge 将声音发送到所选虚拟输出；聊天软件的麦克风请选择：": "VoxBridge sends audio to the selected virtual output. In your chat app, choose this microphone:",
+  "安装未完成，请使用新版安装包覆盖安装，无需删除原有配置。": "Installation was not completed. Run the new installer over the current version; there is no need to delete settings.",
+  "下载或签名校验失败，未安装更新，请重试。": "Download or signature verification failed. The update was not installed. Try again."
 }

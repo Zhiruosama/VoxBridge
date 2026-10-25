@@ -18,7 +18,7 @@ if (mode === 'feed-check') {
 } else if (mode === 'validate') {
   await readFile(`docs/releases/${tag}.md`);
 } else if (mode === 'collect') {
-  const platform = process.platform === 'win32' ? 'windows-x64' : 'macos-arm64';
+  const platform = process.platform === 'win32' ? `windows-${process.arch === 'arm64' ? 'arm64' : 'x64'}` : 'macos-arm64';
   const output = 'release-assets';
   await mkdir(output, { recursive: true });
   const bundle = 'src-tauri/target/release/bundle';
@@ -42,17 +42,19 @@ if (mode === 'feed-check') {
 } else if (mode === 'manifest') {
   const directory = 'release-assets';
   const names = await readdir(directory);
-  const windows = names.filter(name => name.endsWith('.exe'));
+  const windows = names.filter(name => name.endsWith('_x64-setup.exe'));
+  const arm = names.filter(name => /_(arm64|aarch64)-setup\.exe$/.test(name));
   const mac = names.filter(name => name.endsWith('.app.tar.gz'));
   if (windows.length !== 1 || mac.length !== 1) throw new Error('Expected exactly one Windows and one Mac updater');
+  if (arm.length > 1 || (process.env.REQUIRE_WINDOWS_ARM64 === '1' && arm.length !== 1)) throw new Error('Expected one Windows ARM64 updater');
   const platforms = {};
-  for (const [target, name] of [['windows-x86_64', windows[0]], ['darwin-aarch64', mac[0]]]) {
+  for (const [target, name] of [['windows-x86_64', windows[0]], ['darwin-aarch64', mac[0]], ...(arm.length ? [['windows-aarch64', arm[0]]] : [])]) {
     const signature = (await readFile(join(directory, `${name}.sig`), 'utf8')).trim();
     if (!signature) throw new Error('Empty updater signature');
     platforms[target] = { signature, url: `https://github.com/Zhiruosama/VoxBridge/releases/download/${tag}/${encodeURIComponent(basename(name))}` };
   }
   // Validate every checksum before publishing; separate names prevent platform collisions.
-  for (const platform of ['windows-x64', 'macos-arm64']) {
+  for (const platform of ['windows-x64', 'macos-arm64', ...(arm.length ? ['windows-arm64'] : [])]) {
     for (const line of (await readFile(join(directory, `SHA256SUMS-${platform}.txt`), 'utf8')).trim().split('\n')) {
       const [expected, name] = line.split('  ');
       if (!name || basename(name) !== name || createHash('sha256').update(await readFile(join(directory, name))).digest('hex') !== expected) throw new Error('Release checksum mismatch');

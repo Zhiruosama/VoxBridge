@@ -290,6 +290,32 @@ fn audible(samples: &[i16]) -> bool {
     samples.len() >= 1600
         && samples.iter().map(|v| (*v as f64).powi(2)).sum::<f64>() / samples.len() as f64 > 100.0
 }
+fn input_stream_error(error: cpal::BuildStreamError) -> String {
+    match error {
+        cpal::BuildStreamError::DeviceNotAvailable => {
+            "麦克风已断开或不可用，请连接设备后刷新。".into()
+        }
+        cpal::BuildStreamError::StreamConfigNotSupported => {
+            "麦克风不支持当前录音格式，请更换设备或检查系统声音设置。".into()
+        }
+        cpal::BuildStreamError::BackendSpecific { err } => {
+            let description = err.description.to_ascii_lowercase();
+            if description.contains("0x80070005")
+                || description.contains("e_accessdenied")
+                || description.contains("-2147024891")
+            {
+                "系统拒绝了麦克风访问，请检查麦克风权限及桌面应用访问权限。".into()
+            } else if description.contains("0x8889000a")
+                || description.contains("audclnt_e_device_in_use")
+            {
+                "麦克风被其他软件独占，请先关闭占用设备的软件，再重试。".into()
+            } else {
+                "无法打开麦克风，请检查系统麦克风权限、设备连接及其他软件的独占占用。".into()
+            }
+        }
+        _ => "无法打开麦克风，请检查系统麦克风权限、设备连接及其他软件的独占占用。".into(),
+    }
+}
 fn record(
     device_id_value: String,
     token: CancellationToken,
@@ -349,15 +375,7 @@ fn record(
         cpal::SampleFormat::U16 => stream!(u16, |v: &u16| (*v as f32 - 32768.0) / 32768.0),
         _ => return Err("暂不支持此麦克风采样格式。".into()),
     }
-    .map_err(|error| match error {
-        cpal::BuildStreamError::DeviceNotAvailable => {
-            "麦克风已断开或不可用，请连接设备后刷新。".to_string()
-        }
-        cpal::BuildStreamError::StreamConfigNotSupported => {
-            "麦克风不支持当前录音格式，请更换设备或检查 Windows 声音设置。".to_string()
-        }
-        _ => "无法打开麦克风，请检查系统麦克风权限、设备连接及其他软件的独占占用。".to_string(),
-    })?;
+    .map_err(input_stream_error)?;
     stream.play().map_err(|_| "无法启动麦克风。")?;
     on_progress
         .send(Progress {
@@ -545,6 +563,22 @@ pub async fn start_voice_input(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn microphone_errors_classify_access_and_exclusive_use_without_echoing_backend_text() {
+        let error = |description: &str| {
+            super::input_stream_error(cpal::BuildStreamError::BackendSpecific {
+                err: cpal::BackendSpecificError {
+                    description: description.into(),
+                },
+            })
+        };
+        assert!(error("0x80070005 private-detail").contains("权限"));
+        assert!(!error("0x80070005 private-detail").contains("private-detail"));
+        assert!(error("AUDCLNT_E_DEVICE_IN_USE 0x8889000a").contains("独占"));
+        assert!(
+            super::input_stream_error(cpal::BuildStreamError::DeviceNotAvailable).contains("断开")
+        );
+    }
     use super::*;
     #[test]
     fn minute_recording_is_split_into_valid_http_audio_without_losing_samples() {
