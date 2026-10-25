@@ -69,8 +69,14 @@ export default function VirtualMicrophone({
     setOpening(true);
     try {
       await openVirtualMicInstaller();
-      setWatching(true);
-      notify(t('安装器已打开，请按提示安装；安装完成后按驱动要求重启电脑。'));
+      setWatching(!ready);
+      notify(
+        t(
+          ready && windows
+            ? '驱动管理器已打开，卸载请点击 Remove Driver；完成后按提示重启电脑。'
+            : '安装器已打开，请按提示安装；安装完成后按驱动要求重启电脑。',
+        ),
+      );
     } catch (reason) {
       notify(String(reason));
     } finally {
@@ -142,6 +148,11 @@ export default function VirtualMicrophone({
               >
                 {t('官网与捐赠')}
               </button>
+              {ready && (
+                <button className="subtle" disabled={opening} onClick={() => void install()}>
+                  {t(opening ? '正在打开…' : '安装或卸载驱动')}
+                </button>
+              )}
             </p>
           )}
         </div>

@@ -88,6 +88,8 @@
   "字幕内容": "Caption content",
   "字幕同步失败，请返回主窗口。": "Could not sync captions. Return to the main window.",
   "字幕语言": "Caption language",
+  "安装或卸载驱动": "Install or uninstall driver",
+  "驱动管理器已打开，卸载请点击 Remove Driver；完成后按提示重启电脑。": "Driver manager opened. Click Remove Driver to uninstall, then restart Windows as instructed.",
   "安装虚拟麦克风": "Install virtual microphone",
   "完成": "Done",
   "完成后点击右上角保存更改": "Click Save changes when finished",
