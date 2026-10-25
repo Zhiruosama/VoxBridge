@@ -1,3 +1,13 @@
+mod inventory;
+
+pub(super) fn list_outputs() -> Result<Vec<super::OutputDevice>, String> {
+    inventory::list(false)
+}
+
+pub(super) fn list_inputs() -> Result<Vec<super::OutputDevice>, String> {
+    inventory::list(true)
+}
+
 use cpal::traits::DeviceTrait;
 
 const OUTPUT_PREFIX: &str = "macos-output:";

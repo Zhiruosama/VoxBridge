@@ -102,21 +102,36 @@ fn physical(device: &cpal::Device) -> bool {
 }
 #[tauri::command]
 pub fn list_inputs() -> Result<Vec<InputDevice>, String> {
-    let mut devices = Vec::new();
-    for device in cpal::default_host()
-        .input_devices()
-        .map_err(|_| "无法列出麦克风。")?
+    #[cfg(target_os = "macos")]
     {
-        if physical(&device) {
-            if let (Ok(id), Ok(description)) = (device_id(&device), device.description()) {
-                devices.push(InputDevice {
-                    id,
-                    name: description.name().to_owned(),
-                });
+        return crate::platform::list_inputs().map(|devices| {
+            devices
+                .into_iter()
+                .map(|device| InputDevice {
+                    id: device.id,
+                    name: device.name,
+                })
+                .collect()
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let mut devices = Vec::new();
+        for device in cpal::default_host()
+            .input_devices()
+            .map_err(|_| "无法列出麦克风。")?
+        {
+            if physical(&device) {
+                if let (Ok(id), Ok(description)) = (device_id(&device), device.description()) {
+                    devices.push(InputDevice {
+                        id,
+                        name: description.name().to_owned(),
+                    });
+                }
             }
         }
+        Ok(devices)
     }
-    Ok(devices)
 }
 #[tauri::command]
 pub fn finish_voice_input(request_id: String, state: tauri::State<'_, MicrophoneState>) {
@@ -501,12 +516,27 @@ mod tests {
     }
     #[cfg(target_os = "macos")]
     #[test]
-    fn microphone_permission_can_be_queried_without_requesting_access() {
+    fn settings_inventory_does_not_request_microphone_access() {
         use objc2::{msg_send, runtime::AnyClass};
         let class = AnyClass::get(c"AVCaptureDevice").expect("AVFoundation must be linked");
         let media = objc2_foundation::NSString::from_str("soun");
         let status: isize = unsafe { msg_send![class, authorizationStatusForMediaType: &*media] };
         assert!((0..=3).contains(&status));
+        // Reading settings inventory must not initialize an input AudioUnit or request TCC access.
+        for _ in 0..3 {
+            let inputs = list_inputs().unwrap();
+            let outputs = crate::platform::list_outputs().unwrap();
+            assert!(inputs.iter().all(|device| device.id.starts_with("mic:")
+                && !device.name.to_lowercase().contains("voxbridge")));
+            assert!(outputs
+                .iter()
+                .all(|device| device.id.starts_with("macos-output:")));
+        }
+        let after: isize = unsafe { msg_send![class, authorizationStatusForMediaType: &*media] };
+        assert_eq!(
+            status, after,
+            "Settings inventory must leave microphone authorization unchanged"
+        );
     }
     #[test]
     #[ignore = "manual read-only device enumeration; does not open or record microphones"]

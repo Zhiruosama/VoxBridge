@@ -1,4 +1,6 @@
-use cpal::traits::{DeviceTrait, HostTrait};
+#[cfg(not(target_os = "macos"))]
+use cpal::traits::DeviceTrait;
+use cpal::traits::HostTrait;
 use serde::Serialize;
 
 #[cfg(target_os = "macos")]
@@ -26,6 +28,7 @@ pub(crate) fn output_id(device: &cpal::Device) -> Result<String, String> {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 fn output_entries() -> Result<Vec<(cpal::Device, OutputDevice)>, String> {
     cpal::default_host()
         .output_devices()
@@ -43,10 +46,22 @@ fn output_entries() -> Result<Vec<(cpal::Device, OutputDevice)>, String> {
 }
 
 pub fn list_outputs() -> Result<Vec<OutputDevice>, String> {
-    Ok(output_entries()?
-        .into_iter()
-        .map(|(_, description)| description)
-        .collect())
+    #[cfg(target_os = "macos")]
+    {
+        macos::list_outputs()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(output_entries()?
+            .into_iter()
+            .map(|(_, description)| description)
+            .collect())
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn list_inputs() -> Result<Vec<OutputDevice>, String> {
+    macos::list_inputs()
 }
 
 fn select_unique<T>(entries: impl Iterator<Item = (T, String)>, id: &str) -> Result<T, String> {
@@ -68,13 +83,25 @@ pub fn resolve_output(id: &str) -> Result<cpal::Device, String> {
             .ok_or_else(|| "系统当前没有默认输出设备，请连接耳机或扬声器。".into());
     }
     #[cfg(target_os = "macos")]
-    macos::validate_output_id(id)?;
-    select_unique(
-        output_entries()?
-            .into_iter()
-            .map(|(device, description)| (device, description.id)),
-        id,
-    )
+    {
+        macos::validate_output_id(id)?;
+        select_unique(
+            cpal::default_host()
+                .devices()
+                .map_err(|_| "无法枚举输出设备。".to_string())?
+                .filter_map(|device| output_id(&device).ok().map(|id| (device, id))),
+            id,
+        )
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        select_unique(
+            output_entries()?
+                .into_iter()
+                .map(|(device, description)| (device, description.id)),
+            id,
+        )
+    }
 }
 
 #[cfg(test)]
