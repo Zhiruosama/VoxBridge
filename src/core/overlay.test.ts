@@ -48,6 +48,7 @@ describe('subtitle overlay', () => {
       'phase',
       'sessionId',
       'textColor',
+      'uiLanguage',
       'version',
     ]);
   });

@@ -22,6 +22,8 @@ pub struct OverlayLine {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OverlaySnapshot {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ui_language: Option<String>,
     version: u64,
     session_id: Option<String>,
     phase: String,
@@ -48,6 +50,7 @@ fn valid_color(color: &str) -> bool {
 impl Default for OverlaySnapshot {
     fn default() -> Self {
         Self {
+            ui_language: None,
             version: 0,
             session_id: None,
             phase: "idle".into(),
@@ -75,7 +78,11 @@ fn require_main(label: &str) -> Result<(), String> {
 }
 
 fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
-    if snapshot.version == 0
+    if snapshot
+        .ui_language
+        .as_deref()
+        .is_some_and(|value| !matches!(value, "zh-CN" | "en"))
+        || snapshot.version == 0
         || snapshot.version > 9_007_199_254_740_991
         || !matches!(
             snapshot.phase.as_str(),
@@ -373,6 +380,13 @@ mod tests {
 
     #[test]
     fn snapshot_limits_and_finite_appearance_values_are_enforced() {
+        let mut localized = snapshot(1);
+        localized.ui_language = Some("en".into());
+        assert!(validate(&localized).is_ok());
+        let serialized = serde_json::to_value(&localized).unwrap();
+        assert_eq!(serialized["uiLanguage"], "en");
+        localized.ui_language = Some("unsupported".into());
+        assert!(validate(&localized).is_err());
         let mut invalid = snapshot(1);
         invalid.background_opacity = f64::NAN;
         assert!(validate(&invalid).is_err());

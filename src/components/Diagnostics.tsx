@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, RefreshCw, Save, Square, Volume2 } from 'lucide-react';
 import { desktop, listOutputs, stopTone, testTone } from '../bridge';
@@ -88,9 +89,9 @@ export default function Diagnostics({
   return (
     <div className="preferences-page diagnostics-page">
       <header className="preferences-heading">
-        <h1>音频与诊断</h1>
+        <h1>{t('音频与诊断')}</h1>
         <div className="preferences-save">
-          {dirty && <span role="status">未保存</span>}
+          {dirty && <span role="status">{t('未保存')}</span>}
           <button
             disabled={!desktop || loading || busy || !dirty || !available}
             onClick={() =>
@@ -98,48 +99,48 @@ export default function Diagnostics({
             }
           >
             <Save size={14} />
-            保存更改
+            {t('保存更改')}
           </button>
         </div>
       </header>
       <section className="preference-section" aria-labelledby="output-test-heading">
         <div className="preference-section-title">
-          <h2 id="output-test-heading">声音输出</h2>
+          <h2 id="output-test-heading">{t('声音输出')}</h2>
           <button
             className="subtle"
             onClick={() => void refresh()}
             disabled={!desktop || loading || busy}
           >
             <RefreshCw size={14} />
-            {loading ? '刷新中…' : '刷新设备'}
+            {t(loading ? '刷新中…' : '刷新设备')}
           </button>
         </div>
         <div className="preference-card">
-          <SettingRow title="试听输出设备">
+          <SettingRow title={t('试听输出设备')}>
             <Select
-              label="测试输出设备"
+              label={t('测试输出设备')}
               value={deviceId}
               onChange={setDeviceId}
               disabled={!desktop || loading || busy}
-              placeholder={loading ? '正在读取设备…' : '选择输出设备'}
+              placeholder={t(loading ? '正在读取设备…' : '选择输出设备')}
               options={deviceOptions}
             />
           </SettingRow>
-          <SettingRow title="测试音">
+          <SettingRow title={t('测试音')}>
             <div className="diagnostic-actions">
               {busy ? (
                 <button onClick={() => void stop()} disabled={stopping}>
                   <Square size={14} />
-                  {stopping ? '正在停止…' : '停止播放'}
+                  {t(stopping ? '正在停止…' : '停止播放')}
                 </button>
               ) : (
                 <button
                   onClick={() => void play()}
                   disabled={!desktop || !available || loading}
-                  aria-description="播放约 1 秒的低音量 440 Hz 测试音"
+                  aria-description={t('播放约 1 秒的低音量 440 Hz 测试音')}
                 >
                   <Volume2 size={15} />
-                  播放测试音
+                  {t('播放测试音')}
                 </button>
               )}
             </div>
@@ -147,19 +148,21 @@ export default function Diagnostics({
         </div>
         {error ? (
           <p role="alert" className="diagnostic-feedback error-text">
-            {error}
+            {t(error)}
           </p>
         ) : (
           <p className="diagnostic-feedback" role="status">
-            {!desktop
-              ? '请在桌面应用中测试音频。'
-              : stopping
-                ? '正在停止测试音…'
-                : busy
-                  ? '测试音正在播放到所选设备。'
-                  : !loading && !devices.length
-                    ? '未发现输出设备，请连接设备后刷新。'
-                    : '测试音约 1 秒；选择虚拟音频设备时，声音可能进入通话。'}
+            {t(
+              !desktop
+                ? '请在桌面应用中测试音频。'
+                : stopping
+                  ? '正在停止测试音…'
+                  : busy
+                    ? '测试音正在播放到所选设备。'
+                    : !loading && !devices.length
+                      ? '未发现输出设备，请连接设备后刷新。'
+                      : '测试音约 1 秒；选择虚拟音频设备时，声音可能进入通话。',
+            )}
           </p>
         )}
       </section>
@@ -168,30 +171,32 @@ export default function Diagnostics({
       />
       <AsrDiagnostic settings={settings} />
       <section className="preference-section" aria-labelledby="runtime-heading">
-        <h2 id="runtime-heading">运行状态</h2>
+        <h2 id="runtime-heading">{t('运行状态')}</h2>
         <div className="preference-card">
-          <SettingRow title="当前系统">
-            <span className="preference-value">{platform}</span>
+          <SettingRow title={t('当前系统')}>
+            <span className="preference-value">{t(platform)}</span>
           </SettingRow>
           <details className="diagnostic-details">
             <summary>
-              功能状态
+              {t('功能状态')}
               <ChevronDown size={15} />
             </summary>
             <div className="diagnostic-status-list">
-              <SettingRow title="文字翻译">
-                <span className="preference-value">{desktop ? '待服务验证' : '需桌面应用'}</span>
+              <SettingRow title={t('文字翻译')}>
+                <span className="preference-value">{t(desktop ? '待服务验证' : '需桌面应用')}</span>
               </SettingRow>
-              <SettingRow title="语音合成">
-                <span className="preference-value">{desktop ? '待服务验证' : '需桌面应用'}</span>
+              <SettingRow title={t('语音合成')}>
+                <span className="preference-value">{t(desktop ? '待服务验证' : '需桌面应用')}</span>
               </SettingRow>
-              <SettingRow title="应用声音采集">
+              <SettingRow title={t('应用声音采集')}>
                 <span className="preference-value">
-                  {!runtime
-                    ? '读取中…'
-                    : runtime.nativeCapture
-                      ? '采集诊断已接入，实时 ASR 待接入'
-                      : '尚未接入'}
+                  {t(
+                    !runtime
+                      ? '读取中…'
+                      : runtime.nativeCapture
+                        ? '采集诊断已接入，实时 ASR 待接入'
+                        : '尚未接入',
+                  )}
                 </span>
               </SettingRow>
             </div>

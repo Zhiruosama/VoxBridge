@@ -5,6 +5,7 @@ export interface SpeechOption {
   value: string;
   label: string;
   group?: string;
+  translate?: boolean;
 }
 
 /** Catalogs belong to a protocol/provider; an OpenAI-compatible endpoint need not be OpenAI. */
@@ -98,14 +99,19 @@ function mergePresets(
 ): SpeechOption[] {
   const custom = (profile[kind] ?? []).filter((item) => item.adapter === profile.adapter);
   return [
-    ...custom.map((item) => ({ value: item.value, label: item.name, group: '我的预设' })),
+    ...custom.map((item) => ({
+      value: item.value,
+      label: item.name,
+      translate: false,
+      group: '我的预设',
+    })),
     ...builtins.filter((item) => !custom.some((preset) => preset.value === item.value)),
   ];
 }
 
 function withCurrent(options: SpeechOption[], current: string): SpeechOption[] {
   return current && !options.some((option) => option.value === current)
-    ? [{ value: current, label: current, group: '当前自定义' }, ...options]
+    ? [{ value: current, label: current, translate: false, group: '当前自定义' }, ...options]
     : options;
 }
 

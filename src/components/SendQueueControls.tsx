@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { QueueAction, QueueView } from '../core/send-queue';
@@ -59,7 +60,7 @@ export default function SendQueueControls({
       <button
         ref={trigger}
         className="queue-trigger"
-        aria-label="查看发送队列"
+        aria-label={t('查看发送队列')}
         aria-expanded={open}
         onClick={() => {
           const r = trigger.current!.getBoundingClientRect();
@@ -70,31 +71,38 @@ export default function SendQueueControls({
           setOpen(!open);
         }}
       >
-        {view.paused ? '已暂停' : '队列'} {view.items.length}
+        {t(view.paused ? '已暂停' : '队列')} {view.items.length}
       </button>
       {open &&
         createPortal(
-          <section ref={panel} className="send-queue-panel" style={position} aria-label="发送队列">
+          <section
+            ref={panel}
+            className="send-queue-panel"
+            style={position}
+            aria-label={t('发送队列')}
+          >
             <header>
-              <strong>发送队列 · {view.items.length}</strong>
+              <strong>
+                {t('发送队列')} · {view.items.length}
+              </strong>
               <button
                 disabled={view.paused && view.items.some((item) => item.status === 'failed')}
-                aria-description={
+                aria-description={t(
                   view.paused && view.items.some((item) => item.status === 'failed')
                     ? '请先重试或取消失败项，再继续队列'
-                    : undefined
-                }
+                    : undefined,
+                )}
                 onClick={() => onAction({ action: view.paused ? 'queueResume' : 'queuePause' })}
               >
-                {view.paused ? '继续' : '暂停'}
+                {t(view.paused ? '继续' : '暂停')}
               </button>
-              <button aria-label="关闭发送队列" onClick={() => setOpen(false)}>
+              <button aria-label={t('关闭发送队列')} onClick={() => setOpen(false)}>
                 ×
               </button>
             </header>
             {view.paused && view.items.some((item) => item.status === 'failed') && (
               <p className="queue-error" role="status">
-                请重试或取消失败项，再继续发送。
+                {t('请重试或取消失败项，再继续发送。')}
               </p>
             )}
             <div className="send-queue-items">
@@ -102,17 +110,17 @@ export default function SendQueueControls({
                 <article key={item.id}>
                   <div className="queue-item-heading">
                     <span>
-                      {labels[item.status] || '准备中'}
-                      {item.targetLanguage ? ` · ${item.targetLanguage}` : ''}
+                      {t(labels[item.status] || '准备中')}
+                      {item.targetLanguage ? ` · ${t(item.targetLanguage)}` : ''}
                     </span>
                     <button onClick={() => onAction({ action: 'queueCancel', id: item.id })}>
-                      取消
+                      {t('取消')}
                     </button>
                   </div>
                   {editing === item.id ? (
                     <>
                       <textarea
-                        aria-label="编辑待发送内容"
+                        aria-label={t('编辑待发送内容')}
                         maxLength={2000}
                         value={text}
                         onChange={(e) => setText(e.target.value)}
@@ -124,32 +132,32 @@ export default function SendQueueControls({
                           setEditing('');
                         }}
                       >
-                        保存
+                        {t('保存')}
                       </button>
-                      <button onClick={() => setEditing('')}>返回</button>
+                      <button onClick={() => setEditing('')}>{t('返回')}</button>
                     </>
                   ) : (
                     <>
                       <p>{item.text}</p>
-                      {item.error && <p className="queue-error">{item.error}</p>}
+                      {item.error && <p className="queue-error">{t(item.error)}</p>}
                       <div className="queue-item-actions">
                         {!item.active && (
                           <button
-                            aria-description="已合成的内容修改后需要重新合成，可能计费"
+                            aria-description={t('已合成的内容修改后需要重新合成，可能计费')}
                             onClick={() => {
                               setEditing(item.id);
                               setText(item.text);
                             }}
                           >
-                            编辑
+                            {t('编辑')}
                           </button>
                         )}
                         {item.status === 'failed' && (
                           <button
-                            aria-description="重新请求翻译和语音服务，可能计费"
+                            aria-description={t('重新请求翻译和语音服务，可能计费')}
                             onClick={() => onAction({ action: 'queueRetry', id: item.id })}
                           >
-                            重试
+                            {t('重试')}
                           </button>
                         )}
                       </div>

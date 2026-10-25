@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import SpeechSpeed from './SpeechSpeed';
@@ -52,10 +53,10 @@ export default function SpeechSpeedPicker({
         ref={trigger}
         type="button"
         className="speech-speed-trigger"
-        aria-label="调整语速"
+        aria-label={t('调整语速')}
         aria-expanded={open}
         disabled={disabled}
-        aria-description={`语速 ${value.toFixed(2)} 倍 · 下一次生成生效`}
+        aria-description={t('语速 {0} 倍 · 下一次生成生效', value.toFixed(2))}
         onClick={() => {
           if (!open && trigger.current) {
             const anchor = trigger.current.getBoundingClientRect();
@@ -75,10 +76,10 @@ export default function SpeechSpeedPicker({
             ref={panel}
             className="speech-speed-popover"
             role="group"
-            aria-label="语速设置"
+            aria-label={t('语速设置')}
             style={position}
           >
-            <span>语速</span>
+            <span>{t('语速')}</span>
             <SpeechSpeed value={value} onChange={onChange} />
           </div>,
           document.body,

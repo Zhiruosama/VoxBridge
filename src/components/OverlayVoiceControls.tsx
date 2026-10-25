@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import SendQueueControls from './SendQueueControls';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -109,10 +110,10 @@ export default function OverlayVoiceControls({
   const length = Array.from(draft).length;
   const disabled = !ready || !voice.enabled || requesting;
   return (
-    <footer className="overlay-voice-footer" aria-label="悬浮窗语音输入">
+    <footer className="overlay-voice-footer" aria-label={t('悬浮窗语音输入')}>
       {(error || voice.error) && (
         <div className="overlay-voice-error" role="alert">
-          {error || voice.error}
+          {t(error || voice.error)}
         </div>
       )}
       {showDraft &&
@@ -122,11 +123,11 @@ export default function OverlayVoiceControls({
             <textarea
               id="overlay-text-input"
               ref={editorRef}
-              aria-label="悬浮窗输入内容"
+              aria-label={t('悬浮窗输入内容')}
               value={draft}
               maxLength={2000}
               rows={2}
-              placeholder="输入要说的话…"
+              placeholder={t('输入要说的话…')}
               onChange={(event) => {
                 draftRevision.current++;
                 setDraft(event.target.value);
@@ -163,7 +164,7 @@ export default function OverlayVoiceControls({
         ) : (
           !idle && (
             <span className="overlay-voice-phase" role="status">
-              {overlayVoiceLabels[voice.phase]}
+              {t(overlayVoiceLabels[voice.phase])}
             </span>
           )
         )}
@@ -172,8 +173,8 @@ export default function OverlayVoiceControls({
             {length > 1800 && <span className="overlay-voice-count">{length}/2000</span>}
             <button
               type="button"
-              aria-label="关闭悬浮窗输入框"
-              aria-description="收起输入框，保留草稿"
+              aria-label={t('关闭悬浮窗输入框')}
+              aria-description={t('收起输入框，保留草稿')}
               aria-controls="overlay-text-input"
               onClick={() => {
                 setTextOpen(false);
@@ -184,8 +185,8 @@ export default function OverlayVoiceControls({
             </button>
             <button
               className="overlay-mic-button"
-              aria-label="发送悬浮窗语音"
-              aria-description={`生成语音并输出 · ${voice.targetLanguage}`}
+              aria-label={t('发送悬浮窗语音')}
+              aria-description={t('生成语音并输出 · {0}', t(voice.targetLanguage))}
               disabled={disabled || capturing || !draft.trim() || length > 2000}
               onClick={() => void request({ action: 'send', text: draft })}
             >
@@ -195,8 +196,8 @@ export default function OverlayVoiceControls({
         )}
         <button
           className="overlay-text-button"
-          aria-label={showDraft ? '收起悬浮窗输入框' : '打开悬浮窗输入框'}
-          aria-description={showDraft ? '收起输入框' : '打字输入'}
+          aria-label={t(showDraft ? '收起悬浮窗输入框' : '打开悬浮窗输入框')}
+          aria-description={t(showDraft ? '收起输入框' : '打字输入')}
           aria-expanded={showDraft}
           aria-controls="overlay-text-input"
           onClick={() => {
@@ -212,12 +213,12 @@ export default function OverlayVoiceControls({
         {idle && (
           <button
             className="overlay-mic-button"
-            aria-label="悬浮窗开始录音"
-            aria-description={
+            aria-label={t('悬浮窗开始录音')}
+            aria-description={t(
               voice.enabled
-                ? `录音并生成语音 · ${voice.targetLanguage} · 最长 1 分钟`
-                : '请在主窗口完成设置并返回字幕页'
-            }
+                ? t('录音并生成语音 · {0} · 最长 1 分钟', t(voice.targetLanguage))
+                : '请在主窗口完成设置并返回字幕页',
+            )}
             disabled={disabled || Boolean(draft.trim()) || Boolean(voice.draft.trim())}
             onClick={() => void request({ action: 'start' })}
           >
@@ -228,8 +229,8 @@ export default function OverlayVoiceControls({
           <>
             <button
               className="overlay-voice-cancel"
-              aria-label="取消悬浮窗录音"
-              aria-description="取消录音"
+              aria-label={t('取消悬浮窗录音')}
+              aria-description={t('取消录音')}
               disabled={requesting || voice.phase === 'cancelling'}
               onClick={() => void request({ action: 'cancel' })}
             >
@@ -238,10 +239,10 @@ export default function OverlayVoiceControls({
             {recording && (
               <button
                 className="overlay-mic-button is-recording"
-                aria-label="悬浮窗结束录音"
-                aria-description={
-                  voice.mode === 'send' ? '结束录音并发送语音' : '结束录音，先确认文字'
-                }
+                aria-label={t('悬浮窗结束录音')}
+                aria-description={t(
+                  voice.mode === 'send' ? '结束录音并发送语音' : '结束录音，先确认文字',
+                )}
                 disabled={requesting}
                 onClick={() => void request({ action: 'finish' })}
               >
@@ -253,8 +254,8 @@ export default function OverlayVoiceControls({
         {!idle && !capturing && (
           <button
             className="overlay-mic-button"
-            aria-label="停止悬浮窗语音输出"
-            aria-description="停止当前操作"
+            aria-label={t('停止悬浮窗语音输出')}
+            aria-description={t('停止当前操作')}
             disabled={requesting || voice.phase === 'stopping'}
             onClick={() => void request({ action: 'stop' })}
           >

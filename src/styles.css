@@ -1858,6 +1858,14 @@ input:focus {
     margin-left: 0;
   }
 }
+@container (max-width: 460px) {
+  .composer-actions:lang(en) {
+    gap: 4px;
+  }
+  .voice-direct-label:lang(en) {
+    display: none;
+  }
+}
 @container (max-width: 380px) {
   .composer-actions {
     gap: 4px;

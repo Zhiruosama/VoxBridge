@@ -53,6 +53,7 @@ export interface SubtitleAppearance {
   lineHeight: number;
 }
 export interface OverlaySnapshot extends SubtitleAppearance {
+  uiLanguage?: 'zh-CN' | 'en';
   version: number;
   sessionId: string | null;
   phase: 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
@@ -74,6 +75,7 @@ export interface ComposerSettings {
   route: 'preview' | 'send';
 }
 export interface Settings {
+  uiLanguage: 'zh-CN' | 'en';
   schemaVersion: 1;
   profiles: ProviderProfile[];
   active: Record<Stage, string>;

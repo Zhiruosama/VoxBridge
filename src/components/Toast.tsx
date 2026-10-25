@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect } from 'react';
 import { Check, Info, X } from 'lucide-react';
 
@@ -12,8 +13,8 @@ export default function Toast({ message, onClose }: { message: string; onClose: 
     <div className="toast-positioner">
       <div className="toast" role="status" aria-live="polite" aria-atomic="true">
         {saved ? <Check size={16} aria-hidden="true" /> : <Info size={16} aria-hidden="true" />}
-        <span>{message}</span>
-        <button className="icon-button" aria-label="关闭提示" onClick={onClose}>
+        <span>{t(message)}</span>
+        <button className="icon-button" aria-label={t('关闭提示')} onClick={onClose}>
           <X size={14} />
         </button>
       </div>

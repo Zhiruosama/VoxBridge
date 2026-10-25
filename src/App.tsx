@@ -1,3 +1,4 @@
+import { t, setUiLanguage, useUiLanguage } from './i18n';
 import SendQueueControls from './components/SendQueueControls';
 import type { QueueAction } from './core/send-queue';
 import { SendQueue, type QueueView } from './core/send-queue';
@@ -99,6 +100,7 @@ const languages = [
 type Page = 'workspace' | 'settings' | 'diagnostics';
 
 export default function App() {
+  useUiLanguage();
   useTextSelection();
   const [initial] = useState(() => {
     try {
@@ -111,6 +113,7 @@ export default function App() {
     }
   });
   const [settings, setSettings] = useState<Settings>(initial.settings);
+  useEffect(() => setUiLanguage(settings.uiLanguage), [settings.uiLanguage]);
   const [savedSettings, setSavedSettings] = useState<Settings>(initial.settings);
   const [page, setPage] = useState<Page>('workspace');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
@@ -264,14 +267,28 @@ export default function App() {
     let disposed = false;
     const version = ++overlayVersionRef.current;
     void publishOverlay(
-      overlaySnapshot(session, listenPhase, settings.subtitle, version, settings.captionColors),
+      overlaySnapshot(
+        session,
+        listenPhase,
+        settings.subtitle,
+        version,
+        settings.captionColors,
+        settings.uiLanguage,
+      ),
     ).catch(() => {
       if (!disposed) setOverlayError('悬浮字幕同步失败，请返回主窗口测试。');
     });
     return () => {
       disposed = true;
     };
-  }, [session, listenPhase, settings.subtitle, settings.captionColors, overlayReady]);
+  }, [
+    session,
+    listenPhase,
+    settings.subtitle,
+    settings.captionColors,
+    settings.uiLanguage,
+    overlayReady,
+  ]);
   useEffect(() => {
     if (!desktop || !overlayReady) return;
     void publishOverlayVoice({
@@ -557,7 +574,7 @@ export default function App() {
       setSavedSettings(next);
       if (!silent) notify('已保存');
     } catch (e) {
-      notify(`保存失败：${String(e)}`);
+      notify(t('保存失败：{0}', String(e)));
     }
   }
   async function runComposer(
@@ -754,7 +771,7 @@ export default function App() {
     try {
       await composer.cancel();
     } catch (error) {
-      if (mountedRef.current) notify(`停止失败：${String(error)} 请等待当前任务结束。`);
+      if (mountedRef.current) notify(t('停止失败：{0} 请等待当前任务结束。', String(error)));
     }
   }
 
@@ -783,44 +800,47 @@ export default function App() {
       ? 'Enter 换行'
       : settings.composer.enterAction === 'translate'
         ? 'Enter 仅翻译 · Shift + Enter 换行'
-        : `Enter ${settings.composer.output === 'translation' ? '翻译后输出' : '输出原文'} · Shift + Enter 换行`) +
+        : t(
+            'Enter {0} · Shift + Enter 换行',
+            t(settings.composer.output === 'translation' ? '翻译后输出' : '输出原文'),
+          )) +
     (settings.composer.enterAction === 'speak'
-      ? ` · ${settings.composer.route === 'preview' ? '试听' : '发送'}设备`
+      ? t(' · {0}设备', t(settings.composer.route === 'preview' ? '试听' : '发送'))
       : '') +
-    ` · ${direction.source} → ${direction.target}`;
+    ` · ${t(direction.source)} → ${t(direction.target)}`;
 
   return (
     <div className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}>
       <a className="skip-link" href="#main-content">
-        跳到主内容
+        {t('跳到主内容')}
       </a>
       <aside className="sidebar">
         <div className="brand">
           <AudioLines size={19} strokeWidth={1.5} />
           <span>VoxBridge</span>
         </div>
-        <nav aria-label="主导航">
+        <nav aria-label={t('主导航')}>
           <button
             aria-current={page === 'workspace' ? 'page' : undefined}
             onClick={() => setPage('workspace')}
             disabled={settingsBusy}
           >
             <MessageSquare size={15} />
-            字幕
+            {t('字幕')}
           </button>
         </nav>
         {page === 'workspace' ? (
           <div className="sidebar-bottom">
-            <nav aria-label="设置导航">
+            <nav aria-label={t('设置导航')}>
               <button onClick={() => openSettings()}>
                 <Settings2 size={15} />
-                设置
+                {t('设置')}
               </button>
             </nav>
           </div>
         ) : (
-          <nav className="preferences-nav" aria-label="设置分类">
-            <span className="nav-group-label">偏好设置</span>
+          <nav className="preferences-nav" aria-label={t('设置分类')}>
+            <span className="nav-group-label">{t('偏好设置')}</span>
             <button
               disabled={settingsBusy}
               aria-current={
@@ -829,9 +849,9 @@ export default function App() {
               onClick={() => openSettings('general')}
             >
               <Settings2 size={15} />
-              常规
+              {t('常规')}
             </button>
-            <span className="nav-group-label">模型服务</span>
+            <span className="nav-group-label">{t('模型服务')}</span>
             {(
               [
                 { id: 'translation', label: '文字翻译', Icon: Languages },
@@ -846,17 +866,17 @@ export default function App() {
                 onClick={() => openSettings(id)}
               >
                 <Icon size={15} />
-                {label}
+                {t(label)}
               </button>
             ))}
-            <span className="nav-group-label">工具</span>
+            <span className="nav-group-label">{t('工具')}</span>
             <button
               disabled={settingsBusy}
               aria-current={page === 'diagnostics' ? 'page' : undefined}
               onClick={() => setPage('diagnostics')}
             >
               <AudioLines size={15} />
-              音频与诊断
+              {t('音频与诊断')}
             </button>
           </nav>
         )}
@@ -866,13 +886,13 @@ export default function App() {
           <div>
             <button
               className="icon-button"
-              aria-label={sidebar ? '收起侧栏' : '展开侧栏'}
+              aria-label={t(sidebar ? '收起侧栏' : '展开侧栏')}
               onClick={() => setSidebar(!sidebar)}
             >
               <PanelLeftClose size={16} />
             </button>
             <strong>
-              {page === 'workspace' ? '字幕' : page === 'settings' ? '设置' : '音频与诊断'}
+              {t(page === 'workspace' ? '字幕' : page === 'settings' ? '设置' : '音频与诊断')}
             </strong>
           </div>
           {page === 'workspace' && (
@@ -880,9 +900,9 @@ export default function App() {
               <button
                 disabled={!desktop || !overlayReady}
                 onClick={() => void showOverlay().catch(() => notify('无法打开悬浮字幕窗。'))}
-                aria-description="隐藏字幕窗不会停止监听；可在悬浮窗返回主窗口或停止"
+                aria-description={t('隐藏字幕窗不会停止监听；可在悬浮窗返回主窗口或停止')}
               >
-                悬浮字幕
+                {t('悬浮字幕')}
               </button>
               <button
                 onClick={() => void (listening ? endListening() : beginListening())}
@@ -892,15 +912,15 @@ export default function App() {
                   listenPhase === 'stopping' ||
                   (!listening && (!captureSourceId || refreshingSources))
                 }
-                aria-description="开始后，目标声音会发送到所选的语音识别与翻译服务，可能计费"
+                aria-description={t('开始后，目标声音会发送到所选的语音识别与翻译服务，可能计费')}
               >
-                {listenPhase === 'stopping' ? '正在停止…' : listening ? '停止监听' : '开始监听'}
+                {t(listenPhase === 'stopping' ? '正在停止…' : listening ? '停止监听' : '开始监听')}
               </button>
             </div>
           )}
           {page === 'diagnostics' && (
             <button className="subtle" onClick={() => openSettings()}>
-              返回设置
+              {t('返回设置')}
             </button>
           )}
         </header>
@@ -934,11 +954,11 @@ export default function App() {
             <>
               <div className="workspace-toolbar">
                 <Select
-                  label="监听应用"
+                  label={t('监听应用')}
                   value={captureSourceId}
                   onChange={setCaptureSourceId}
                   disabled={listening || !desktop || runtime?.platform !== 'macos'}
-                  placeholder="选择监听应用"
+                  placeholder={t('选择监听应用')}
                   onOpenChange={(open) => {
                     if (open) void refreshCaptureSources();
                   }}
@@ -950,6 +970,7 @@ export default function App() {
                     ...captureSources.map((source) => ({
                       value: captureSourceKey(source),
                       label: captureSourceLabel(source),
+                      translate: false,
                     })),
                     ...(captureSourceId &&
                     !captureSources.some((source) => captureSourceKey(source) === captureSourceId)
@@ -987,7 +1008,7 @@ export default function App() {
               >
                 {!session.segments.length ? (
                   <div className="empty-state">
-                    <p>暂无字幕</p>
+                    <p>{t('暂无字幕')}</p>
                   </div>
                 ) : (
                   <div className="transcript-content" data-selection-scope>
@@ -1013,7 +1034,7 @@ export default function App() {
                         >
                           <div className="segment-meta">
                             <time>{segment.time}</time>
-                            {!segment.final && <span>识别中…</span>}
+                            {!segment.final && <span>{t('识别中…')}</span>}
                           </div>
                           {segment.source.trim() !== segment.translation?.trim() && (
                             <p className="source-text">{text(segment.source)}</p>
@@ -1023,7 +1044,7 @@ export default function App() {
                           )}
                           {segment.translationError && (
                             <p className="caption-feedback" role="status">
-                              这句暂未翻译成功
+                              {t('这句暂未翻译成功')}
                             </p>
                           )}
                         </article>
@@ -1041,17 +1062,17 @@ export default function App() {
                   }}
                 >
                   <ArrowDown size={13} />
-                  最新
+                  {t('最新')}
                 </button>
               )}
-              <section className="composer-area" aria-label="文字表达">
+              <section className="composer-area" aria-label={t('文字表达')}>
                 <div className={`composer-box${voice ? ' is-voice-active' : ''}`}>
                   {voice && (
-                    <div className="voice-recording" aria-label="语音输入">
+                    <div className="voice-recording" aria-label={t('语音输入')}>
                       <button
                         className="icon-button voice-cancel"
-                        aria-label="取消录音"
-                        aria-description="取消录音"
+                        aria-label={t('取消录音')}
+                        aria-description={t('取消录音')}
                         disabled={voice.phase === 'cancelling'}
                         onClick={() => void cancelVoice()}
                       >
@@ -1062,16 +1083,16 @@ export default function App() {
                       </div>
                       <button
                         className="voice-finish"
-                        aria-label={
+                        aria-label={t(
                           settings.composer.voiceInputMode === 'send'
                             ? '结束录音并发送'
-                            : '完成录音并填入输入框'
-                        }
+                            : '完成录音并填入输入框',
+                        )}
                         disabled={voice.phase !== 'recording'}
                         onClick={() => void finishVoice()}
                       >
                         <Square size={13} fill="currentColor" />
-                        {settings.composer.voiceInputMode === 'send' ? '结束并发送' : '完成录音'}
+                        {t(settings.composer.voiceInputMode === 'send' ? '结束并发送' : '完成录音')}
                       </button>
                     </div>
                   )}
@@ -1079,7 +1100,7 @@ export default function App() {
                     <SendQueueControls view={queueView} onAction={queueAction} />
                   </div>
                   <label className="sr-only" htmlFor="speech-input">
-                    输入要翻译或表达的内容
+                    {t('输入要翻译或表达的内容')}
                   </label>
                   <textarea
                     id="speech-input"
@@ -1087,7 +1108,7 @@ export default function App() {
                     maxLength={2000}
                     value={text}
                     aria-describedby="composer-hint"
-                    aria-description={composerHint}
+                    aria-description={t(composerHint)}
                     onChange={(event) => {
                       draftRevisionRef.current++;
                       setText(event.target.value);
@@ -1124,7 +1145,7 @@ export default function App() {
                       event.preventDefault();
                       if (action !== 'ignore') void runComposer(action);
                     }}
-                    placeholder="输入要说的话…"
+                    placeholder={t('输入要说的话…')}
                   />
                   <div className="composer-controls" inert={Boolean(voice)}>
                     <div className="composer-preferences">
@@ -1132,14 +1153,14 @@ export default function App() {
                         className="model-button"
                         disabled={busy || listening || Boolean(voice)}
                         onClick={() => openSettings('translation')}
-                        aria-description="配置翻译模型"
+                        aria-description={t('配置翻译模型')}
                       >
                         <Languages size={13} />
-                        <span>{translationProfile.modelId || '选择模型'}</span>
+                        <span>{translationProfile.modelId || t('选择模型')}</span>
                         <ChevronDown size={11} />
                       </button>
                       <Select
-                        label="语音目标语言"
+                        label={t('语音目标语言')}
                         value={settings.targetLanguage}
                         disabled={busy || Boolean(voice)}
                         onChange={(value) => persist({ ...settings, targetLanguage: value }, true)}
@@ -1170,14 +1191,14 @@ export default function App() {
                           type="button"
                           role="switch"
                           className="voice-direct-toggle"
-                          aria-label="录音后直接发送"
+                          aria-label={t('录音后直接发送')}
                           aria-checked={settings.composer.voiceInputMode === 'send'}
                           disabled={busy}
-                          aria-description={
+                          aria-description={t(
                             settings.composer.voiceInputMode === 'send'
                               ? '开启：结束录音后自动翻译并输出语音'
-                              : '关闭：识别结果填入输入框，确认后再发送'
-                          }
+                              : '关闭：识别结果填入输入框，确认后再发送',
+                          )}
                           onClick={() =>
                             persist(
                               {
@@ -1197,12 +1218,12 @@ export default function App() {
                           <span className="voice-switch-track" aria-hidden="true">
                             <span />
                           </span>
-                          <span className="voice-direct-label">直接发送</span>
+                          <span className="voice-direct-label">{t('直接发送')}</span>
                         </button>
                         <button
                           className="icon-button"
-                          aria-label="开始录音"
-                          aria-description="开始麦克风录音，最长 1 分钟"
+                          aria-label={t('开始录音')}
+                          aria-description={t('开始麦克风录音，最长 1 分钟')}
                           disabled={busy || !desktop}
                           onClick={() => void beginVoice()}
                         >
@@ -1212,10 +1233,14 @@ export default function App() {
 
                       <button
                         className="output-mode"
-                        aria-label="输出译文"
+                        aria-label={t('输出译文')}
                         aria-pressed={settings.composer.output === 'translation'}
                         disabled={busy || Boolean(voice)}
-                        aria-description={`切换原文或译文语音；当前 ${direction.source} → ${direction.target}`}
+                        aria-description={t(
+                          '切换原文或译文语音；当前 {0} → {1}',
+                          t(direction.source),
+                          t(direction.target),
+                        )}
                         onClick={() =>
                           persist(
                             {
@@ -1233,17 +1258,17 @@ export default function App() {
                         }
                       >
                         <Languages size={12} />
-                        {settings.composer.output === 'translation' ? '译文' : '原文'}
+                        {t(settings.composer.output === 'translation' ? '译文' : '原文')}
                       </button>
                       <button
                         className="icon-button monitor-toggle"
-                        aria-label="发送时试听"
+                        aria-label={t('发送时试听')}
                         aria-pressed={settings.audio.monitorEnabled === true}
-                        aria-description={
+                        aria-description={t(
                           settings.audio.monitorEnabled
                             ? '关闭本地试听，继续发送语音'
-                            : '发送语音时同时在耳机试听'
-                        }
+                            : '发送语音时同时在耳机试听',
+                        )}
                         disabled={!desktop}
                         onClick={() => {
                           if (!settings.audio.previewDeviceId) {
@@ -1270,7 +1295,7 @@ export default function App() {
                             role="status"
                             className={queueView.items.length ? 'sr-only' : 'composer-phase'}
                           >
-                            {
+                            {t(
                               {
                                 waitingDevice: '等待设备…',
                                 detecting: '处理中…',
@@ -1280,12 +1305,12 @@ export default function App() {
                                 playing: '输出中…',
                                 stopping: '停止中…',
                                 idle: '',
-                              }[composerPhase]
-                            }
+                              }[composerPhase],
+                            )}
                           </span>
                           <button
                             className="icon-button"
-                            aria-label="停止当前操作"
+                            aria-label={t('停止当前操作')}
                             disabled={composerPhase === 'stopping'}
                             onClick={() => void stopComposer()}
                           >
@@ -1305,14 +1330,18 @@ export default function App() {
                             Boolean(voice)
                           }
                           onClick={() => void runComposer('translate')}
-                          aria-description="仅翻译，不输出语音"
+                          aria-description={t('仅翻译，不输出语音')}
                         >
-                          翻译
+                          {t('翻译')}
                         </button>
                         <button
                           disabled={!desktop || !text.trim() || Boolean(voice) || composer.busy}
-                          aria-description={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
-                          aria-label="输出合成语音"
+                          aria-description={t(
+                            '输出{0}到{1}设备 · 可能计费',
+                            t(settings.composer.output === 'translation' ? '译文' : '原文'),
+                            t(settings.composer.route === 'preview' ? '试听' : '发送'),
+                          )}
+                          aria-label={t('输出合成语音')}
                           className="send-button"
                           onClick={() => void runComposer('speak')}
                         >
@@ -1323,7 +1352,7 @@ export default function App() {
                   </div>
                 </div>
                 <span id="composer-hint" className="sr-only">
-                  {composerHint}
+                  {t(composerHint)}
                 </span>
               </section>
             </>

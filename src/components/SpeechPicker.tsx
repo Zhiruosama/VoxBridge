@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useRef } from 'react';
 import { ChevronDown, Volume2 } from 'lucide-react';
 import Select from './Select';
@@ -24,7 +25,8 @@ export default function SpeechPicker({
   const details = useRef<HTMLDetailsElement>(null);
   const profile = profileFor(settings, 'tts');
   const voices = voiceOptions(profile);
-  const label = voices.find((option) => option.value === profile.voice)?.label || '选择音色';
+  const selected = voices.find((option) => option.value === profile.voice);
+  const label = selected?.translate === false ? selected.label : t(selected?.label || '选择音色');
   useEffect(() => {
     const dismiss = (event: PointerEvent) => {
       const target = event.target;
@@ -56,44 +58,49 @@ export default function SpeechPicker({
   }, []);
   return (
     <details ref={details} className="speech-picker">
-      <summary aria-label="语音选项" aria-description="切换语音模型与音色，不中断监听">
+      <summary aria-label={t('语音选项')} aria-description={t('切换语音模型与音色，不中断监听')}>
         <Volume2 size={14} />
         <span>{label}</span>
         <ChevronDown size={11} />
       </summary>
-      <div className="speech-picker-panel" role="group" aria-label="语音选项">
-        <label>语音服务</label>
+      <div className="speech-picker-panel" role="group" aria-label={t('语音选项')}>
+        <label>{t('语音服务')}</label>
         <Select
-          label="快捷语音服务"
+          label={t('快捷语音服务')}
           value={profile.id}
           options={settings.profiles
             .filter((p) => p.stage === 'tts')
-            .map((p) => ({ value: p.id, label: p.name, group: speechProvider(p) }))}
+            .map((p) => ({
+              value: p.id,
+              label: p.name,
+              translate: p.name === '空白配置' && !p.baseUrl,
+              group: speechProvider(p),
+            }))}
           onChange={(id) => onChange({ ...settings, active: { ...settings.active, tts: id } })}
         />
-        <label>模型</label>
+        <label>{t('模型')}</label>
         <Select
-          label="快捷语音模型"
+          label={t('快捷语音模型')}
           value={profile.modelId}
-          placeholder="先配置语音服务"
+          placeholder={t('先配置语音服务')}
           options={modelOptions(profile)}
           onChange={(modelId) => onChange(updateSpeechProfile(settings, { modelId }))}
         />
-        <label>音色</label>
+        <label>{t('音色')}</label>
         <Select
-          label="快捷音色"
+          label={t('快捷音色')}
           value={profile.voice}
-          placeholder="先配置音色"
+          placeholder={t('先配置音色')}
           options={voices}
           onChange={(voice) => onChange(updateSpeechProfile(settings, { voice }))}
         />
-        <label>语速</label>
+        <label>{t('语速')}</label>
         <SpeechSpeed
           value={profile.speed}
           onChange={(speed) => onChange(updateSpeechProfile(settings, { speed }))}
         />
         <div className="speech-picker-bottom">
-          <span>下一次生成生效</span>
+          <span>{t('下一次生成生效')}</span>
           <button
             className="subtle"
             onClick={() => {
@@ -101,7 +108,7 @@ export default function SpeechPicker({
               onSettings();
             }}
           >
-            更多设置
+            {t('更多设置')}
           </button>
         </div>
       </div>

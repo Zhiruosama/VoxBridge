@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { CSSProperties } from 'react';
 
 export default function SpeechSpeed({
@@ -14,12 +15,12 @@ export default function SpeechSpeed({
     >
       <input
         type="range"
-        aria-label="语音生成速度"
+        aria-label={t('语音生成速度')}
         min={0.5}
         max={2}
         step={0.05}
         value={value}
-        aria-valuetext={`${value.toFixed(2)} 倍`}
+        aria-valuetext={t('{0} 倍', value.toFixed(2))}
         onChange={(event) => onChange(Number(event.target.value))}
       />
       <output>{value.toFixed(2)}×</output>

@@ -1,3 +1,4 @@
+import { t, useUiLanguage } from '../i18n';
 import SpeechSpeed from './SpeechSpeed';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
@@ -72,6 +73,7 @@ export default function SettingsPanel({
   const draft = settings;
   const setDraft = onDraftChange;
   const stage: Stage = section === 'general' ? 'translation' : section;
+  useUiLanguage();
   const profile = profileFor(draft, stage);
   const [secret, setSecret] = useState('');
   const [hasKey, setHasKey] = useState<boolean | null>(null);
@@ -224,27 +226,40 @@ export default function SettingsPanel({
     <div className="settings-page preferences-page">
       <header className="preferences-heading">
         <div className="preferences-title">
-          <h1>{sectionTitles[section]}</h1>
+          <h1>{t(sectionTitles[section])}</h1>
         </div>
         <div className="preferences-save">
-          {dirty && <span role="status">未保存</span>}
+          {dirty && <span role="status">{t('未保存')}</span>}
           <button
             disabled={busy || !dirty || (renaming && !profile.name.trim())}
             onClick={() => void saveCurrent()}
           >
             <Save size={14} />
-            保存更改
+            {t('保存更改')}
           </button>
         </div>
       </header>
       {section === 'general' ? (
         <>
           <section className="preference-section" aria-labelledby="appearance-heading">
-            <h2 id="appearance-heading">外观</h2>
+            <h2 id="appearance-heading">{t('外观')}</h2>
             <div className="preference-card">
-              <SettingRow title="主题">
+              <SettingRow title={t('界面语言')}>
                 <Select
-                  label="主题"
+                  label={t('界面语言')}
+                  value={draft.uiLanguage}
+                  options={[
+                    { value: 'zh-CN', label: '简体中文' },
+                    { value: 'en', label: 'English' },
+                  ]}
+                  onChange={(value) =>
+                    setDraft({ ...draft, uiLanguage: value as Settings['uiLanguage'] })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title={t('主题')}>
+                <Select
+                  label={t('主题')}
                   value={draft.theme}
                   onChange={(value) => setDraft({ ...draft, theme: value as Settings['theme'] })}
                   options={[
@@ -258,11 +273,11 @@ export default function SettingsPanel({
           </section>
           <section className="preference-section" aria-labelledby="caption-colors-heading">
             <div className="preference-section-title">
-              <h2 id="caption-colors-heading">工作台字幕配色</h2>
+              <h2 id="caption-colors-heading">{t('工作台字幕配色')}</h2>
               <button
                 onClick={() => setDraft({ ...draft, captionColors: { ...captionColorDefaults } })}
               >
-                恢复默认
+                {t('恢复默认')}
               </button>
             </div>
             <div className="preference-card">
@@ -276,13 +291,13 @@ export default function SettingsPanel({
                   <div
                     className="subtitle-color-options"
                     role="group"
-                    aria-label={`${label}字幕颜色`}
+                    aria-label={t('{0}字幕颜色', t(label))}
                   >
                     {subtitleColors.map((color, index) => (
                       <button
                         key={color}
                         className="subtitle-color"
-                        aria-label={['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index]}
+                        aria-label={t(['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index])}
                         aria-pressed={draft.captionColors[kind] === color}
                         style={{ backgroundColor: color }}
                         onClick={() =>
@@ -296,7 +311,7 @@ export default function SettingsPanel({
                     <input
                       type="color"
                       className="caption-custom-color"
-                      aria-label={`${label}自定义颜色`}
+                      aria-label={t('{0}自定义颜色', t(label))}
                       value={draft.captionColors[kind]}
                       onChange={(event) =>
                         setDraft({
@@ -311,11 +326,11 @@ export default function SettingsPanel({
             </div>
           </section>
           <section className="preference-section" aria-labelledby="listening-language-heading">
-            <h2 id="listening-language-heading">监听字幕</h2>
+            <h2 id="listening-language-heading">{t('监听字幕')}</h2>
             <div className="preference-card">
-              <SettingRow title="识别语言">
+              <SettingRow title={t('识别语言')}>
                 <Select
-                  label="语音识别语言"
+                  label={t('语音识别语言')}
                   value={draft.listening.sourceLanguage}
                   options={[
                     '自动识别',
@@ -338,9 +353,9 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title="字幕语言">
+              <SettingRow title={t('字幕语言')}>
                 <Select
-                  label="字幕语言"
+                  label={t('字幕语言')}
                   value={draft.listening.targetLanguage}
                   options={[
                     '简体中文',
@@ -365,11 +380,11 @@ export default function SettingsPanel({
             </div>
           </section>
           <section className="preference-section" aria-labelledby="composer-heading">
-            <h2 id="composer-heading">文字表达</h2>
+            <h2 id="composer-heading">{t('文字表达')}</h2>
             <div className="preference-card">
-              <SettingRow title="输入语言">
+              <SettingRow title={t('输入语言')}>
                 <Select
-                  label="文字输入语言"
+                  label={t('文字输入语言')}
                   value={draft.sourceLanguage}
                   options={[
                     '简体中文',
@@ -389,9 +404,9 @@ export default function SettingsPanel({
                   onChange={(value) => setDraft({ ...draft, sourceLanguage: value })}
                 />
               </SettingRow>
-              <SettingRow title="输出语言">
+              <SettingRow title={t('输出语言')}>
                 <Select
-                  label="文字输出语言"
+                  label={t('文字输出语言')}
                   value={draft.targetLanguage}
                   options={[
                     '简体中文',
@@ -411,9 +426,9 @@ export default function SettingsPanel({
                   onChange={(value) => setDraft({ ...draft, targetLanguage: value })}
                 />
               </SettingRow>
-              <SettingRow title="Enter 操作">
+              <SettingRow title={t('Enter 操作')}>
                 <Select
-                  label="Enter 操作"
+                  label={t('Enter 操作')}
                   value={draft.composer.enterAction}
                   options={[
                     { value: 'speak', label: '输出语音' },
@@ -431,9 +446,9 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title="语音内容">
+              <SettingRow title={t('语音内容')}>
                 <Select
-                  label="语音内容"
+                  label={t('语音内容')}
                   value={draft.composer.output}
                   options={[
                     { value: 'translation', label: '译文 · 自动翻译后输出' },
@@ -450,9 +465,9 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title="默认语音输出">
+              <SettingRow title={t('默认语音输出')}>
                 <Select
-                  label="默认语音输出"
+                  label={t('默认语音输出')}
                   value={draft.composer.route}
                   options={[
                     { value: 'send', label: '发送设备' },
@@ -471,23 +486,23 @@ export default function SettingsPanel({
               </SettingRow>
             </div>
             <p className="preference-help">
-              Shift + Enter 换行。翻译和语音合成会调用所选服务，可能计费。
+              {t('Shift + Enter 换行。翻译和语音合成会调用所选服务，可能计费。')}
             </p>
           </section>
           <section className="preference-section" aria-labelledby="subtitle-heading">
             <div className="preference-section-title">
-              <h2 id="subtitle-heading">悬浮字幕</h2>
+              <h2 id="subtitle-heading">{t('悬浮字幕')}</h2>
               <button
                 className="subtle"
                 onClick={() => setDraft({ ...draft, subtitle: { ...subtitleDefaults } })}
               >
-                恢复默认
+                {t('恢复默认')}
               </button>
             </div>
             <div className="preference-card">
-              <SettingRow title="显示方式">
+              <SettingRow title={t('显示方式')}>
                 <Select
-                  label="悬浮字幕显示方式"
+                  label={t('悬浮字幕显示方式')}
                   value={draft.subtitle.mode}
                   options={[
                     { value: 'continuous', label: '连续阅读' },
@@ -501,9 +516,9 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title="显示内容">
+              <SettingRow title={t('显示内容')}>
                 <Select
-                  label="悬浮字幕显示内容"
+                  label={t('悬浮字幕显示内容')}
                   value={draft.subtitle.content}
                   options={[
                     { value: 'translation', label: '译文优先' },
@@ -521,9 +536,9 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title="配色来源">
+              <SettingRow title={t('配色来源')}>
                 <Select
-                  label="悬浮字幕配色来源"
+                  label={t('悬浮字幕配色来源')}
                   value={draft.subtitle.colorMode}
                   options={[
                     { value: 'workspace', label: '跟随工作台字幕配色' },
@@ -539,17 +554,17 @@ export default function SettingsPanel({
               </SettingRow>
               {draft.subtitle.colorMode === 'custom' && (
                 <>
-                  <SettingRow title="文字颜色">
+                  <SettingRow title={t('文字颜色')}>
                     <div
                       className="subtitle-color-options"
                       role="group"
-                      aria-label="悬浮字幕文字颜色"
+                      aria-label={t('悬浮字幕文字颜色')}
                     >
                       {subtitleColors.map((color, index) => (
                         <button
                           key={color}
                           className="subtitle-color"
-                          aria-label={['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index]}
+                          aria-label={t(['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index])}
                           aria-pressed={draft.subtitle.textColor === color}
                           style={{ backgroundColor: color }}
                           onClick={() =>
@@ -562,7 +577,7 @@ export default function SettingsPanel({
                       ))}
                       <input
                         type="color"
-                        aria-label="悬浮字幕自定义颜色"
+                        aria-label={t('悬浮字幕自定义颜色')}
                         className="caption-custom-color"
                         value={draft.subtitle.textColor}
                         onChange={(event) =>
@@ -576,10 +591,10 @@ export default function SettingsPanel({
                   </SettingRow>
                 </>
               )}
-              <SettingRow title="行距">
+              <SettingRow title={t('行距')}>
                 <input
                   type="range"
-                  aria-label="悬浮字幕行距"
+                  aria-label={t('悬浮字幕行距')}
                   min={1.2}
                   max={2.2}
                   step={0.05}
@@ -593,10 +608,10 @@ export default function SettingsPanel({
                 />
                 <span className="preference-value">{draft.subtitle.lineHeight.toFixed(2)}</span>
               </SettingRow>
-              <SettingRow title="字号">
+              <SettingRow title={t('字号')}>
                 <input
                   type="range"
-                  aria-label="悬浮字幕字号"
+                  aria-label={t('悬浮字幕字号')}
                   min={14}
                   max={40}
                   step={1}
@@ -610,10 +625,10 @@ export default function SettingsPanel({
                 />
                 <span className="preference-value">{draft.subtitle.fontSize} px</span>
               </SettingRow>
-              <SettingRow title="背景不透明度">
+              <SettingRow title={t('背景不透明度')}>
                 <input
                   type="range"
-                  aria-label="悬浮字幕背景不透明度"
+                  aria-label={t('悬浮字幕背景不透明度')}
                   min={20}
                   max={100}
                   step={1}
@@ -636,32 +651,34 @@ export default function SettingsPanel({
           </section>
           <section className="preference-section" aria-labelledby="audio-heading">
             <div className="preference-section-title">
-              <h2 id="audio-heading">音频</h2>
+              <h2 id="audio-heading">{t('音频')}</h2>
               <button
                 className="subtle"
                 disabled={!desktop || refreshing}
                 onClick={() => void refreshDevices()}
               >
                 <RefreshCw size={14} />
-                刷新设备
+                {t('刷新设备')}
               </button>
             </div>
             <div className="preference-card">
-              <SettingRow title="监听应用">
+              <SettingRow title={t('监听应用')}>
                 <button
                   className="subtle"
                   disabled={!desktop || !captureSupported || refreshingApplications}
                   onClick={() => void onRefreshApplications()}
                 >
                   <RefreshCw size={14} />
-                  {refreshingApplications ? '刷新中…' : '刷新应用'}
+                  {t(refreshingApplications ? '刷新中…' : '刷新应用')}
                 </button>
               </SettingRow>
-              <SettingRow title="虚拟麦克风">
+              <SettingRow title={t('虚拟麦克风')}>
                 <span className="preference-value">
-                  {devices.some((d) => d.id === voxBridgeOutputId)
-                    ? 'VoxBridge 已就绪'
-                    : '尚未安装'}
+                  {t(
+                    devices.some((d) => d.id === voxBridgeOutputId)
+                      ? 'VoxBridge 已就绪'
+                      : '尚未安装',
+                  )}
                 </span>
                 {devices.some((d) => d.id === voxBridgeOutputId) ? (
                   <button
@@ -676,7 +693,7 @@ export default function SettingsPanel({
                       })
                     }
                   >
-                    用作发送设备
+                    {t('用作发送设备')}
                   </button>
                 ) : (
                   <button
@@ -686,15 +703,15 @@ export default function SettingsPanel({
                       void openVirtualMicInstaller().catch((error) => notify(String(error)))
                     }
                   >
-                    安装虚拟麦克风
+                    {t('安装虚拟麦克风')}
                   </button>
                 )}
               </SettingRow>
-              <SettingRow title="发送时试听">
+              <SettingRow title={t('发送时试听')}>
                 <button
                   role="switch"
                   className="preference-toggle"
-                  aria-label="发送时试听"
+                  aria-label={t('发送时试听')}
                   aria-checked={draft.audio.monitorEnabled === true}
                   onClick={() =>
                     setDraft({
@@ -703,17 +720,21 @@ export default function SettingsPanel({
                     })
                   }
                 >
-                  {draft.audio.monitorEnabled ? '开启' : '关闭'}
+                  {t(draft.audio.monitorEnabled ? '开启' : '关闭')}
                 </button>
               </SettingRow>
-              <SettingRow title="语音输入麦克风">
+              <SettingRow title={t('语音输入麦克风')}>
                 <Select
-                  label="语音输入麦克风"
+                  label={t('语音输入麦克风')}
                   value={draft.audio.inputDeviceId || '__system_default__'}
                   disabled={!desktop || refreshing}
                   options={[
                     { value: '__system_default__', label: '系统默认麦克风' },
-                    ...inputs.map((device) => ({ value: device.id, label: device.name })),
+                    ...inputs.map((device) => ({
+                      value: device.id,
+                      label: device.name,
+                      translate: false,
+                    })),
                     ...(draft.audio.inputDeviceId &&
                     !inputs.some((device) => device.id === draft.audio.inputDeviceId)
                       ? [{ value: draft.audio.inputDeviceId, label: '已选麦克风（当前不可用）' }]
@@ -730,40 +751,40 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title="试听设备">
+              <SettingRow title={t('试听设备')}>
                 <Select
-                  label="试听设备"
+                  label={t('试听设备')}
                   value={draft.audio.previewDeviceId}
                   disabled={!desktop || refreshing}
-                  placeholder="选择试听设备"
+                  placeholder={t('选择试听设备')}
                   options={previewDeviceOptions(devices, draft.audio.previewDeviceId)}
                   onChange={(value) =>
                     setDraft({ ...draft, audio: { ...draft.audio, previewDeviceId: value } })
                   }
                 />
               </SettingRow>
-              <SettingRow title="发送设备">
+              <SettingRow title={t('发送设备')}>
                 <Select
-                  label="发送设备"
+                  label={t('发送设备')}
                   value={draft.audio.sendDeviceId}
                   disabled={!desktop || refreshing}
-                  placeholder="选择虚拟音频设备"
+                  placeholder={t('选择虚拟音频设备')}
                   options={deviceOptions(draft.audio.sendDeviceId)}
                   onChange={(value) =>
                     setDraft({ ...draft, audio: { ...draft.audio, sendDeviceId: value } })
                   }
                 />
               </SettingRow>
-              <SettingRow title="音频设备与诊断">
+              <SettingRow title={t('音频设备与诊断')}>
                 <button onClick={onDiagnostics}>
-                  打开
+                  {t('打开')}
                   <ArrowUpRight size={14} />
                 </button>
               </SettingRow>
             </div>
           </section>
           <section className="preference-section" aria-labelledby="about-heading">
-            <h2 id="about-heading">关于</h2>
+            <h2 id="about-heading">{t('关于')}</h2>
             <div className="preference-card">
               <SettingRow title="VoxBridge">
                 <span className="preference-value">{version}</span>
@@ -775,12 +796,12 @@ export default function SettingsPanel({
         <>
           <section className="preference-section" aria-labelledby="connection-heading">
             <div className="preference-section-title">
-              <h2 id="connection-heading">服务连接</h2>
+              <h2 id="connection-heading">{t('服务连接')}</h2>
               <Select
-                label="新增服务配置"
+                label={t('新增服务配置')}
                 compact
                 value=""
-                placeholder="新增配置"
+                placeholder={t('新增配置')}
                 disabled={draft.profiles.length >= 30 || busy}
                 options={[
                   { value: 'custom', label: '空白配置' },
@@ -805,12 +826,12 @@ export default function SettingsPanel({
               />
             </div>
             <div className="preference-card">
-              <SettingRow title="当前配置">
+              <SettingRow title={t('当前配置')}>
                 <div className="profile-picker">
                   {renaming ? (
                     <>
                       <input
-                        aria-label="配置名称"
+                        aria-label={t('配置名称')}
                         value={profile.name}
                         maxLength={80}
                         autoFocus
@@ -829,7 +850,7 @@ export default function SettingsPanel({
                       />
                       <button
                         className="icon-button"
-                        aria-label="完成重命名"
+                        aria-label={t('完成重命名')}
                         disabled={!profile.name.trim()}
                         onClick={() => setRenaming(false)}
                       >
@@ -839,7 +860,7 @@ export default function SettingsPanel({
                   ) : (
                     <>
                       <Select
-                        label="当前配置"
+                        label={t('当前配置')}
                         disabled={busy}
                         value={profile.id}
                         onChange={(value) =>
@@ -851,14 +872,18 @@ export default function SettingsPanel({
                           { value: '__blank__', label: '新建空白配置' },
                           ...draft.profiles
                             .filter((p) => p.stage === stage)
-                            .map((p) => ({ value: p.id, label: p.name })),
+                            .map((p) => ({
+                              value: p.id,
+                              label: p.name,
+                              translate: p.name === '空白配置' && !p.baseUrl,
+                            })),
                         ]}
                       />
                       <button
                         className="icon-button"
                         disabled={busy}
-                        aria-label="重命名配置"
-                        aria-description="重命名配置"
+                        aria-label={t('重命名配置')}
+                        aria-description={t('重命名配置')}
                         onClick={() => {
                           setPreviousName(profile.name);
                           setRenaming(true);
@@ -869,8 +894,8 @@ export default function SettingsPanel({
                       <button
                         className="icon-button"
                         disabled={busy}
-                        aria-label="删除当前配置"
-                        aria-description="删除当前配置"
+                        aria-label={t('删除当前配置')}
+                        aria-description={t('删除当前配置')}
                         onClick={() => setDeletingProfile(profile.id)}
                       >
                         <Trash2 size={14} />
@@ -881,20 +906,20 @@ export default function SettingsPanel({
               </SettingRow>
               {deletingProfile === profile.id && (
                 <div className="profile-delete-confirm" role="alert">
-                  <p>删除“{profile.name}”及已保存的密钥？删除会立即保存，无法撤销。</p>
+                  <p>{t('删除“{0}”及已保存的密钥？删除会立即保存，无法撤销。', profile.name)}</p>
                   <div>
                     <button disabled={busy} onClick={() => setDeletingProfile(null)}>
-                      取消
+                      {t('取消')}
                     </button>
                     <button disabled={busy} onClick={() => void deleteCurrentProfile()}>
-                      确认删除
+                      {t('确认删除')}
                     </button>
                   </div>
                 </div>
               )}
-              <SettingRow title="API 地址">
+              <SettingRow title={t('API 地址')}>
                 <input
-                  aria-label="API 地址"
+                  aria-label={t('API 地址')}
                   value={profile.baseUrl}
                   placeholder={
                     profile.adapter === 'minimax_tts_ws'
@@ -905,19 +930,19 @@ export default function SettingsPanel({
                   spellCheck={false}
                 />
               </SettingRow>
-              <SettingRow title="模型">
+              <SettingRow title={t('模型')}>
                 <PresetSelect
                   key={`${profile.id}:${profile.adapter}:model`}
-                  label="模型"
+                  label={t('模型')}
                   value={profile.modelId}
                   options={modelOptions(profile)}
                   onChange={(modelId) => update(speechModelChange(profile, modelId))}
                 />
               </SettingRow>
-              <SettingRow title="接口类型">
+              <SettingRow title={t('接口类型')}>
                 {stage === 'tts' ? (
                   <Select
-                    label="语音合成协议"
+                    label={t('语音合成协议')}
                     value={profile.adapter}
                     onChange={(value) =>
                       update({ adapter: value as ProviderProfile['adapter'], baseUrl: '' })
@@ -929,7 +954,7 @@ export default function SettingsPanel({
                   />
                 ) : stage === 'asr' ? (
                   <Select
-                    label="语音识别协议"
+                    label={t('语音识别协议')}
                     value={profile.adapter}
                     onChange={(value) => update({ adapter: value as ProviderProfile['adapter'] })}
                     options={[
@@ -940,18 +965,20 @@ export default function SettingsPanel({
                   />
                 ) : (
                   <span className="preference-value protocol-value">
-                    {profile.adapter === 'openai_chat_completions'
-                      ? 'OpenAI 兼容'
-                      : profile.adapter === 'minimax_tts_ws'
-                        ? 'MiniMax WebSocket'
-                        : '待选型'}
+                    {t(
+                      profile.adapter === 'openai_chat_completions'
+                        ? 'OpenAI 兼容'
+                        : profile.adapter === 'minimax_tts_ws'
+                          ? 'MiniMax WebSocket'
+                          : '待选型',
+                    )}
                   </span>
                 )}
               </SettingRow>
               {stage === 'translation' && (
-                <SettingRow title="思考模式">
+                <SettingRow title={t('思考模式')}>
                   <Select
-                    label="翻译思考模式"
+                    label={t('翻译思考模式')}
                     value={profile.thinking ?? 'default'}
                     options={[
                       { value: 'default', label: '服务默认' },
@@ -968,15 +995,15 @@ export default function SettingsPanel({
                 </SettingRow>
               )}
               {stage === 'tts' && (
-                <SettingRow title="语速">
+                <SettingRow title={t('语速')}>
                   <SpeechSpeed value={profile.speed} onChange={(speed) => update({ speed })} />
                 </SettingRow>
               )}
               {stage === 'tts' && (
-                <SettingRow title="音色">
+                <SettingRow title={t('音色')}>
                   <PresetSelect
                     key={`${profile.id}:${profile.adapter}:voice`}
-                    label="音色"
+                    label={t('音色')}
                     value={profile.voice}
                     options={voiceOptions(profile)}
                     onChange={(voice) => update({ voice })}
@@ -986,7 +1013,7 @@ export default function SettingsPanel({
             </div>
           </section>
           <section className="preference-section" aria-labelledby="personal-presets-heading">
-            <h2 id="personal-presets-heading">自定义预设</h2>
+            <h2 id="personal-presets-heading">{t('自定义预设')}</h2>
             <div className="preference-card">
               <PresetEditor
                 key={`${profile.id}:${profile.adapter}:models`}
@@ -1007,17 +1034,17 @@ export default function SettingsPanel({
           {stage === 'translation' && (
             <section className="preference-section" aria-labelledby="translation-prompt-heading">
               <div className="preference-section-title">
-                <h2 id="translation-prompt-heading">翻译风格</h2>
+                <h2 id="translation-prompt-heading">{t('翻译风格')}</h2>
                 <button
                   className="subtle"
                   onClick={() => update({ translationPrompt: defaultTranslationPrompt })}
                 >
-                  恢复默认
+                  {t('恢复默认')}
                 </button>
               </div>
               <div className="preference-card translation-prompt-editor">
                 <textarea
-                  aria-label="翻译前置 Prompt"
+                  aria-label={t('翻译前置 Prompt')}
                   value={profile.translationPrompt ?? defaultTranslationPrompt}
                   maxLength={translationPromptLimit}
                   rows={8}
@@ -1025,41 +1052,41 @@ export default function SettingsPanel({
                   placeholder={defaultTranslationPrompt}
                   onChange={(event) => update({ translationPrompt: event.target.value })}
                 />
-                <p>调整措辞和语气，目标语言由语言设置决定。留空使用默认提示词。</p>
+                <p>{t('调整措辞和语气，目标语言由语言设置决定。留空使用默认提示词。')}</p>
               </div>
             </section>
           )}
           <section className="preference-section" aria-labelledby="credential-heading">
-            <h2 id="credential-heading">API 密钥</h2>
+            <h2 id="credential-heading">{t('API 密钥')}</h2>
             <div className="preference-card">
               <SettingRow title="API Key">
                 <span className={`credential-status ${hasKey ? 'positive' : ''}`}>
                   {hasKey && <Check size={13} />}
-                  {hasKey === null ? '检查密钥…' : hasKey ? '已保存' : '未设置'}
+                  {t(hasKey === null ? '检查密钥…' : hasKey ? '已保存' : '未设置')}
                 </span>
               </SettingRow>
               <div className="credential-editor">
                 <div className="credential-input-row">
                   <input
-                    aria-label="新的 API Key"
+                    aria-label={t('新的 API Key')}
                     type="password"
                     value={secret}
                     disabled={!desktop || busy}
                     autoComplete="off"
-                    placeholder={desktop ? 'API Key' : '请在桌面应用中配置'}
+                    placeholder={t(desktop ? 'API Key' : '请在桌面应用中配置')}
                     onChange={(e) => setSecret(e.target.value)}
                   />
                   <button
                     onClick={() => void saveKey()}
                     disabled={!desktop || (!secret.trim() && !hasKey) || busy}
                   >
-                    {busy ? '处理中…' : '保存密钥'}
+                    {t(busy ? '处理中…' : '保存密钥')}
                   </button>
                   {hasKey && (
                     <button
                       className="icon-button"
-                      aria-label="移除保存的密钥"
-                      aria-description="移除保存的密钥"
+                      aria-label={t('移除保存的密钥')}
+                      aria-description={t('移除保存的密钥')}
                       onClick={() => void saveKey('clear')}
                       disabled={busy}
                     >
@@ -1069,7 +1096,7 @@ export default function SettingsPanel({
                 </div>
                 {keyError && (
                   <p role="alert" className="error-text">
-                    {keyError}
+                    {t(keyError)}
                   </p>
                 )}
               </div>

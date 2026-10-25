@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import Select from './Select';
@@ -26,7 +27,7 @@ export default function PresetSelect({
           label={label}
           value={value}
           options={[...options, { value: '__manual_identifier__', label: '手动输入…' }]}
-          placeholder={`选择${label}`}
+          placeholder={t('选择{0}', t(label))}
           onChange={(next) => {
             if (next === '__manual_identifier__') setCustomValue(value);
             else onChange(next);
@@ -35,9 +36,9 @@ export default function PresetSelect({
       ) : (
         <div className="preset-custom-input">
           <input
-            aria-label={`自定义${label}`}
+            aria-label={t('自定义{0}', t(label))}
             value={customValue}
-            placeholder={`输入${label}标识`}
+            placeholder={t('输入{0}标识', t(label))}
             spellCheck={false}
             autoFocus
             onChange={(event) => setCustomValue(event.target.value)}
@@ -54,16 +55,16 @@ export default function PresetSelect({
           />
           <button
             className="icon-button"
-            aria-label={`确认${label}`}
-            aria-description="确认"
+            aria-label={t('确认{0}', t(label))}
+            aria-description={t('确认')}
             onClick={confirm}
           >
             <Check size={14} />
           </button>
           <button
             className="icon-button"
-            aria-label={`取消编辑${label}`}
-            aria-description="取消"
+            aria-label={t('取消编辑{0}', t(label))}
+            aria-description={t('取消')}
             onClick={() => setCustomValue(null)}
           >
             <X size={14} />

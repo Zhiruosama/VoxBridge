@@ -1,3 +1,4 @@
+import { parseUiLanguage } from '../i18n';
 import { systemDefaultOutputId } from './audio-routing';
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import type { ComposerSettings, ProviderProfile, Settings, Stage } from './types';
@@ -8,6 +9,7 @@ import { captionColorDefaults, parseCaptionColors } from './caption-colors';
 export { captionColorDefaults } from './caption-colors';
 
 export const defaults: Settings = {
+  uiLanguage: 'zh-CN',
   schemaVersion: 1,
   sourceLanguage: '简体中文',
   targetLanguage: '英语',
@@ -295,6 +297,7 @@ export function parseSettings(value: unknown): Settings {
       typeof input.sourceLanguage === 'string' ? input.sourceLanguage : defaults.sourceLanguage,
     targetLanguage:
       typeof input.targetLanguage === 'string' ? input.targetLanguage : defaults.targetLanguage,
+    uiLanguage: parseUiLanguage(input.uiLanguage),
     theme: ['dark', 'light', 'system'].includes(input.theme as string)
       ? (input.theme as Settings['theme'])
       : 'dark',

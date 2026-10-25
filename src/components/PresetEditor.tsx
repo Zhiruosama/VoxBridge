@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ProviderProfile } from '../core/types';
@@ -46,9 +47,9 @@ export default function PresetEditor({
     }
   };
   return (
-    <section className="preset-editor" aria-label={`我的${title}预设`}>
+    <section className="preset-editor" aria-label={t('我的{0}预设', t(title))}>
       <div className="preset-editor-heading">
-        <h3>我的{title}预设</h3>
+        <h3>{t('我的{0}预设', t(title))}</h3>
         <button
           className="subtle"
           disabled={
@@ -59,11 +60,11 @@ export default function PresetEditor({
           onClick={() => begin(null)}
         >
           <Plus size={13} />
-          添加{title}
+          {t('添加{0}', t(title))}
         </button>
       </div>
       {entries.filter((item) => item.adapter === profile.adapter).length === 0 && !editing && (
-        <p className="preset-editor-empty">保存常用名称和 ID，共用当前服务密钥。</p>
+        <p className="preset-editor-empty">{t('保存常用名称和 ID，共用当前服务密钥。')}</p>
       )}
       {entries.map(
         (item, index) =>
@@ -76,7 +77,7 @@ export default function PresetEditor({
               <button
                 className="icon-button"
                 disabled={Boolean(editing)}
-                aria-label={`编辑${title}预设 ${item.name}`}
+                aria-label={t('编辑{0}预设 {1}', t(title), item.name)}
                 onClick={() => begin(index)}
               >
                 <Pencil size={13} />
@@ -84,7 +85,7 @@ export default function PresetEditor({
               <button
                 className="icon-button"
                 disabled={Boolean(editing)}
-                aria-label={`删除${title}预设 ${item.name}`}
+                aria-label={t('删除{0}预设 {1}', t(title), item.name)}
                 onClick={() => onChange(editProfilePreset(profile, kind, index, null))}
               >
                 <Trash2 size={13} />
@@ -95,22 +96,22 @@ export default function PresetEditor({
       {editing && (
         <form
           className="preset-editor-form"
-          aria-label={`编辑${title}预设`}
+          aria-label={t('编辑{0}预设', t(title))}
           onSubmit={(event) => {
             event.preventDefault();
             complete();
           }}
         >
           <input
-            aria-label={`${title}预设名称`}
-            placeholder="名称，例如：日常聊天"
+            aria-label={t('{0}预设名称', t(title))}
+            placeholder={t('名称，例如：日常聊天')}
             value={editing.name}
             maxLength={80}
             autoFocus
             onChange={(event) => setEditing({ ...editing, name: event.target.value })}
           />
           <input
-            aria-label={`${title}预设 ID`}
+            aria-label={t('{0}预设 ID', t(title))}
             placeholder={kind === 'modelPresets' ? 'model-id' : 'voice-id'}
             value={editing.value}
             maxLength={200}
@@ -119,11 +120,11 @@ export default function PresetEditor({
           />
           {error && (
             <p className="preset-editor-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <div className="preset-editor-actions">
-            <span>完成后点击右上角保存更改</span>
+            <span>{t('完成后点击右上角保存更改')}</span>
             <button
               type="button"
               className="subtle"
@@ -132,9 +133,9 @@ export default function PresetEditor({
                 setError('');
               }}
             >
-              取消
+              {t('取消')}
             </button>
-            <button type="submit">完成</button>
+            <button type="submit">{t('完成')}</button>
           </div>
         </form>
       )}

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { CSSProperties } from 'react';
 
 export default function VoiceActivity({
@@ -19,7 +20,7 @@ export default function VoiceActivity({
   return (
     <div
       className={`voice-activity ${recording ? 'is-recording' : 'is-processing'}`}
-      aria-label={label}
+      aria-label={t(label)}
     >
       <span
         className="voice-wave"
@@ -30,7 +31,7 @@ export default function VoiceActivity({
           <i key={index} style={{ '--bar-delay': `${index * -0.13}s` } as CSSProperties} />
         ))}
       </span>
-      <span>{label}</span>
+      <span>{t(label)}</span>
     </div>
   );
 }

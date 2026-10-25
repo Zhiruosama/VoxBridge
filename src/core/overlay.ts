@@ -48,6 +48,7 @@ export function overlaySnapshot(
   appearance: SubtitleAppearance,
   version: number,
   captionColors = captionColorDefaults,
+  uiLanguage: 'zh-CN' | 'en' = 'zh-CN',
 ): OverlaySnapshot {
   const parsed = parseSubtitleAppearance(appearance);
   const colors = parseCaptionColors(captionColors);
@@ -79,7 +80,7 @@ export function overlaySnapshot(
       time: segment.time.slice(0, 32),
     });
   }
-  return { version, sessionId: session.id, phase, ...parsed, lines };
+  return { uiLanguage, version, sessionId: session.id, phase, ...parsed, lines };
 }
 
 export function newerOverlay(current: OverlaySnapshot, next: OverlaySnapshot): OverlaySnapshot {
