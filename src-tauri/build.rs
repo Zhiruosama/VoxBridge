@@ -1,6 +1,10 @@
 fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
+            "setup_inspect",
+            "setup_choose_folder",
+            "setup_install",
+            "setup_finish",
             "runtime_info",
             "record_diagnostic",
             "open_diagnostics_folder",

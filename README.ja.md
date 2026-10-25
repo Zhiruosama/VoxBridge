@@ -6,7 +6,7 @@
 
 VoxBridge は **macOS と Windows** 向けのリアルタイム音声翻訳アプリです。アプリの音声を原文・訳文の字幕で表示できます。入力したテキストや録音した音声を翻訳・音声合成し、仮想マイクを通じて Discord などのチャットアプリに送ることもできます。
 
-Windows 11 x64 版は開発ブランチで実装・実機テスト済みですが、インストーラはまだ一般公開していません。公開済みの 0.2.1 は Mac 版です。
+0.3.0 テスト版は Windows 11 x64 と Apple Silicon Mac 向けのインストーラを提供します。Windows ARM64 は実験版で、実機の音声デバイスは未検証です。
 
 ![VoxBridge：原文・訳文の字幕とテキスト入力画面](docs/assets/workspace-overview.png)
 
@@ -21,15 +21,15 @@ _字幕はサンプルを使用した画面イメージです。_
 
 ## ダウンロードとインストール
 
-| プラットフォーム | 現在の状態 | インストール |
+| プラットフォーム | 状態 | インストール |
 | --- | --- | --- |
-| macOS 14.2 以降 · Apple Silicon | 0.2.1 テスト版を公開済み | [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1) を開き「アプリケーション」にドラッグ |
-| Windows 11 · x64 | 実装・実機テスト済み、一般公開前 | [`codex/windows-support`](https://github.com/Zhiruosama/VoxBridge/tree/codex/windows-support) から NSIS EXE をビルド、または GitHub にログインし成功した [Check ワークフロー](https://github.com/Zhiruosama/VoxBridge/actions/workflows/check.yml) の `windows-nsis` 成果物を取得 |
+| macOS 14.2 以降 · Apple Silicon | 0.3.0 テスト版 | [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0) を開き「アプリケーション」にドラッグ |
+| Windows 11 · x64 | 0.3.0 テスト版、実機で音声ループバックを確認 | 同じリリースページから x64 EXE を取得 |
+| Windows · ARM64 | 実験版、CI とビルドのみ確認 | 同じページから `arm64-setup.exe` を取得 |
 
-インストーラから使う場合は開発ツール不要です。Mac テスト版は公証されていません。初回起動の対処は[リリースノート（中国語）](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1)を参照してください。Windows のドライバ導入、設定を保持する更新、アンインストールは [Windows インストールガイド（中国語）](docs/windows-installation.md)に記載しています。Windows 10、ARM64 などは未検証です。
+開発ツールは不要です。Windows インストーラはアプリと共通の画面を使用し、更新時の設定を保持します。VB-CABLE は任意で導入できます。WebView2 がない環境では互換ウィザードが先に動作します。[Windows ガイド（中国語）](docs/windows-installation.md)を参照してください。Windows 10 は未検証です。
 
-
-開発ブランチには起動時の更新確認、署名付きアプリ内更新、Windows のマイク権限案内、DPAPI による認証情報保護も追加しています。Windows ARM64 はネイティブ CI テストとインストーラ生成を確認済みで、`windows-arm64-nsis` に実験的な成果物があります。実機の音声デバイスは未検証です。公開済みの旧 Mac 0.2.1 に新しい更新ボタンは含まれていません。
+0.3.0 は更新確認、署名付き更新、マイク権限案内と Windows DPAPI による認証情報保護を含みます。更新署名と OS 向けの署名は別です。Windows は Authenticode 未署名、Mac は Developer ID 署名・公証未実施です。[リリースノート（中国語）](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)を確認してください。旧 Mac 0.2.1 には更新機能がなく、手動ダウンロードが必要です。
 
 ## 使い始める
 

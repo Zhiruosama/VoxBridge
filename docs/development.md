@@ -96,6 +96,8 @@ GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*
 
 ## 签名更新与发布
 
+Windows 打包入口 `scripts/build-windows-installer.mjs` 会在 Tauri NSIS 之后封装前端安装界面，并重新签名最终 EXE。不能把内层安装器的 `.sig` 用到外层文件。安装窗口的后端位于 `src-tauri/src/setup.rs`，前端为 `src/components/Setup.tsx`；没有 WebView2 时保留原生兼容向导，应用内更新仍使用静默路径。详见 [安装器验证](validation/2026-10-25-windows-installer.md)。
+
 应用更新使用 Tauri updater，公共验证密钥在 tauri.conf.json；签名私钥仅保存于受保护的本机目录以及 GitHub Actions Secret `TAURI_SIGNING_PRIVATE_KEY`，不得提交源码。可选密码使用 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。更新签名不同于 Windows Authenticode 或 Apple Developer ID 签名。
 
 开发打包默认不生成更新产物；正式发布流水线通过配置启用 createUpdaterArtifacts。发布收集和清单检查由 scripts/prepare-release.mjs 执行，`npm run test:release` 验证校验拒绝、版本一致性及防止更新源降级。

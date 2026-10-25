@@ -15,6 +15,7 @@ mod pcm;
 mod platform;
 mod providers;
 mod recovery;
+mod setup;
 mod speech;
 #[cfg(all(test, target_os = "windows"))]
 mod update_tests;
@@ -45,6 +46,9 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            if setup::create_window(app)? {
+                return Ok(());
+            }
             // Diagnostics must never prevent the application from starting.
             let _ = diagnostics::initialize(app.handle());
             credentials::initialize(app.handle()).map_err(std::io::Error::other)?;
@@ -61,6 +65,15 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             let builder = builder.decorations(false);
             builder.build()?;
+            if let Some(config) = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|w| w.label == "subtitle")
+            {
+                tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
+            }
             Ok(())
         })
         .manage(providers::Requests::default())
@@ -73,7 +86,12 @@ pub fn run() {
         .manage(speech::SpeechState::default())
         .manage(speech::PreparedSpeechState::default())
         .manage(speech::AudioGate::new())
+        .manage(setup::SetupState::default())
         .invoke_handler(tauri::generate_handler![
+            setup::setup_inspect,
+            setup::setup_choose_folder,
+            setup::setup_install,
+            setup::setup_finish,
             runtime_info,
             diagnostics::record_diagnostic,
             diagnostics::open_diagnostics_folder,

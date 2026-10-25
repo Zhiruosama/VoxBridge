@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "setup",
+  "description": "Installer window only; no credentials, audio capture or model services",
+  "windows": ["setup"],
+  "permissions": [
+    "core:default",
+    "allow-setup-inspect",
+    "allow-setup-choose-folder",
+    "allow-setup-install",
+    "allow-setup-finish"
+  ]
+}

@@ -6,7 +6,7 @@
 
 VoxBridge is a real-time voice translation app for **macOS and Windows**. Turn an app’s audio into bilingual captions, or translate typed text and recorded speech into a synthesized voice that you can send to Discord and other chat apps through a virtual microphone.
 
-The Windows 11 x64 implementation is available on the development branch and has been tested locally. A public Windows release is not available yet; the published 0.2.1 download is still Mac-only.
+Version 0.3.0 provides test installers for Windows 11 x64 and Apple Silicon Mac. Windows ARM64 is experimental; real audio hardware validation is still pending.
 
 ![VoxBridge workspace with bilingual captions and text input](docs/assets/workspace-overview.png)
 
@@ -23,13 +23,13 @@ _Interface demo with example captions._
 
 | Platform | Status | Installation |
 | --- | --- | --- |
-| macOS 14.2+ · Apple Silicon | Published 0.2.1 test release | Download the [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1) and drag VoxBridge into Applications |
-| Windows 11 · x64 | Implemented and tested locally; not publicly released | Build the NSIS EXE from [`codex/windows-support`](https://github.com/Zhiruosama/VoxBridge/tree/codex/windows-support), or sign in to GitHub to download the `windows-nsis` artifact from a successful [Check workflow](https://github.com/Zhiruosama/VoxBridge/actions/workflows/check.yml) run |
+| macOS 14.2+ · Apple Silicon | 0.3.0 test release | Download the [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0) and drag VoxBridge into Applications |
+| Windows 11 · x64 | 0.3.0 test release; local audio loopback tested | Download the x64 EXE from the same release page |
+| Windows · ARM64 | Experimental; native CI and builds checked, real audio hardware untested | Download `arm64-setup.exe` from the same release page |
 
-Installers include the frontend and native app; developer tools are needed only for source builds. The Mac test release is not notarized; see its [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1). See the [Windows installation guide (中文)](docs/windows-installation.md) for driver setup, updates that preserve settings, and removal. Windows 10, ARM64 and other Windows environments have not been validated.
+No developer tools are required. Windows setup reuses the app interface and preserves settings during upgrades. It offers optional VB-CABLE installation; systems without WebView2 use a native compatibility wizard first. See the [Windows installation guide (中文)](docs/windows-installation.md). Windows 10 remains unvalidated.
 
-
-The development branch also includes startup update checks, signed in-app updates, Windows microphone access guidance and DPAPI credential protection. Native Windows ARM64 CI tests and installer builds have passed; experimental artifacts are available as `windows-arm64-nsis`. Real ARM64 audio hardware still needs validation. The older published Mac 0.2.1 does not include the new update controls.
+Version 0.3.0 includes startup checks, signed in-app updates, microphone permission guidance and Windows DPAPI credential protection. Update signatures are separate from vendor signing: Windows installers are not Authenticode-signed, and the Mac app is not Developer ID-signed or notarized. Read the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0). Older Mac 0.2.1 installations require a manual download because they have no updater.
 
 ## Get started
 

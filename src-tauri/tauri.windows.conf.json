@@ -9,9 +9,13 @@
     "windows": {
       "nsis": {
         "installerHooks": "../native/windows/installer-hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "../native/windows/installer-artwork/header.bmp",
+        "sidebarImage": "../native/windows/installer-artwork/sidebar.bmp",
         "startMenuFolder": "VoxBridge",
         "languages": ["SimpChinese", "English"],
-        "displayLanguageSelector": true
+        "displayLanguageSelector": false
       }
     }
   }

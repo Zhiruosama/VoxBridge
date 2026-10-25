@@ -6,7 +6,7 @@
 
 VoxBridge 是一款面向 **macOS 和 Windows** 的实时语音翻译工具：把应用声音变成双语字幕，也能把你输入的文字或录下的语音翻译、合成为语音，通过虚拟麦克风送入 Discord 等聊天软件。
 
-Windows 11 x64 版本已实现并在工作分支测试，尚未发布安装包；当前公开的 0.2.1 下载仍为 Mac 版。
+0.3.0 测试版提供 Windows 11 x64 和 Apple Silicon Mac 安装包；Windows ARM64 为实验版本，真实音频硬件仍待验收。
 
 ![VoxBridge：双语字幕与文字输入工作台](docs/assets/workspace-overview.png)
 
@@ -23,13 +23,13 @@ _界面演示，字幕为示例内容。_
 
 | 平台 | 当前状态 | 安装方式 |
 | --- | --- | --- |
-| macOS 14.2+ · Apple Silicon | 已发布 0.2.1 测试版 | 下载 [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1)，拖入「应用程序」 |
-| Windows 11 · x64 | 已实现并完成本机测试，尚未公开发布 | 从 [`codex/windows-support`](https://github.com/Zhiruosama/VoxBridge/tree/codex/windows-support) 构建 NSIS EXE，或登录 GitHub 下载成功 [Check 工作流](https://github.com/Zhiruosama/VoxBridge/actions/workflows/check.yml) 的 `windows-nsis` 测试产物 |
+| macOS 14.2+ · Apple Silicon | 0.3.0 测试版 | 下载 [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)，拖入「应用程序」 |
+| Windows 11 · x64 | 0.3.0 测试版，已做本机音频回环验证 | 下载 [x64 安装包](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)，直接运行 EXE |
+| Windows · ARM64 | 实验版；原生 CI 与打包检查，真实音频硬件未验收 | 同一发布页下载 `arm64-setup.exe` |
 
-安装包内置前端和原生程序，使用者无需开发工具；从源码构建才需要。Mac 测试版尚未公证，首次打开处理步骤见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1)。Windows 安装、虚拟麦克风、覆盖更新与卸载见 [Windows 安装指南](docs/windows-installation.md)。Windows 10、ARM64 及其他 Windows 环境尚未验收。
+安装包内置前端和原生程序，无需开发工具。Windows 安装器使用与应用一致的界面，支持可选虚拟麦克风、覆盖更新和配置保留；详见 [安装指南](docs/windows-installation.md)。系统缺少 WebView2 时会先使用兼容向导安装运行环境。Windows 10 尚未完成验收。
 
-
-开发分支还提供启动检查与签名更新、Windows 麦克风权限引导和 DPAPI 凭据保护。Windows ARM64 已通过原生 CI 测试及安装包构建，可从 Check 的 `windows-arm64-nsis` 获取实验产物，真实音频设备仍待验收。公开的旧版 Mac 0.2.1 不包含这些新增更新入口。
+0.3.0 支持启动检查、签名更新、Windows 麦克风权限引导和 DPAPI 凭据保护。更新签名不等于系统厂商签名：Windows 安装器尚未进行 Authenticode 签名，Mac 测试版尚未通过 Developer ID 签名或公证；首次打开说明见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)。旧 Mac 0.2.1 没有应用内更新入口，需要手动下载新版。
 
 ## 开始使用
 

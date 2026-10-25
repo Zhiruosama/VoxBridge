@@ -3,8 +3,30 @@ import libSource from '../../src-tauri/src/lib.rs?raw';
 import buildSource from '../../src-tauri/build.rs?raw';
 import main from '../../src-tauri/capabilities/main.json';
 import subtitle from '../../src-tauri/capabilities/subtitle.json';
+import setup from '../../src-tauri/capabilities/setup.json';
 
 describe('native command permission integration', () => {
+  it('isolates installer commands and excludes saved keys and audio from setup', () => {
+    expect(setup.windows).toEqual(['setup']);
+    for (const command of [
+      'setup-inspect',
+      'setup-choose-folder',
+      'setup-install',
+      'setup-finish',
+    ]) {
+      expect(setup.permissions).toContain(`allow-${command}`);
+      expect(main.permissions).not.toContain(`allow-${command}`);
+      expect(subtitle.permissions).not.toContain(`allow-${command}`);
+    }
+    for (const permission of [
+      'allow-set-credential',
+      'allow-start-listening',
+      'updater:default',
+      'process:allow-restart',
+    ]) {
+      expect(setup.permissions).not.toContain(permission);
+    }
+  });
   it('declares every registered custom command in the Tauri build manifest', () => {
     const handler = libSource.match(/tauri::generate_handler!\[([\s\S]*?)\]/)![1];
     const registered = handler

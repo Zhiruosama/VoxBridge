@@ -99,7 +99,7 @@ jobs:
           name: release-combined
           path: release-assets/
       # Manual runs build and validate without publishing or changing the update feed.
-      - name: Publish prerelease only after both platform builds succeed
+      - name: Publish prerelease only after all platform builds succeed
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
