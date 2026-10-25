@@ -45,16 +45,22 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            #[cfg(target_os = "windows")]
-            {
-                use tauri::Manager;
-                if let Some(window) = app.get_webview_window("main") {
-                    window.set_decorations(false)?;
-                }
-            }
             // Diagnostics must never prevent the application from starting.
             let _ = diagnostics::initialize(app.handle());
             credentials::initialize(app.handle()).map_err(std::io::Error::other)?;
+            // Configure the Windows frame before showing the first native frame.
+            // macOS retains its native title bar and traffic lights.
+            let config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|window| window.label == "main")
+                .ok_or_else(|| std::io::Error::other("Main window configuration is missing"))?;
+            let builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
+            #[cfg(target_os = "windows")]
+            let builder = builder.decorations(false);
+            builder.build()?;
             Ok(())
         })
         .manage(providers::Requests::default())
