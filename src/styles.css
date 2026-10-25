@@ -1428,7 +1428,7 @@ nav button[aria-current='page'] {
 .virtual-mic-help {
   display: grid;
   gap: 5px;
-  padding: 0 0 16px;
+  padding: 16px 0;
   font-size: 13px;
   color: var(--muted);
   line-height: 1.7;
