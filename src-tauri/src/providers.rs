@@ -439,7 +439,19 @@ async fn request_translation_with_context(
 
 pub(crate) const INVALID_TRANSLATION: &str = "翻译服务未返回有效译文，请重试或更换模型。";
 
+pub(crate) fn is_invalid_translation(error: &str) -> bool {
+    error == INVALID_TRANSLATION
+        || error
+            .strip_prefix(INVALID_TRANSLATION)
+            .is_some_and(|detail| detail.starts_with(' '))
+}
+
 fn valid_translation(source: &str, result: &str, target: &str) -> bool {
+    // A domain is an identifier, not prose in the language guessed by an OS
+    // recognizer. Preserve it before consulting platform-specific detection.
+    if result == source && is_domain_identifier(source) {
+        return true;
+    }
     // Short Japanese words can contain only kanji (e.g. 学校). Script-based
     // recognizers commonly label these Chinese; this is not evidence of a wrong target.
     if target == "日语"
@@ -530,6 +542,27 @@ fn valid_translation(source: &str, result: &str, target: &str) -> bool {
         return false;
     }
     result.chars().count() <= source.chars().count().saturating_mul(6) + 160
+}
+
+fn is_domain_identifier(text: &str) -> bool {
+    let domain = text.trim_end_matches(['.', '。', '!', '！', '?', '？', ',', '，']);
+    if domain.len() > 253 {
+        return false;
+    }
+    let Some((_, suffix)) = domain.rsplit_once('.') else {
+        return false;
+    };
+    suffix.len() >= 2
+        && suffix.bytes().all(|c| c.is_ascii_alphabetic())
+        && domain.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label
+                    .bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'-')
+        })
 }
 
 #[cfg(test)]

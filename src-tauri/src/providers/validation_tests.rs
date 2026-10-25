@@ -101,11 +101,54 @@ async fn repeated_wrong_language_returns_only_a_sanitized_error() {
     .await;
     let error = result.unwrap_err();
     assert!(error.starts_with(INVALID_TRANSLATION));
+    assert!(is_invalid_translation(&error));
     assert!(error.contains("目标：简体中文"));
     assert!(error.contains("返回语言识别："));
     assert!(!error.contains("test-key"));
     assert!(!error.contains("Are you pushing it?"));
     assert_eq!(server.join().unwrap().len(), 2);
+}
+
+#[test]
+fn indonesian_fragments_require_a_translation_but_preserve_unchanged_domain_names() {
+    assert!(valid_translation("Batak.com.", "Batak.com.", "简体中文"));
+    for (source, translated) in [
+        ("Entar, yuk.", "等会儿吧。"),
+        ("Aduh, lama nggak ya?", "哎呀，要等很久吗？"),
+    ] {
+        assert!(!valid_translation(source, source, "简体中文"));
+        assert!(valid_translation(source, translated, "简体中文"));
+    }
+    assert!(is_invalid_translation(INVALID_TRANSLATION));
+    assert!(!is_invalid_translation("翻译超时，请重试或更换服务。"));
+}
+
+#[test]
+fn domain_preservation_is_limited_to_unchanged_identifiers() {
+    for source in [
+        "Batak.com.",
+        "batak.com",
+        "chat.example.co.id！",
+        "my-site.example",
+    ] {
+        assert!(is_domain_identifier(source));
+        assert!(valid_translation(source, source, "简体中文"));
+        assert!(valid_translation(source, source, "日语"));
+    }
+    for source in [
+        "Entar, yuk.",
+        "Hello world.",
+        "Aduh, lama nggak ya?",
+        "example..com",
+        "-example.com",
+        "example-.com",
+        "example.com/path",
+        "user@example.com",
+        "127.0.0.1",
+    ] {
+        assert!(!is_domain_identifier(source));
+    }
+    assert!(!valid_translation("Entar, yuk.", "Batak.com.", "简体中文"));
 }
 
 #[tokio::test]

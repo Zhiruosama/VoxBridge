@@ -77,12 +77,15 @@ fn endpoint_and_routing_reject_unsafe_configuration() {
     };
     assert_eq!(routing.destination(&Route::Preview).unwrap(), "speakers");
     assert_eq!(routing.destination(&Route::Send).unwrap(), "virtual");
-    assert!(Routing {
-        send_device_id: "speakers".into(),
-        ..routing
-    }
-    .destination(&Route::Send)
-    .is_err());
+    assert_eq!(
+        Routing {
+            send_device_id: "speakers".into(),
+            ..routing
+        }
+        .destination(&Route::Send)
+        .unwrap(),
+        "speakers"
+    );
 }
 
 #[test]
@@ -405,7 +408,7 @@ fn monitoring_is_live_request_scoped_and_early_overrides_are_bounded() {
 }
 
 #[test]
-fn monitor_requires_a_separate_preview_device_only_for_send_route() {
+fn monitoring_requires_a_preview_when_enabled_on_send_route() {
     let mut routing: Routing = serde_json::from_value(
         json!({"previewDeviceId":"","sendDeviceId":"virtual","monitorEnabled":true}),
     )
@@ -413,6 +416,25 @@ fn monitor_requires_a_separate_preview_device_only_for_send_route() {
     assert!(routing.destination(&Route::Send).is_err());
     routing.monitor_enabled = false;
     assert_eq!(routing.destination(&Route::Send).unwrap(), "virtual");
+}
+
+#[test]
+fn system_defaults_are_valid_for_both_routes_with_or_without_monitoring() {
+    for enabled in [false, true] {
+        let routing = Routing {
+            preview_device_id: crate::platform::SYSTEM_DEFAULT_OUTPUT.into(),
+            send_device_id: crate::platform::SYSTEM_DEFAULT_OUTPUT.into(),
+            monitor_enabled: enabled,
+        };
+        assert_eq!(
+            routing.destination(&Route::Preview).unwrap(),
+            crate::platform::SYSTEM_DEFAULT_OUTPUT
+        );
+        assert_eq!(
+            routing.destination(&Route::Send).unwrap(),
+            crate::platform::SYSTEM_DEFAULT_OUTPUT
+        );
+    }
 }
 
 #[test]

@@ -82,10 +82,10 @@ fn play_stream(
     request_id: String,
 ) -> Result<(), String> {
     let failed = Arc::new(AtomicBool::new(false));
-    let stream = match open_output(&device, failed.clone()) {
-        Ok(stream) => {
+    let (stream, output_id) = match open_output(&device, failed.clone()) {
+        Ok(output) => {
             let _ = ready.send(Ok(()));
-            stream
+            output
         }
         Err(error) => {
             let _ = ready.send(Err(error.clone()));
@@ -93,7 +93,7 @@ fn play_stream(
         }
     };
     let sink = Player::connect_new(stream.mixer());
-    let mut monitor = super::monitor::LocalMonitor::new(monitor_device, monitoring);
+    let mut monitor = super::monitor::LocalMonitor::new(monitor_device, monitoring, output_id);
     let mut decoder = PcmDecoder::default();
     let mut finished = false;
     let mut playing = false;

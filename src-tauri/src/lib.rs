@@ -15,7 +15,10 @@ mod pcm;
 mod platform;
 mod providers;
 mod recovery;
+mod setup;
 mod speech;
+#[cfg(all(test, target_os = "windows"))]
+mod update_tests;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,19 +30,50 @@ struct RuntimeInfo {
 
 #[tauri::command]
 fn runtime_info() -> RuntimeInfo {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let native_capture = capture::native::supported().is_ok();
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let native_capture = false;
     RuntimeInfo {
         platform: std::env::consts::OS,
-        native_capture: cfg!(target_os = "macos"),
-        message: "工作台开发版 · 支持 Mac 目标进程 HTTP 分段识别与双语字幕。实时 WebSocket、真实采集权限、延迟和声音路由仍待验收。",
+        native_capture,
+        message: "支持应用声音采集、实时识别与双语字幕；设备和权限状态以实际诊断为准。",
     }
 }
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            if setup::create_window(app)? {
+                return Ok(());
+            }
             // Diagnostics must never prevent the application from starting.
             let _ = diagnostics::initialize(app.handle());
             credentials::initialize(app.handle()).map_err(std::io::Error::other)?;
+            // Configure the Windows frame before showing the first native frame.
+            // macOS retains its native title bar and traffic lights.
+            let config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|window| window.label == "main")
+                .ok_or_else(|| std::io::Error::other("Main window configuration is missing"))?;
+            let builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
+            #[cfg(target_os = "windows")]
+            let builder = builder.decorations(false);
+            builder.build()?;
+            if let Some(config) = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|w| w.label == "subtitle")
+            {
+                tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
+            }
             Ok(())
         })
         .manage(providers::Requests::default())
@@ -52,12 +86,19 @@ pub fn run() {
         .manage(speech::SpeechState::default())
         .manage(speech::PreparedSpeechState::default())
         .manage(speech::AudioGate::new())
+        .manage(setup::SetupState::default())
         .invoke_handler(tauri::generate_handler![
+            setup::setup_inspect,
+            setup::setup_choose_folder,
+            setup::setup_install,
+            setup::setup_finish,
             runtime_info,
             diagnostics::record_diagnostic,
             diagnostics::open_diagnostics_folder,
             diagnostics::export_diagnostics,
             microphone::list_inputs,
+            microphone::microphone_access,
+            platform::virtual_mic::open_audio_settings,
             microphone::start_voice_input,
             microphone::finish_voice_input,
             microphone::cancel_voice_input,
@@ -94,6 +135,8 @@ pub fn run() {
             speech::stop_speech,
             speech::set_speech_monitoring,
             platform::open_virtual_mic_installer,
+            platform::virtual_mic::virtual_mic_status,
+            platform::virtual_mic::open_virtual_mic_vendor,
         ])
         .on_window_event(|window, event| {
             use tauri::Manager;

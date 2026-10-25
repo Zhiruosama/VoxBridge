@@ -40,6 +40,8 @@ const OPERATIONS: &[&str] = &[
     "stop_overlay_listening",
     "set_speech_monitoring",
     "open_virtual_mic_installer",
+    "virtual_mic_status",
+    "open_virtual_mic_vendor",
     "list_inputs",
     "start_voice_input",
     "finish_voice_input",
@@ -185,7 +187,7 @@ struct Record {
     event: DiagnosticEvent,
 }
 enum Message {
-    Event(Record),
+    Event(Box<Record>),
     Flush(mpsc::Sender<Result<(), String>>),
     Export(mpsc::Sender<Result<PathBuf, String>>),
 }
@@ -219,7 +221,11 @@ fn enqueue(event: DiagnosticEvent, source: &'static str) {
         source,
         event,
     };
-    if sink.sender.try_send(Message::Event(record)).is_err() {
+    if sink
+        .sender
+        .try_send(Message::Event(Box::new(record)))
+        .is_err()
+    {
         sink.dropped.fetch_add(1, Ordering::Relaxed);
     }
 }

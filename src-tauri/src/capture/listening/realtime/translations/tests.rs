@@ -87,7 +87,10 @@ async fn invalid_model_reply_is_isolated_to_its_caption_and_later_captions_conti
         rx,
         |s, _| async move {
             if s.id == 1 {
-                Err(crate::providers::INVALID_TRANSLATION.into())
+                Err(format!(
+                    "{} 目标：简体中文；返回语言识别：不确定",
+                    crate::providers::INVALID_TRANSLATION
+                ))
             } else {
                 Ok("正常译文".into())
             }
@@ -118,6 +121,24 @@ fn latency_percentiles_use_bounded_recent_samples() {
     assert_eq!(metrics.queue_p95_ms, 194);
     assert_eq!(metrics.total_p95_ms, 582);
     assert_eq!((metrics.queued, metrics.inflight), (5, 3));
+}
+
+#[tokio::test]
+async fn service_configuration_errors_still_stop_listening() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(1);
+    tx.send(caption(1).into()).await.unwrap();
+    drop(tx);
+    let error = translate_chunks(
+        &token,
+        rx,
+        |_, _| async { Err("API 密钥无效。".into()) },
+        |_, _| panic!("fatal errors must not become per-caption failures"),
+        |_| Ok(()),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error, "API 密钥无效。");
 }
 
 #[tokio::test(start_paused = true)]

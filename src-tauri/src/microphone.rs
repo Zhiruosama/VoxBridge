@@ -93,6 +93,13 @@ fn device_id(device: &cpal::Device) -> Result<String, String> {
         .map_err(|_| "无法读取麦克风标识。".into())
 }
 fn physical(device: &cpal::Device) -> bool {
+    #[cfg(target_os = "windows")]
+    if device.description().is_ok_and(|d| {
+        let name = d.extended().first().map(String::as_str).unwrap_or(d.name());
+        crate::platform::is_cable_endpoint(name, "output")
+    }) {
+        return false;
+    }
     device
         .description()
         .is_ok_and(|d| !d.name().to_lowercase().contains("voxbridge"))
@@ -185,9 +192,57 @@ async fn permission() -> Result<(), String> {
         Err("未获得麦克风权限，请在系统设置中允许 VoxBridge。".into())
     }
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 async fn permission() -> Result<(), String> {
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+async fn permission() -> Result<(), String> {
+    let status = tauri::async_runtime::spawn_blocking(windows_access)
+        .await
+        .map_err(|_| "无法检查 Windows 麦克风权限。")?;
+    if status == "denied" {
+        Err("Windows 已禁用麦克风权限，请在 Windows 设置 → 隐私和安全性 → 麦克风中允许麦克风访问及桌面应用访问。".into())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_access() -> &'static str {
+    use windows::{
+        core::HSTRING,
+        Security::Authorization::AppCapabilityAccess::{AppCapability, AppCapabilityAccessStatus},
+        Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED},
+    };
+    unsafe {
+        if RoInitialize(RO_INIT_MULTITHREADED).is_err() {
+            return "unknown";
+        }
+        let status = AppCapability::Create(&HSTRING::from("microphone"))
+            .and_then(|capability| capability.CheckAccess());
+        RoUninitialize();
+        match status {
+            Ok(AppCapabilityAccessStatus::Allowed) => "allowed",
+            Ok(
+                AppCapabilityAccessStatus::DeniedBySystem | AppCapabilityAccessStatus::DeniedByUser,
+            ) => "denied",
+            // Unpackaged desktop applications may not declare a WinRT capability.
+            // Never mistake that for approval or reject a usable WASAPI device.
+            _ => "unknown",
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn microphone_access() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    return tauri::async_runtime::spawn_blocking(|| windows_access().to_string())
+        .await
+        .map_err(|_| "无法检查麦克风权限。".into());
+    #[cfg(not(target_os = "windows"))]
+    Ok("not-applicable".into())
 }
 
 const MAX_SECONDS: u64 = 60;
@@ -234,6 +289,32 @@ fn http_ranges(samples: &[i16]) -> Vec<std::ops::Range<usize>> {
 fn audible(samples: &[i16]) -> bool {
     samples.len() >= 1600
         && samples.iter().map(|v| (*v as f64).powi(2)).sum::<f64>() / samples.len() as f64 > 100.0
+}
+fn input_stream_error(error: cpal::BuildStreamError) -> String {
+    match error {
+        cpal::BuildStreamError::DeviceNotAvailable => {
+            "麦克风已断开或不可用，请连接设备后刷新。".into()
+        }
+        cpal::BuildStreamError::StreamConfigNotSupported => {
+            "麦克风不支持当前录音格式，请更换设备或检查系统声音设置。".into()
+        }
+        cpal::BuildStreamError::BackendSpecific { err } => {
+            let description = err.description.to_ascii_lowercase();
+            if description.contains("0x80070005")
+                || description.contains("e_accessdenied")
+                || description.contains("-2147024891")
+            {
+                "系统拒绝了麦克风访问，请检查麦克风权限及桌面应用访问权限。".into()
+            } else if description.contains("0x8889000a")
+                || description.contains("audclnt_e_device_in_use")
+            {
+                "麦克风被其他软件独占，请先关闭占用设备的软件，再重试。".into()
+            } else {
+                "无法打开麦克风，请检查系统麦克风权限、设备连接及其他软件的独占占用。".into()
+            }
+        }
+        _ => "无法打开麦克风，请检查系统麦克风权限、设备连接及其他软件的独占占用。".into(),
+    }
 }
 fn record(
     device_id_value: String,
@@ -294,7 +375,7 @@ fn record(
         cpal::SampleFormat::U16 => stream!(u16, |v: &u16| (*v as f32 - 32768.0) / 32768.0),
         _ => return Err("暂不支持此麦克风采样格式。".into()),
     }
-    .map_err(|_| "无法打开麦克风，请检查权限和设备连接。")?;
+    .map_err(input_stream_error)?;
     stream.play().map_err(|_| "无法启动麦克风。")?;
     on_progress
         .send(Progress {
@@ -482,6 +563,22 @@ pub async fn start_voice_input(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn microphone_errors_classify_access_and_exclusive_use_without_echoing_backend_text() {
+        let error = |description: &str| {
+            super::input_stream_error(cpal::BuildStreamError::BackendSpecific {
+                err: cpal::BackendSpecificError {
+                    description: description.into(),
+                },
+            })
+        };
+        assert!(error("0x80070005 private-detail").contains("权限"));
+        assert!(!error("0x80070005 private-detail").contains("private-detail"));
+        assert!(error("AUDCLNT_E_DEVICE_IN_USE 0x8889000a").contains("独占"));
+        assert!(
+            super::input_stream_error(cpal::BuildStreamError::DeviceNotAvailable).contains("断开")
+        );
+    }
     use super::*;
     #[test]
     fn minute_recording_is_split_into_valid_http_audio_without_losing_samples() {

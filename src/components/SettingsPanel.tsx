@@ -1,18 +1,13 @@
 import { t, useUiLanguage } from '../i18n';
 import SpeechSpeed from './SpeechSpeed';
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react';
 import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
-import { blankProfile, profileFor, captionColorDefaults } from '../core/settings';
+import { blankProfile, profileFor, captionColorDefaults, defaults } from '../core/settings';
+import { previewDeviceOptions, migrateLegacyOutputRouting } from '../core/audio-routing';
 import {
-  outputDeviceOptions,
-  previewDeviceOptions,
-  voxBridgeOutputId,
-} from '../core/audio-routing';
-import {
-  openVirtualMicInstaller,
   credentialStatus,
   desktop,
   listOutputs,
@@ -24,6 +19,9 @@ import { subtitleDefaults } from '../core/overlay';
 import CaptionColorPicker from './CaptionColorPicker';
 import Select from './Select';
 import SettingRow from './SettingRow';
+import VirtualMicrophone from './VirtualMicrophone';
+import MicrophoneAccess from './MicrophoneAccess';
+import UpdateControls from './UpdateControls';
 import PresetEditor from './PresetEditor';
 import PresetSelect from './PresetSelect';
 import {
@@ -58,6 +56,7 @@ export default function SettingsPanel({
   captureSupported,
   section,
   onBusyChange,
+  focusSection,
 }: {
   settings: Settings;
   savedSettings: Settings;
@@ -70,6 +69,7 @@ export default function SettingsPanel({
   captureSupported: boolean;
   section: SettingsSection;
   onBusyChange: (busy: boolean) => void;
+  focusSection?: { id: string; version: number } | null;
 }) {
   const draft = settings;
   const setDraft = onDraftChange;
@@ -86,12 +86,22 @@ export default function SettingsPanel({
   const [devices, setDevices] = useState<OutputDevice[]>([]);
   const [inputs, setInputs] = useState<OutputDevice[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    if (!focusSection?.id) return;
+    const heading = document.getElementById(focusSection.id);
+    heading?.scrollIntoView({ block: 'start' });
+    heading?.focus({ preventScroll: true });
+  }, [focusSection]);
   async function refreshDevices() {
     setRefreshing(true);
     try {
       const [outputs, microphones] = await Promise.all([listOutputs(), listInputs()]);
       setDevices(outputs);
       setInputs(microphones);
+      setDraft((current) => {
+        const audio = migrateLegacyOutputRouting(current.audio, outputs);
+        return audio === current.audio ? current : { ...current, audio };
+      });
     } catch (error) {
       notify(String(error));
     } finally {
@@ -106,6 +116,10 @@ export default function SettingsPanel({
         if (active) {
           setDevices(next);
           setInputs(microphones);
+          setDraft((current) => {
+            const audio = migrateLegacyOutputRouting(current.audio, next);
+            return audio === current.audio ? current : { ...current, audio };
+          });
         }
       })
       .catch((error) => {
@@ -115,9 +129,6 @@ export default function SettingsPanel({
       active = false;
     };
   }, [section]);
-  function deviceOptions(value: string) {
-    return outputDeviceOptions(devices, value);
-  }
   useEffect(() => {
     let active = true;
     setSecret('');
@@ -288,14 +299,47 @@ export default function SettingsPanel({
           </section>
           <section className="preference-section" aria-labelledby="caption-colors-heading">
             <div className="preference-section-title">
-              <h2 id="caption-colors-heading">{t('工作台字幕配色')}</h2>
+              <h2 id="caption-colors-heading">{t('工作台字幕')}</h2>
               <button
-                onClick={() => setDraft({ ...draft, captionColors: { ...captionColorDefaults } })}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    captionFontSize: defaults.captionFontSize,
+                    captionColors: { ...captionColorDefaults },
+                  })
+                }
               >
                 {t('恢复默认')}
               </button>
             </div>
             <div className="preference-card">
+              <SettingRow title={t('字号')}>
+                <input
+                  type="range"
+                  aria-label={t('工作台字幕字号')}
+                  min={12}
+                  max={32}
+                  step={1}
+                  value={draft.captionFontSize}
+                  onChange={(event) =>
+                    setDraft({ ...draft, captionFontSize: Number(event.target.value) })
+                  }
+                />
+                <span className="preference-value">{draft.captionFontSize} px</span>
+              </SettingRow>
+              <div
+                className="workspace-caption-preview"
+                aria-label={t('工作台字幕预览')}
+                style={
+                  {
+                    '--caption-font-size': `${draft.captionFontSize}px`,
+                    '--caption-source-font-size': `${(draft.captionFontSize * 14) / 17}px`,
+                  } as CSSProperties
+                }
+              >
+                <p className="source-text">{t('这是原文预览')}</p>
+                <p className="translation-text">{t('这是译文预览')}</p>
+              </div>
               {(
                 [
                   ['recognition', '语音识别'],
@@ -619,7 +663,9 @@ export default function SettingsPanel({
           </section>
           <section className="preference-section" aria-labelledby="audio-heading">
             <div className="preference-section-title">
-              <h2 id="audio-heading">{t('音频')}</h2>
+              <h2 id="audio-heading" tabIndex={-1}>
+                {t('音频')}
+              </h2>
               <button
                 className="subtle"
                 disabled={!desktop || refreshing}
@@ -640,41 +686,18 @@ export default function SettingsPanel({
                   {t(refreshingApplications ? '刷新中…' : '刷新应用')}
                 </button>
               </SettingRow>
-              <SettingRow title={t('虚拟麦克风')}>
-                <span className="preference-value">
-                  {t(
-                    devices.some((d) => d.id === voxBridgeOutputId)
-                      ? 'VoxBridge 已就绪'
-                      : '尚未安装',
-                  )}
-                </span>
-                {devices.some((d) => d.id === voxBridgeOutputId) ? (
-                  <button
-                    className="subtle"
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        audio: {
-                          ...draft.audio,
-                          sendDeviceId: voxBridgeOutputId,
-                        },
-                      })
-                    }
-                  >
-                    {t('用作发送设备')}
-                  </button>
-                ) : (
-                  <button
-                    className="subtle"
-                    disabled={!desktop}
-                    onClick={() =>
-                      void openVirtualMicInstaller().catch((error) => notify(String(error)))
-                    }
-                  >
-                    {t('安装虚拟麦克风')}
-                  </button>
-                )}
-              </SettingRow>
+              <VirtualMicrophone
+                devices={devices}
+                selected={draft.audio.sendDeviceId}
+                onSelect={(id) =>
+                  setDraft((current) => ({
+                    ...current,
+                    audio: { ...current.audio, sendDeviceId: id },
+                  }))
+                }
+                onRefresh={refreshDevices}
+                notify={notify}
+              />
               <SettingRow title={t('发送时试听')}>
                 <button
                   role="switch"
@@ -691,6 +714,7 @@ export default function SettingsPanel({
                   {t(draft.audio.monitorEnabled ? '开启' : '关闭')}
                 </button>
               </SettingRow>
+              <MicrophoneAccess notify={notify} />
               <SettingRow title={t('语音输入麦克风')}>
                 <Select
                   label={t('语音输入麦克风')}
@@ -736,8 +760,8 @@ export default function SettingsPanel({
                   label={t('发送设备')}
                   value={draft.audio.sendDeviceId}
                   disabled={!desktop || refreshing}
-                  placeholder={t('选择虚拟音频设备')}
-                  options={deviceOptions(draft.audio.sendDeviceId)}
+                  placeholder={t('系统默认')}
+                  options={previewDeviceOptions(devices, draft.audio.sendDeviceId)}
                   onChange={(value) =>
                     setDraft({ ...draft, audio: { ...draft.audio, sendDeviceId: value } })
                   }
@@ -749,6 +773,13 @@ export default function SettingsPanel({
                   <ArrowUpRight size={14} />
                 </button>
               </SettingRow>
+              <div className="virtual-mic-help">
+                <p>
+                  {t(
+                    '未指定输出设备时跟随系统默认耳机或扬声器；要让聊天软件收到语音，请将发送设备改为虚拟麦克风。',
+                  )}
+                </p>
+              </div>
             </div>
           </section>
           <section className="preference-section" aria-labelledby="about-heading">
@@ -757,6 +788,7 @@ export default function SettingsPanel({
               <SettingRow title="VoxBridge">
                 <span className="preference-value">{version}</span>
               </SettingRow>
+              <UpdateControls />
             </div>
           </section>
         </>

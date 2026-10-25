@@ -1,5 +1,7 @@
 # Windows 开发交接
 
+> 此文保留 `4d5efa7` 前的交接基线。后续 Windows 实现与验收已推进，当前状态见 [2026-10-25 实机记录](validation/2026-10-25-windows-native.md) 与 [开发待办](windows-development-todo.md)；不要将下方的“尚未实现”表格视为最新状态。
+
 [开发与打包](development.md) · [整体架构](02-architecture.md) · [内部流程](internal-flows.md)
 
 核对日期：2026-10-25。代码基线：`8b98903`（0.2.1 发布后的 main，已增加本机诊断日志）。本文件是适配计划，不代表 Windows 功能已经通过验收；本轮只整理文档，不实现 Windows 功能。

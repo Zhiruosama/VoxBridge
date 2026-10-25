@@ -1,5 +1,7 @@
 mod crypto;
 mod store;
+#[cfg(target_os = "windows")]
+mod windows;
 use crypto::Master;
 use std::sync::{Mutex, OnceLock};
 use tauri::Manager;

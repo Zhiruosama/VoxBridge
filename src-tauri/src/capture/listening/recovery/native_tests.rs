@@ -41,7 +41,10 @@ async fn live_native_capture_reconnects_and_releases_old_attempt() {
         let response=format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());
         stream.write_all(response.as_bytes()).await.unwrap();
     });
+    let (seen_partial, partial_delivered) = tokio::sync::oneshot::channel();
+    let seen_partial = Arc::new(Mutex::new(Some(seen_partial)));
     let server = tokio::spawn(async move {
+        let mut partial_delivered = Some(partial_delivered);
         for generation in 0..2 {
             let (stream, _) = asr.accept().await.unwrap();
             let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
@@ -69,7 +72,13 @@ async fn live_native_capture_reconnects_and_releases_old_attempt() {
                     _ => panic!("native PCM stream ended early"),
                 }
             }
-            if generation == 1 {
+            if generation == 0 {
+                // Close only after the UI received the partial; TCP scheduling varies by OS.
+                tokio::time::timeout(Duration::from_secs(5), partial_delivered.take().unwrap())
+                    .await
+                    .unwrap()
+                    .unwrap();
+            } else {
                 while let Some(Ok(_)) = socket.next().await {}
             }
         }
@@ -91,6 +100,11 @@ async fn live_native_capture_reconnects_and_releases_old_attempt() {
     let channel = tauri::ipc::Channel::new(move |body| {
         if let tauri::ipc::InvokeResponseBody::Json(body) = body {
             let event: Value = serde_json::from_str(&body).unwrap();
+            if event["type"] == "transcript" && event["generation"] == 0 {
+                if let Some(signal) = seen_partial.lock().unwrap().take() {
+                    let _ = signal.send(());
+                }
+            }
             if event["type"] == "translation" {
                 cancel.cancel();
             }

@@ -6,3 +6,13 @@ if (process.platform === 'darwin') {
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
+if (process.platform === 'win32') {
+  const script = fileURLToPath(new URL('../native/windows/build-resources.ps1', import.meta.url));
+  const result = spawnSync(
+    'powershell.exe',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script],
+    { stdio: 'inherit', windowsHide: true },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}

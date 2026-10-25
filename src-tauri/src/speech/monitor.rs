@@ -3,15 +3,21 @@ use super::*;
 
 pub(super) struct LocalMonitor {
     device: Option<String>,
+    primary_output_id: String,
     enabled: Arc<AtomicBool>,
     output: Option<(rodio::MixerDeviceSink, Player)>,
     failed: Arc<AtomicBool>,
     blocked: bool,
 }
 impl LocalMonitor {
-    pub fn new(device: Option<String>, enabled: Arc<AtomicBool>) -> Self {
+    pub fn new(
+        device: Option<String>,
+        enabled: Arc<AtomicBool>,
+        primary_output_id: String,
+    ) -> Self {
         Self {
             device,
+            primary_output_id,
             enabled,
             output: None,
             failed: Arc::new(AtomicBool::new(false)),
@@ -44,11 +50,23 @@ impl LocalMonitor {
         let Some(device) = self.device.as_ref() else {
             return false;
         };
-        match open_output(device, self.failed.clone()) {
-            Ok(stream) => {
+        let output = crate::platform::resolve_output(device).and_then(|resolved| {
+            let id = crate::platform::output_id(&resolved)?;
+            open_distinct_monitor(&self.primary_output_id, &id, || {
+                open_device_output(resolved, self.failed.clone()).map(|(stream, _)| stream)
+            })
+        });
+        match output {
+            Ok(Some(stream)) => {
                 let player = Player::connect_new(stream.mixer());
                 self.output = Some((stream, player));
                 true
+            }
+            Ok(None) => {
+                // The primary route is already audible here. A second independently
+                // buffered stream causes doubling, comb filtering and apparent echoes.
+                self.blocked = true;
+                false
             }
             Err(_) => {
                 self.blocked = true;
@@ -78,6 +96,18 @@ impl LocalMonitor {
     }
 }
 
+fn open_distinct_monitor<T>(
+    primary: &str,
+    candidate: &str,
+    open: impl FnOnce() -> Result<T, String>,
+) -> Result<Option<T>, String> {
+    if primary == candidate {
+        Ok(None)
+    } else {
+        open().map(Some)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,7 +126,11 @@ mod tests {
             }
             Ok(())
         });
-        let mut monitor = LocalMonitor::new(Some("invalid-no-output".into()), enabled.clone());
+        let mut monitor = LocalMonitor::new(
+            Some("invalid-no-output".into()),
+            enabled.clone(),
+            "primary-output".into(),
+        );
         assert!(!monitor.tick(&channel, "request"));
         assert!(events.lock().unwrap().is_empty());
         enabled.store(true, Ordering::SeqCst);
@@ -109,5 +143,60 @@ mod tests {
         enabled.store(true, Ordering::SeqCst);
         monitor.tick(&channel, "request");
         assert_eq!(events.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn resolved_same_endpoint_never_opens_a_second_stream_but_distinct_routes_do() {
+        let mut opened = 0;
+        assert!(
+            open_distinct_monitor::<()>("endpoint-a", "endpoint-a", || panic!(
+                "duplicate stream must not open"
+            ))
+            .unwrap()
+            .is_none()
+        );
+        assert_eq!(
+            open_distinct_monitor("endpoint-a", "endpoint-b", || {
+                opened += 1;
+                Ok(42)
+            })
+            .unwrap(),
+            Some(42)
+        );
+        assert_eq!(opened, 1);
+        assert!(
+            open_distinct_monitor::<()>("endpoint-a", "endpoint-b", || Err("unavailable".into()))
+                .is_err()
+        );
+    }
+
+    #[test]
+    #[ignore = "manual read-only endpoint resolution; never opens playback or microphone streams"]
+    fn default_alias_and_explicit_endpoint_do_not_duplicate_monitor_playback() {
+        let device =
+            crate::platform::resolve_output(crate::platform::SYSTEM_DEFAULT_OUTPUT).unwrap();
+        let id = crate::platform::output_id(&device).unwrap();
+        let resolved = crate::platform::resolve_output(&id).unwrap();
+        assert_eq!(crate::platform::output_id(&resolved).unwrap(), id);
+        let enabled = Arc::new(AtomicBool::new(true));
+        let mut monitor = LocalMonitor::new(
+            Some(crate::platform::SYSTEM_DEFAULT_OUTPUT.into()),
+            enabled,
+            id.clone(),
+        );
+        let channel =
+            tauri::ipc::Channel::new(|_| panic!("same-device monitoring must not emit a failure"));
+        assert!(!monitor.tick(&channel, "same-output"));
+        assert!(monitor.output.is_none());
+        assert!(monitor.blocked);
+        let name = crate::platform::list_outputs()
+            .unwrap()
+            .into_iter()
+            .find(|device| device.id == id)
+            .unwrap()
+            .name;
+        println!(
+            "DUPLICATE_MONITOR_SUPPRESSED: system default and explicit endpoint resolve to {name}"
+        );
     }
 }

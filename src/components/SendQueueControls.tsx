@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AlertCircle } from 'lucide-react';
 import type { QueueAction, QueueView } from '../core/send-queue';
 export default function SendQueueControls({
   view,
@@ -42,6 +43,7 @@ export default function SendQueueControls({
     };
   }, [open]);
   if (!view.items.length) return null;
+  const hasFailure = view.items.some((item) => item.status === 'failed');
   const labels: Record<string, string> = {
     queued: '待处理',
     preparing: '准备中',
@@ -59,8 +61,8 @@ export default function SendQueueControls({
     <>
       <button
         ref={trigger}
-        className="queue-trigger"
-        aria-label={t('查看发送队列')}
+        className={`queue-trigger${hasFailure ? ' has-failure' : ''}`}
+        aria-label={t(hasFailure ? '查看发送队列，有失败项' : '查看发送队列')}
         aria-expanded={open}
         onClick={() => {
           const r = trigger.current!.getBoundingClientRect();
@@ -71,7 +73,8 @@ export default function SendQueueControls({
           setOpen(!open);
         }}
       >
-        {t(view.paused ? '已暂停' : '队列')} {view.items.length}
+        {hasFailure && <AlertCircle size={13} aria-hidden="true" />}
+        {t('队列')}
       </button>
       {open &&
         createPortal(
@@ -86,12 +89,6 @@ export default function SendQueueControls({
                 {t('发送队列')} · {view.items.length}
               </strong>
               <button
-                disabled={view.paused && view.items.some((item) => item.status === 'failed')}
-                aria-description={t(
-                  view.paused && view.items.some((item) => item.status === 'failed')
-                    ? '请先重试或取消失败项，再继续队列'
-                    : undefined,
-                )}
                 onClick={() => onAction({ action: view.paused ? 'queueResume' : 'queuePause' })}
               >
                 {t(view.paused ? '继续' : '暂停')}
@@ -100,9 +97,9 @@ export default function SendQueueControls({
                 ×
               </button>
             </header>
-            {view.paused && view.items.some((item) => item.status === 'failed') && (
+            {hasFailure && (
               <p className="queue-error" role="status">
-                {t('请重试或取消失败项，再继续发送。')}
+                {t('失败项不会阻塞后续发送，可单独重试或取消。')}
               </p>
             )}
             <div className="send-queue-items">

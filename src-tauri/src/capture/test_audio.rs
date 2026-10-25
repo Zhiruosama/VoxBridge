@@ -22,7 +22,17 @@ impl Drop for SyntheticPlayer {
 
 impl SyntheticPlayer {
     pub fn start() -> Self {
-        let mut child = Command::new(std::env::current_exe().unwrap())
+        Self::start_mode(false)
+    }
+
+    fn start_mode(descendant: bool) -> Self {
+        let mut command = Command::new(std::env::current_exe().unwrap());
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(0x08000000);
+        }
+        let mut child = command
             .args([
                 "--exact",
                 "capture::test_audio::synthetic_audio_child",
@@ -30,6 +40,10 @@ impl SyntheticPlayer {
                 "--nocapture",
             ])
             .env("VOXBRIDGE_SYNTHETIC_CHILD", "1")
+            .env(
+                "VOXBRIDGE_SYNTHETIC_TREE",
+                if descendant { "1" } else { "0" },
+            )
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -59,21 +73,28 @@ impl SyntheticPlayer {
             replies,
         };
         player.wait("SYNTHETIC_READY");
-        let started = Instant::now();
-        loop {
-            if let Some(source) = native::process_sources()
-                .unwrap()
-                .into_iter()
-                .find(|s| s.pid == player.source.pid)
-            {
-                player.source = source;
-                break;
+        #[cfg(target_os = "windows")]
+        {
+            player.source = native::source_for_pid(player.child.id()).unwrap();
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let started = Instant::now();
+            loop {
+                if let Some(source) = native::process_sources()
+                    .unwrap()
+                    .into_iter()
+                    .find(|s| s.pid == player.source.pid)
+                {
+                    player.source = source;
+                    break;
+                }
+                assert!(
+                    started.elapsed() < Duration::from_secs(5),
+                    "silent playback process not registered"
+                );
+                std::thread::sleep(Duration::from_millis(20));
             }
-            assert!(
-                started.elapsed() < Duration::from_secs(5),
-                "silent playback process not registered"
-            );
-            std::thread::sleep(Duration::from_millis(20));
         }
         player
     }
@@ -117,7 +138,14 @@ fn measure(
 #[test]
 #[ignore = "manual hardware test: controlled tones, target isolation and 20 native start/stop cycles; no network"]
 fn live_capture_isolates_process_and_restarts() {
-    let mut target = SyntheticPlayer::start();
+    // Windows shared-mode PCM16 conversion may dither silence by one LSB.
+    let silence_floor = if cfg!(target_os = "windows") {
+        2.0 / 32768.0
+    } else {
+        0.00001
+    };
+    // On Windows the selected process is a silent parent; its child renders the tone.
+    let mut target = SyntheticPlayer::start_mode(cfg!(target_os = "windows"));
     let mut other = SyntheticPlayer::start();
     let other_token = tokio_util::sync::CancellationToken::new();
     let (other_writer, mut other_reader, _) = crate::pcm::channel(192_000);
@@ -130,7 +158,7 @@ fn live_capture_isolates_process_and_restarts() {
         let silent = measure(&capture, &mut reader, Duration::from_millis(350));
         assert!(silent.0 > 0, "no frames in cycle {cycle}");
         assert!(
-            silent.1 < 0.00001,
+            silent.1 < silence_floor,
             "other process leaked into target: {}",
             silent.1
         );
@@ -152,7 +180,7 @@ fn live_capture_isolates_process_and_restarts() {
         measure(&capture, &mut reader, Duration::from_millis(300));
         let quiet = measure(&capture, &mut reader, Duration::from_millis(350));
         assert!(
-            quiet.0 > 0 && quiet.1 < 0.00001,
+            quiet.0 > 0 && quiet.1 < silence_floor,
             "target did not return to silence"
         );
         token.cancel();
@@ -181,6 +209,17 @@ fn synthetic_audio_child() {
         std::thread::sleep(Duration::from_secs(120));
         std::process::exit(1);
     });
+    if std::env::var("VOXBRIDGE_SYNTHETIC_TREE").as_deref() == Ok("1") {
+        let mut player = SyntheticPlayer::start();
+        println!("SYNTHETIC_READY");
+        std::io::stdout().flush().unwrap();
+        for line in std::io::stdin().lock().lines() {
+            player.command(&line.unwrap());
+            println!("SYNTHETIC_ACK");
+            std::io::stdout().flush().unwrap();
+        }
+        return;
+    }
     let stream = DeviceSinkBuilder::open_default_sink().expect("open synthetic output");
     let sink = Player::connect_new(stream.mixer());
     println!("SYNTHETIC_READY");
@@ -212,17 +251,47 @@ fn synthetic_audio_child() {
     }
 }
 
+#[cfg(target_os = "windows")]
+#[test]
+#[ignore = "manual: cancel 20 silent WASAPI activations, no recording or network"]
+fn live_cancel_during_activation_releases_capture() {
+    let target = SyntheticPlayer::start();
+    for cycle in 0..20 {
+        let token = tokio_util::sync::CancellationToken::new();
+        let cancel = token.clone();
+        let canceller = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(cycle % 5));
+            cancel.cancel();
+        });
+        let (writer, mut reader, _) = crate::pcm::channel(192_000);
+        let capture = native::Capture::start(&target.source, writer, &token);
+        canceller.join().unwrap();
+        drop(capture);
+        while reader.pop().is_ok() {}
+        std::thread::sleep(Duration::from_millis(30));
+        assert!(
+            reader.pop().is_err(),
+            "frames arrived after cancelled activation"
+        );
+    }
+}
+
 #[test]
 #[ignore = "manual: physical test tone verifies VoxBridge output is excluded from selected-process tap"]
 fn live_duplex_self_output_is_excluded_from_target() {
     use rodio::{DeviceSinkBuilder, Player, Source};
+    let silence_floor = if cfg!(target_os = "windows") {
+        2.0 / 32768.0
+    } else {
+        0.00001
+    };
     let mut target = SyntheticPlayer::start();
     let token = tokio_util::sync::CancellationToken::new();
     let _guard = token.clone().drop_guard();
     let (writer, mut reader, _) = crate::pcm::channel(192_000);
     let capture = native::Capture::start(&target.source, writer, &token).unwrap();
     let baseline = measure(&capture, &mut reader, Duration::from_millis(350));
-    assert!(baseline.0 > 0 && baseline.1 < 0.00001);
+    assert!(baseline.0 > 0 && baseline.1 < silence_floor);
     let output = DeviceSinkBuilder::open_default_sink().unwrap();
     let sink = Player::connect_new(output.mixer());
     sink.append(
@@ -232,7 +301,7 @@ fn live_duplex_self_output_is_excluded_from_target() {
     );
     let own_output = measure(&capture, &mut reader, Duration::from_millis(700));
     assert!(
-        own_output.0 > 0 && own_output.1 < 0.00001,
+        own_output.0 > 0 && own_output.1 < silence_floor,
         "own output leaked into target: {}",
         own_output.1
     );

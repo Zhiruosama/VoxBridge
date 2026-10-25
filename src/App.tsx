@@ -1,6 +1,8 @@
 import { watchFrontendErrors, recordDiagnostic } from './diagnostics';
 import { useTheme } from './hooks/useTheme';
 import SidebarResizeHandle from './components/SidebarResizeHandle';
+import WindowChrome from './components/WindowChrome';
+import { configurationSection, type ConfigurationSection } from './core/configuration-guidance';
 import { useSidebarLayout } from './hooks/useSidebarLayout';
 import { t, setUiLanguage, useUiLanguage } from './i18n';
 import SendQueueControls from './components/SendQueueControls';
@@ -29,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import SettingsPanel, { type SettingsSection } from './components/SettingsPanel';
+import { appUpdates } from './app-updates';
 import Diagnostics from './components/Diagnostics';
 import Select from './components/Select';
 import Toast from './components/Toast';
@@ -71,6 +74,7 @@ import {
   detectTextLanguage,
   desktop,
   listCaptureSources,
+  listOutputs,
   publishOverlay,
   publishOverlayVoice,
   readOverlayVoice,
@@ -87,6 +91,7 @@ import {
 } from './bridge';
 
 import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
+import { migrateLegacyOutputRouting } from './core/audio-routing';
 import { useTextSelection } from './hooks/useTextSelection';
 
 const languages = [
@@ -134,11 +139,20 @@ export default function App() {
       });
   }, [initial]);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
+  const [settingsFocus, setSettingsFocus] = useState<{ id: string; version: number } | null>(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
-  const [notice, setNotice] = useState({ message: initial.error, id: 0 });
-  const notify = useCallback((message: string) => {
-    setNotice((current) => ({ message, id: current.id + 1 }));
+  const [notice, setNotice] = useState<{
+    message: string;
+    id: number;
+    section: ConfigurationSection | null;
+  }>({ message: initial.error, id: 0, section: null });
+  const notify = useCallback((message: string, section?: ConfigurationSection) => {
+    setNotice((current) => ({
+      message,
+      id: current.id + 1,
+      section: section ?? configurationSection(message),
+    }));
   }, []);
   const dismissNotice = useCallback(() => {
     setNotice((current) => ({ ...current, message: '' }));
@@ -193,6 +207,19 @@ export default function App() {
       }),
   );
   const [queueView, setQueueView] = useState<QueueView>({ paused: false, items: [] });
+  const updateBlocked = useRef(true);
+  useEffect(() => {
+    if (!desktop) return;
+    appUpdates.blocked = () => updateBlocked.current;
+    void appUpdates.check().then(() => {
+      const next = appUpdates.snapshot();
+      if (next.status === 'available')
+        notify(t('发现新版本 {0}，可在设置的关于部分更新。', next.version));
+    });
+    return () => {
+      appUpdates.blocked = () => true;
+    };
+  }, [notify]);
   const [sendQueue] = useState(
     () =>
       new SendQueue({
@@ -231,7 +258,7 @@ export default function App() {
   );
   useEffect(
     () => () => {
-      if (sendQueue.busy) void sendQueue.clear();
+      void sendQueue.clear();
     },
     [sendQueue],
   );
@@ -243,6 +270,15 @@ export default function App() {
     else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
   }
   const [overlayDraft, setOverlayDraft] = useState('');
+  updateBlocked.current =
+    settingsBusy ||
+    listenPhase !== 'idle' ||
+    Boolean(voice) ||
+    composer.busy ||
+    busy ||
+    queueView.items.length > 0 ||
+    Boolean(text.trim() || overlayDraft.trim()) ||
+    JSON.stringify(settings) !== JSON.stringify(savedSettings);
   const [overlayVoiceError, setOverlayVoiceError] = useState('');
   const [overlayVoiceReady, setOverlayVoiceReady] = useState(false);
   const overlayActionsRef = useRef<(request: OverlayVoiceRequest) => void>(() => {});
@@ -423,6 +459,34 @@ export default function App() {
   }, [notify]);
   useTheme(settings.theme);
   useEffect(() => {
+    if (!desktop || runtime?.platform !== 'windows') return;
+    let active = true;
+    listOutputs()
+      .then((devices) => {
+        if (!active) return;
+        // Read the latest saved settings after enumeration, preserving edits saved meanwhile.
+        const saved = loadSettings();
+        const audio = migrateLegacyOutputRouting(saved.audio, devices);
+        if (audio !== saved.audio) {
+          saveSettings({ ...saved, audio });
+          setSavedSettings((current) => ({
+            ...current,
+            audio: migrateLegacyOutputRouting(current.audio, devices),
+          }));
+        }
+        setSettings((current) => {
+          const audio = migrateLegacyOutputRouting(current.audio, devices);
+          return audio === current.audio ? current : { ...current, audio };
+        });
+      })
+      .catch((error) => {
+        if (active) notify(String(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [runtime?.platform, notify]);
+  useEffect(() => {
     if (follow)
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'instant' });
   }, [session.segments, follow]);
@@ -456,7 +520,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (desktop && runtime?.platform === 'macos') void refreshCaptureSources();
+    if (desktop && runtime?.nativeCapture === true) void refreshCaptureSources();
   }, [runtime?.platform]);
 
   function receiveListening(event: ListeningEvent) {
@@ -517,6 +581,7 @@ export default function App() {
       !['qwen_chat_asr', 'qwen_dashscope_asr'].includes(asrProfile.adapter)
     ) {
       setListenError(invalid || '请刷新并选择监听应用，配置语音识别与文字翻译服务。');
+      if (invalid) notify(invalid, validateProfile(asrProfile) ? 'asr' : 'translation');
       return;
     }
     const id = crypto.randomUUID();
@@ -688,7 +753,7 @@ export default function App() {
     const invalid = validateProfile(profile);
     if (invalid) {
       if (origin === 'overlay') setOverlayVoiceError(invalid);
-      notify(invalid);
+      notify(invalid, 'asr');
       return;
     }
     const operation = { id: crypto.randomUUID(), cancelled: false, finishing: false, origin };
@@ -791,23 +856,25 @@ export default function App() {
     }
   }
 
-  function openSettings(section: SettingsSection = 'general') {
+  function openSettings(section: SettingsSection = 'general', anchor = '') {
     if (voiceRef.current) {
       notify('请先结束或取消录音。');
-      return;
+      return false;
     }
     if (composer.busy) {
       void stopComposer();
       notify('正在停止当前操作，结束后可进入设置。');
-      return;
+      return false;
     }
     if (listeningRef.current && section !== 'tts') {
       void endListening();
       notify('正在停止监听，结束后可进入设置。');
-      return;
+      return false;
     }
     setSettingsSection(section);
+    setSettingsFocus((current) => ({ id: anchor, version: (current?.version ?? 0) + 1 }));
     setPage('settings');
+    return true;
   }
 
   const direction = composerLanguages(settings, listening);
@@ -828,12 +895,19 @@ export default function App() {
   return (
     <div
       ref={sidebarLayout.shellRef}
-      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}
+      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'} ${runtime?.platform === 'windows' ? 'has-window-chrome' : ''}`}
       style={{ '--sidebar-width': `${sidebarLayout.width}px` } as CSSProperties}
     >
       <a className="skip-link" href="#main-content">
         {t('跳到主内容')}
       </a>
+      {runtime?.platform === 'windows' && (
+        <WindowChrome
+          sidebar={sidebar}
+          onToggleSidebar={() => setSidebar(!sidebar)}
+          notify={notify}
+        />
+      )}
       <aside className="sidebar">
         <div className="brand">
           <AudioLines size={19} strokeWidth={1.5} />
@@ -912,7 +986,7 @@ export default function App() {
         <header className="titlebar">
           <div>
             <button
-              className="icon-button"
+              className="icon-button page-sidebar-toggle"
               aria-label={t(sidebar ? '收起侧栏' : '展开侧栏')}
               onClick={() => setSidebar(!sidebar)}
             >
@@ -924,6 +998,10 @@ export default function App() {
           </div>
           {page === 'workspace' && (
             <div className="toolbar-actions">
+              <button className="subtle" onClick={() => openSettings('general', 'audio-heading')}>
+                <Settings2 size={14} aria-hidden="true" />
+                {t('音频设置')}
+              </button>
               <button
                 disabled={!desktop || !overlayReady}
                 onClick={() => void showOverlay().catch(() => notify('无法打开悬浮字幕窗。'))}
@@ -935,7 +1013,7 @@ export default function App() {
                 onClick={() => void (listening ? endListening() : beginListening())}
                 disabled={
                   !desktop ||
-                  runtime?.platform !== 'macos' ||
+                  runtime?.nativeCapture !== true ||
                   listenPhase === 'stopping' ||
                   (!listening && (!captureSourceId || refreshingSources))
                 }
@@ -952,7 +1030,24 @@ export default function App() {
           )}
         </header>
         {notice.message && (
-          <Toast key={notice.id} message={notice.message} onClose={dismissNotice} />
+          <Toast
+            key={notice.id}
+            message={notice.message}
+            onClose={dismissNotice}
+            onConfigure={
+              notice.section
+                ? () => {
+                    if (
+                      openSettings(
+                        notice.section!,
+                        notice.section === 'general' ? 'audio-heading' : '',
+                      )
+                    )
+                      dismissNotice();
+                  }
+                : undefined
+            }
+          />
         )}
         <main
           key={page}
@@ -962,6 +1057,7 @@ export default function App() {
           {page === 'settings' && (
             <SettingsPanel
               section={settingsSection}
+              focusSection={settingsFocus}
               onBusyChange={setSettingsBusy}
               settings={settings}
               savedSettings={savedSettings}
@@ -971,7 +1067,7 @@ export default function App() {
               onDiagnostics={() => setPage('diagnostics')}
               onRefreshApplications={refreshCaptureSources}
               refreshingApplications={refreshingSources}
-              captureSupported={runtime?.platform === 'macos'}
+              captureSupported={runtime?.nativeCapture === true}
             />
           )}
           {page === 'diagnostics' && (
@@ -984,7 +1080,7 @@ export default function App() {
                   label={t('监听应用')}
                   value={captureSourceId}
                   onChange={setCaptureSourceId}
-                  disabled={listening || !desktop || runtime?.platform !== 'macos'}
+                  disabled={listening || !desktop || runtime?.nativeCapture !== true}
                   placeholder={t('选择监听应用')}
                   onOpenChange={(open) => {
                     if (open) void refreshCaptureSources();
@@ -1041,7 +1137,13 @@ export default function App() {
                   <div
                     className="transcript-content"
                     data-selection-scope
-                    style={{ '--caption-spacing': `${settings.captionSpacing}px` } as CSSProperties}
+                    style={
+                      {
+                        '--caption-spacing': `${settings.captionSpacing}px`,
+                        '--caption-font-size': `${settings.captionFontSize}px`,
+                        '--caption-source-font-size': `${(settings.captionFontSize * 14) / 17}px`,
+                      } as CSSProperties
+                    }
                   >
                     {session.segments.map((segment) => {
                       const expression = segment.id.startsWith('expression:');
@@ -1354,11 +1456,7 @@ export default function App() {
                         <button
                           className="subtle"
                           disabled={
-                            busy ||
-                            queueView.items.length > 0 ||
-                            !text.trim() ||
-                            !desktop ||
-                            Boolean(voice)
+                            busy || sendQueue.busy || !text.trim() || !desktop || Boolean(voice)
                           }
                           onClick={() => void runComposer('translate')}
                           aria-description={t('仅翻译，不输出语音')}

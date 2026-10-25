@@ -1,4 +1,58 @@
 use super::*;
+#[cfg(target_os = "windows")]
+#[test]
+fn migrates_plain_master_to_current_user_dpapi_without_changing_credentials() {
+    let folder = Folder::new();
+    let directory = folder.0.join("credentials");
+    std::fs::create_dir_all(&directory).unwrap();
+    let key = Zeroizing::new(vec![7; 32]);
+    let master = master(key.clone());
+    let values = [(
+        "synthetic".to_string(),
+        Zeroizing::new("synthetic-secret".to_string()),
+    )]
+    .into_iter()
+    .collect();
+    let ciphertext = crypto::encrypt(&master, &values).unwrap();
+    std::fs::write(directory.join("master.v1.key"), &key).unwrap();
+    std::fs::write(directory.join("keys.v1.enc"), &ciphertext).unwrap();
+    let store = Store::open(directory.clone()).unwrap();
+    assert_eq!(store.read("synthetic").unwrap(), "synthetic-secret");
+    assert!(!directory.join("master.v1.key").exists());
+    assert_eq!(std::fs::read(store.path()).unwrap(), ciphertext);
+    assert_ne!(std::fs::read(store.key_path()).unwrap(), key.to_vec());
+    assert_eq!(
+        Store::open(directory).unwrap().read("synthetic").unwrap(),
+        "synthetic-secret"
+    );
+}
+#[cfg(target_os = "windows")]
+#[test]
+fn resumes_interrupted_dpapi_migration() {
+    let folder = Folder::new();
+    let mut store = folder.store();
+    store.set("synthetic", "synthetic-secret").unwrap();
+    std::fs::write(
+        store.directory.join("master.v1.key"),
+        &store.master.as_ref().unwrap().key,
+    )
+    .unwrap();
+    let restarted = folder.store();
+    assert_eq!(restarted.read("synthetic").unwrap(), "synthetic-secret");
+    assert!(!store.directory.join("master.v1.key").exists());
+}
+#[cfg(target_os = "windows")]
+#[test]
+#[ignore = "manual installed-vault metadata check; never outputs credential content"]
+fn verify_installed_windows_vault_metadata() {
+    let directory = PathBuf::from(std::env::var_os("APPDATA").unwrap())
+        .join("com.voxbridge.desktop/credentials");
+    let store = Store::open(directory).unwrap();
+    println!(
+        "Installed vault opened successfully; saved profiles: {}",
+        store.values.len()
+    );
+}
 struct Folder(PathBuf);
 impl Folder {
     fn new() -> Self {

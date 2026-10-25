@@ -190,9 +190,8 @@ impl Routing {
         if id.is_empty() {
             return Err("请在常规设置中选择对应的音频输出设备。".into());
         }
-        if matches!(route, Route::Send) && self.preview_device_id == self.send_device_id {
-            return Err("试听与发送必须使用不同设备，请检查音频设置。".into());
-        }
+        // Preview may follow the same system default as send. Monitor output
+        // resolves endpoint identity and suppresses the duplicate stream.
         if matches!(route, Route::Send) && self.monitor_enabled && self.preview_device_id.is_empty()
         {
             return Err("请先选择试听设备，或关闭发送时试听。".into());
@@ -527,19 +526,33 @@ pub(crate) fn decode(audio: Vec<u8>, token: &CancellationToken) -> Result<Sample
     Ok(SamplesBuffer::new(channels, rate, samples))
 }
 
-fn open_output(device_id: &str, failed: Arc<AtomicBool>) -> Result<rodio::MixerDeviceSink, String> {
+fn open_output(
+    device_id: &str,
+    failed: Arc<AtomicBool>,
+) -> Result<(rodio::MixerDeviceSink, String), String> {
     let device = crate::platform::resolve_output(device_id)?;
-    DeviceSinkBuilder::from_device(device)
+    open_device_output(device, failed)
+}
+
+fn open_device_output(
+    device: cpal::Device,
+    failed: Arc<AtomicBool>,
+) -> Result<(rodio::MixerDeviceSink, String), String> {
+    let id = crate::platform::output_id(&device)?;
+    let stream = DeviceSinkBuilder::from_device(device)
         .map_err(|_| "无法读取设备格式。")?
         .with_error_callback(move |_| {
             failed.store(true, Ordering::SeqCst);
         })
         .open_stream()
-        .map_err(|_| "无法打开所选输出设备。".into())
+        .map_err(|_| "无法打开所选输出设备。".to_string())?;
+    Ok((stream, id))
 }
 
 mod monitor;
 mod streaming;
+#[cfg(all(test, target_os = "windows"))]
+mod windows_cable_test;
 
 #[allow(clippy::too_many_arguments)]
 fn playback(
@@ -555,10 +568,10 @@ fn playback(
     // The output stream stays on this blocking thread, including on macOS where it is !Send.
     let failed = Arc::new(AtomicBool::new(false));
     let setup = open_output(&device_id, failed.clone());
-    let stream = match setup {
-        Ok(stream) => {
+    let (stream, output_id) = match setup {
+        Ok(output) => {
             let _ = ready.send(Ok(()));
-            stream
+            output
         }
         Err(error) => {
             let _ = ready.send(Err(error.clone()));
@@ -584,7 +597,7 @@ fn playback(
         return Err(STOPPED.into());
     }
     let sink = Player::connect_new(stream.mixer());
-    let mut monitor = monitor::LocalMonitor::new(monitor_device, monitoring);
+    let mut monitor = monitor::LocalMonitor::new(monitor_device, monitoring, output_id);
     if monitor.tick(&channel, &request_id) {
         monitor.buffered(source.clone(), Duration::ZERO);
     }
@@ -720,22 +733,25 @@ async fn execute_inner(
         .clone()
         .try_acquire_owned()
         .map_err(|_| "音频输出正忙，请等待当前播放结束。")?;
-    if let Err(error) = crate::platform::wait_for_output(&device, &job.token, || {
+    let device = match crate::platform::wait_for_output(&device, &job.token, || {
         progress(&on_progress, &request_id, "waitingDevice")
     })
     .await
     {
-        progress(
-            &on_progress,
-            &request_id,
-            if job.token.is_cancelled() {
-                "stopped"
-            } else {
-                "failed"
-            },
-        );
-        return Err(error);
-    }
+        Ok(device) => device,
+        Err(error) => {
+            progress(
+                &on_progress,
+                &request_id,
+                if job.token.is_cancelled() {
+                    "stopped"
+                } else {
+                    "failed"
+                },
+            );
+            return Err(error);
+        }
+    };
     let key = if prepared_audio.is_some() {
         String::new()
     } else {

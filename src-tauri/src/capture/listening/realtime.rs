@@ -382,7 +382,7 @@ async fn process_stream(
     recognition.and(segmentation).and(translation)
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
     use serde_json::{json, Value};
@@ -488,7 +488,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod duplex_tests;
 
 #[cfg(test)]

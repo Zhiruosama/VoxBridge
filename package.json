@@ -1,7 +1,7 @@
 {
   "name": "voxbridge",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -18,13 +18,17 @@
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:build:mac": "tauri build --bundles app,dmg",
+    "desktop:build:windows": "node scripts/build-windows-installer.mjs",
     "postdesktop:build": "node scripts/verify-macos-app.mjs",
-    "postdesktop:build:mac": "node scripts/verify-macos-app.mjs"
+    "postdesktop:build:mac": "node scripts/verify-macos-app.mjs",
+    "test:release": "node --test scripts/prepare-release.checks.mjs"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "^5.3.1",
     "@radix-ui/react-select": "^2.4.1",
     "@tauri-apps/api": "^2.10.0",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
@@ -35,6 +39,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
     "prettier": "^3.6.2",
+    "semver": "^7.8.5",
     "typescript": "~5.9.3",
     "vite": "^7.2.0",
     "vitest": "^5.0.5"

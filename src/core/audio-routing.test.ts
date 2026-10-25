@@ -1,5 +1,63 @@
 import { describe, expect, it } from 'vitest';
 import { outputDeviceOptions, previewDeviceOptions, systemDefaultOutputId } from './audio-routing';
+import { migrateLegacyOutputRouting } from './audio-routing';
+
+describe('Windows output configuration upgrade', () => {
+  const outputs = [
+    { id: 'windows-output:61', name: 'Headphones' },
+    { id: 'windows-output:62', name: 'Virtual cable' },
+  ];
+
+  it('upgrades both exact names while preserving recording and monitoring preferences', () => {
+    const audio = {
+      previewDeviceId: 'Headphones',
+      sendDeviceId: 'Virtual cable',
+      inputDeviceId: 'mic:61',
+      monitorEnabled: true,
+    };
+    expect(migrateLegacyOutputRouting(audio, outputs)).toEqual({
+      ...audio,
+      previewDeviceId: 'windows-output:61',
+      sendDeviceId: 'windows-output:62',
+    });
+    expect(audio.previewDeviceId).toBe('Headphones');
+  });
+
+  it('never guesses among duplicate names or selects a default for an unavailable device', () => {
+    const audio = { previewDeviceId: 'Headphones', sendDeviceId: 'Missing' };
+    expect(
+      migrateLegacyOutputRouting(audio, [
+        ...outputs,
+        { id: 'windows-output:63', name: 'Headphones' },
+      ]),
+    ).toBe(audio);
+    expect(migrateLegacyOutputRouting(audio, [])).toBe(audio);
+    expect(
+      migrateLegacyOutputRouting({ ...audio, previewDeviceId: 'headphones' }, outputs)
+        .previewDeviceId,
+    ).toBe('headphones');
+  });
+
+  it('preserves default, empty, disconnected and foreign platform IDs', () => {
+    for (const id of ['', systemDefaultOutputId, 'windows-output:99', 'macos-output:99']) {
+      const audio = { previewDeviceId: id, sendDeviceId: id };
+      expect(
+        migrateLegacyOutputRouting(audio, [...outputs, { id: 'windows-output:64', name: id }]),
+      ).toBe(audio);
+    }
+    const audio = { previewDeviceId: 'Headphones', sendDeviceId: '' };
+    expect(migrateLegacyOutputRouting(audio, devices)).toBe(audio);
+  });
+
+  it('deduplicates repeated inventory entries and remains stable after migration', () => {
+    const audio = migrateLegacyOutputRouting({ previewDeviceId: 'Headphones', sendDeviceId: '' }, [
+      ...outputs,
+      outputs[0],
+    ]);
+    expect(audio.previewDeviceId).toBe('windows-output:61');
+    expect(migrateLegacyOutputRouting(audio, outputs)).toBe(audio);
+  });
+});
 
 const devices = [
   { id: 'macos-output:62', name: 'Headphones' },

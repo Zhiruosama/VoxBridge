@@ -1,7 +1,7 @@
 use super::{CaptureSource, CaptureState};
 use crate::{asr::AsrProfile, providers::TranslationProfile};
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -10,11 +10,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod http;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod realtime;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod recovery;
 
 #[derive(Clone, Deserialize)]
@@ -128,7 +128,7 @@ pub enum ListeningEvent {
     },
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn segment_id(session: &str, generation: u32, sequence: u64) -> String {
     if generation == 0 {
         format!("{session}-{sequence}")
@@ -137,13 +137,13 @@ fn segment_id(session: &str, generation: u32, sequence: u64) -> String {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 struct QueuedSegment {
     audio: crate::audio_pipeline::AudioSegment,
     created: Instant,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn send(
     channel: &tauri::ipc::Channel<ListeningEvent>,
     event: ListeningEvent,
@@ -151,7 +151,7 @@ fn send(
     channel.send(event).map_err(|_| "字幕界面已关闭。".into())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 struct SegmentProcessor<'a> {
     profile: &'a AsrProfile,
     key: &'a str,
@@ -163,7 +163,7 @@ struct SegmentProcessor<'a> {
     offset_ms: u64,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 impl SegmentProcessor<'_> {
     async fn process(
         &self,
@@ -188,7 +188,22 @@ impl SegmentProcessor<'_> {
         let text = self
             .translation
             .translate(&recognized.text, self.source, self.target, token)
-            .await?;
+            .await;
+        let text = match text {
+            Ok(text) => text,
+            Err(error) if crate::providers::is_invalid_translation(&error) => {
+                if !token.is_cancelled() {
+                    emit(ListeningEvent::TranslationError {
+                        session_id: self.session_id.into(),
+                        generation: self.generation,
+                        segment_id,
+                        revision: 1,
+                    })?;
+                }
+                return Ok(());
+            }
+            Err(error) => return Err(error),
+        };
         if !token.is_cancelled() {
             emit(ListeningEvent::Translation {
                 session_id: self.session_id.into(),
@@ -203,7 +218,7 @@ impl SegmentProcessor<'_> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn capture_segments(
     source: CaptureSource,
     session_id: String,
@@ -294,7 +309,7 @@ pub async fn start_listening(
     asr_state: tauri::State<'_, crate::asr::AsrState>,
     translations: tauri::State<'_, crate::providers::Requests>,
 ) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
         if request.source.pid <= 0
             || request.source.pid as u32 == std::process::id()
@@ -347,7 +362,7 @@ pub async fn start_listening(
         );
         result
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = (request, on_event, state, asr_state, translations);
         Err("分段监听暂仅支持 Mac 桌面版。".into())
@@ -390,8 +405,16 @@ mod tests {
         assert_eq!(progress["sampleRate"], 48000);
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     fn http_response(text: &str) -> (String, std::thread::JoinHandle<serde_json::Value>) {
+        http_responses(text, 1)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    fn http_responses(
+        text: &str,
+        count: usize,
+    ) -> (String, std::thread::JoinHandle<serde_json::Value>) {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/v1", listener.local_addr().unwrap());
@@ -399,111 +422,126 @@ mod tests {
             serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":text}}]})
                 .to_string();
         let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
-            let mut bytes = Vec::new();
-            let end = loop {
-                let mut buffer = [0; 4096];
-                let count = stream.read(&mut buffer).unwrap();
-                assert!(count > 0);
-                bytes.extend_from_slice(&buffer[..count]);
-                if let Some(end) = bytes.windows(4).position(|v| v == b"\r\n\r\n") {
-                    let headers = String::from_utf8_lossy(&bytes[..end]);
-                    let length = headers
-                        .lines()
-                        .find_map(|line| {
-                            line.to_lowercase()
-                                .strip_prefix("content-length: ")
-                                .and_then(|v| v.parse::<usize>().ok())
-                        })
-                        .unwrap();
-                    if bytes.len() >= end + 4 + length {
-                        break end;
+            let mut request = serde_json::Value::Null;
+            for _ in 0..count {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                let end = loop {
+                    let mut buffer = [0; 4096];
+                    let count = stream.read(&mut buffer).unwrap();
+                    assert!(count > 0);
+                    bytes.extend_from_slice(&buffer[..count]);
+                    if let Some(end) = bytes.windows(4).position(|v| v == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&bytes[..end]);
+                        let length = headers
+                            .lines()
+                            .find_map(|line| {
+                                line.to_lowercase()
+                                    .strip_prefix("content-length: ")
+                                    .and_then(|v| v.parse::<usize>().ok())
+                            })
+                            .unwrap();
+                        if bytes.len() >= end + 4 + length {
+                            break end;
+                        }
                     }
-                }
-            };
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
-            serde_json::from_slice(&bytes[end + 4..]).unwrap()
+                };
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                request = serde_json::from_slice(&bytes[end + 4..]).unwrap();
+            }
+            request
         });
         (url, server)
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[tokio::test]
     async fn pcm_segment_reaches_asr_then_corresponding_translation_without_real_credentials() {
-        let (asr_url, asr_server) = http_response("Good morning");
-        let (translation_url, translation_server) = http_response("早上好");
-        let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":asr_url,"modelId":"test-model"})).unwrap();
-        let translations = crate::providers::Requests::default();
-        let translation_profile = serde_json::from_value(serde_json::json!({"id":"test-translation","stage":"translation","adapter":"openai_chat_completions","baseUrl":translation_url,"modelId":"test-model"})).unwrap();
-        let translation = translations
-            .reserve_listening(translation_profile, "session", "test-key".into())
-            .unwrap();
-        let processor = SegmentProcessor {
-            profile: &profile,
-            key: "test-key",
-            translation: &translation,
-            session_id: "session",
-            source: "English",
-            target: "Chinese",
-            generation: 0,
-            offset_ms: 0,
-        };
-        let mut pipeline = crate::audio_pipeline::AudioPipeline::new(48000).unwrap();
-        let mut segment = None;
-        for index in 0..96000 {
-            let value = if (9600..48000).contains(&index) {
-                0.2
-            } else {
-                0.0
+        for (source, reply, attempts, event_type) in [
+            ("Good morning", "早上好", 1, "translation"),
+            ("Entar, yuk.", "Entar, yuk.", 2, "translationError"),
+        ] {
+            let (asr_url, asr_server) = http_response(source);
+            let (translation_url, translation_server) = http_responses(reply, attempts);
+            let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":asr_url,"modelId":"test-model"})).unwrap();
+            let translations = crate::providers::Requests::default();
+            let translation_profile = serde_json::from_value(serde_json::json!({"id":"test-translation","stage":"translation","adapter":"openai_chat_completions","baseUrl":translation_url,"modelId":"test-model"})).unwrap();
+            let translation = translations
+                .reserve_listening(translation_profile, "session", "test-key".into())
+                .unwrap();
+            let processor = SegmentProcessor {
+                profile: &profile,
+                key: "test-key",
+                translation: &translation,
+                session_id: "session",
+                source: "自动识别",
+                target: "简体中文",
+                generation: 0,
+                offset_ms: 0,
             };
-            if let Some(audio) = pipeline.consume(crate::pcm::Frame {
-                index,
-                samples: [value; 2],
-            }) {
-                segment = Some(audio);
+            let mut pipeline = crate::audio_pipeline::AudioPipeline::new(48000).unwrap();
+            let mut segment = None;
+            for index in 0..96000 {
+                let value = if (9600..48000).contains(&index) {
+                    0.2
+                } else {
+                    0.0
+                };
+                if let Some(audio) = pipeline.consume(crate::pcm::Frame {
+                    index,
+                    samples: [value; 2],
+                }) {
+                    segment = Some(audio);
+                }
+            }
+            let mut events = Vec::new();
+            processor
+                .process(
+                    segment.unwrap(),
+                    &tokio_util::sync::CancellationToken::new(),
+                    |event| {
+                        events.push(event);
+                        Ok(())
+                    },
+                )
+                .await
+                .unwrap();
+            assert_eq!(events.len(), 2);
+            let transcript = serde_json::to_value(&events[0]).unwrap();
+            let translated = serde_json::to_value(&events[1]).unwrap();
+            assert_eq!(transcript["type"], "transcript");
+            assert_eq!(transcript["text"], source);
+            assert_eq!(translated["type"], event_type);
+            if event_type == "translation" {
+                assert_eq!(translated["text"], reply);
+            }
+            assert_eq!(transcript["segmentId"], translated["segmentId"]);
+            let asr_body = asr_server.join().unwrap();
+            assert!(asr_body
+                .pointer("/messages/0/content/0/input_audio/data")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .starts_with("data:audio/wav;base64,"));
+            let request = translation_server.join().unwrap();
+            let content = request
+                .pointer("/messages/1/content")
+                .unwrap()
+                .as_str()
+                .unwrap();
+            if attempts == 1 {
+                assert_eq!(content, source);
+            } else {
+                let envelope: serde_json::Value = serde_json::from_str(content).unwrap();
+                assert_eq!(envelope["currentText"], source);
             }
         }
-        let mut events = Vec::new();
-        processor
-            .process(
-                segment.unwrap(),
-                &tokio_util::sync::CancellationToken::new(),
-                |event| {
-                    events.push(event);
-                    Ok(())
-                },
-            )
-            .await
-            .unwrap();
-        assert_eq!(events.len(), 2);
-        let transcript = serde_json::to_value(&events[0]).unwrap();
-        let translated = serde_json::to_value(&events[1]).unwrap();
-        assert_eq!(transcript["type"], "transcript");
-        assert_eq!(transcript["text"], "Good morning");
-        assert_eq!(translated["type"], "translation");
-        assert_eq!(translated["text"], "早上好");
-        assert_eq!(transcript["segmentId"], translated["segmentId"]);
-        let asr_body = asr_server.join().unwrap();
-        assert!(asr_body
-            .pointer("/messages/0/content/0/input_audio/data")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .starts_with("data:audio/wav;base64,"));
-        assert_eq!(
-            translation_server
-                .join()
-                .unwrap()
-                .pointer("/messages/1/content")
-                .unwrap(),
-            "Good morning"
-        );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[tokio::test]
     async fn cancelled_pipeline_emits_no_events_and_translation_slot_is_released() {
         let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":"http://127.0.0.1:1/v1","modelId":"test"})).unwrap();
@@ -678,7 +716,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[tokio::test]
     async fn full_queue_rejects_new_segments_without_blocking() {
         let (sender, mut receiver) = tokio::sync::mpsc::channel(1);

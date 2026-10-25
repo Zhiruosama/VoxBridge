@@ -1,10 +1,50 @@
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaults, loadSettings, parseSettings, saveSettings, validateProfile } from './settings';
+import { migrateLegacyOutputRouting } from './audio-routing';
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('provider profiles', () => {
+  it('migrates and persists workspace font size independently of floating captions', () => {
+    for (const value of [undefined, null, '24', NaN, Infinity]) {
+      expect(parseSettings({ ...defaults, captionFontSize: value }).captionFontSize).toBe(17);
+    }
+    expect(parseSettings({ ...defaults, captionFontSize: 1 }).captionFontSize).toBe(12);
+    expect(parseSettings({ ...defaults, captionFontSize: 99 }).captionFontSize).toBe(32);
+    expect(parseSettings({ ...defaults, captionFontSize: 22.6 }).captionFontSize).toBe(23);
+    let stored = '';
+    vi.stubGlobal('localStorage', {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value;
+      },
+    });
+    saveSettings({ ...structuredClone(defaults), captionFontSize: 24 });
+    expect(loadSettings().captionFontSize).toBe(24);
+    expect(loadSettings().subtitle).toEqual(defaults.subtitle);
+  });
+  it('persists upgraded Windows output IDs across restart without changing provider settings', () => {
+    let stored = JSON.stringify({
+      ...structuredClone(defaults),
+      audio: { previewDeviceId: 'Headphones', sendDeviceId: 'Cable', monitorEnabled: true },
+    });
+    vi.stubGlobal('localStorage', {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value;
+      },
+    });
+    const before = loadSettings();
+    const audio = migrateLegacyOutputRouting(before.audio, [
+      { id: 'windows-output:61', name: 'Headphones' },
+      { id: 'windows-output:62', name: 'Cable' },
+    ]);
+    saveSettings({ ...before, audio });
+    expect(loadSettings()).toEqual({ ...before, audio });
+    expect(loadSettings().audio.previewDeviceId).toBe('windows-output:61');
+    expect(loadSettings().audio.sendDeviceId).toBe('windows-output:62');
+  });
   it('migrates and bounds workspace caption spacing independently of overlay line height', () => {
     expect(parseSettings({ ...defaults, captionSpacing: undefined }).captionSpacing).toBe(26);
     for (const value of [null, '20', NaN, Infinity]) {
@@ -21,7 +61,7 @@ describe('provider profiles', () => {
     const input = { ...structuredClone(defaults), audio: undefined };
     expect(parseSettings(input).audio).toEqual({
       previewDeviceId: '__system_default__',
-      sendDeviceId: '',
+      sendDeviceId: '__system_default__',
       monitorEnabled: false,
     });
     const withAudio = {
@@ -34,12 +74,18 @@ describe('provider profiles', () => {
       monitorEnabled: false,
     });
   });
-  it('defaults empty preview settings to following the system and persists the mode', () => {
+  it('defaults empty output settings to following the system and preserves explicit routes', () => {
     const settings = structuredClone(defaults);
     settings.audio.previewDeviceId = '';
+    settings.audio.sendDeviceId = '';
     expect(parseSettings(settings).audio.previewDeviceId).toBe('__system_default__');
+    expect(parseSettings(settings).audio.sendDeviceId).toBe('__system_default__');
     expect(parseSettings(defaults).audio.previewDeviceId).toBe('__system_default__');
-    expect(parseSettings(defaults).audio.sendDeviceId).toBe('');
+    expect(parseSettings(defaults).audio.sendDeviceId).toBe('__system_default__');
+    for (const id of ['windows-output:61', 'macos-output:61', 'disconnected-device']) {
+      settings.audio.sendDeviceId = id;
+      expect(parseSettings(settings).audio.sendDeviceId).toBe(id);
+    }
   });
   it('persists only a boolean monitoring preference without changing selected audio devices', () => {
     const settings = structuredClone(defaults);

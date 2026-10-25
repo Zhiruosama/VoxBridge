@@ -1,5 +1,12 @@
 # 开发清单
 
+## Windows 开发入口（2026-10-25）
+
+已同步并分析 `4d5efa7` 主分支。[Windows 开发待办与基线](docs/windows-development-todo.md)记录本机检查、源码缺口、W0–W7 优先级与完成标准；实现背景见 [Windows 交接](docs/windows-handoff.md)。下方保留 Mac 历史执行记录，不能作为 Windows 功能通过的依据。
+
+- [x] Windows 第一批：共用监听平台边界、WASAPI 进程树采集、稳定输出端点、前端能力启用与 NSIS 打包；133 项 Rust / 161 项前端测试、20 次采集启停、20 次激活取消、自身输出隔离与本地服务恢复通过。详见 [实机记录](docs/validation/2026-10-25-windows-native.md)。
+- [ ] Windows 真实应用/云服务、虚拟麦克风路由、热插拔/睡眠、凭据加固、浮窗多屏、干净安装和 Mac 回归。
+
 最后更新：2026-10-23。每项只有完成验证后才勾选；macOS 未测项保持未完成。
 
 ## 当前执行顺序：Mac 开发与音频闭环

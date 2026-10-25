@@ -84,6 +84,7 @@ export interface Settings {
   theme: 'dark' | 'light' | 'system';
   captionColors: { recognition: string; expression: string };
   captionSpacing: number;
+  captionFontSize: number;
   audio: AudioRouting;
   subtitle: SubtitleAppearance;
   composer: ComposerSettings;
@@ -115,6 +116,12 @@ export interface RuntimeInfo {
   platform: string;
   nativeCapture: boolean;
   message: string;
+}
+export interface VirtualMicStatus {
+  provider: 'vb-cable' | 'voxbridge' | 'unsupported';
+  output: OutputDevice | null;
+  inputName: string | null;
+  partial: boolean;
 }
 export interface OutputDevice {
   id: string;

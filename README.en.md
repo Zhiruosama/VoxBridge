@@ -4,7 +4,9 @@
 
 [Download](https://github.com/Zhiruosama/VoxBridge/releases) · [User guide (中文)](docs/user-guide.md) · [Report an issue](https://github.com/Zhiruosama/VoxBridge/issues)
 
-VoxBridge is a real-time voice translation app for Mac. Turn an app’s audio into bilingual captions, or translate typed text and recorded speech into a synthesized voice that you can send to Discord and other chat apps through a virtual microphone.
+VoxBridge is a real-time voice translation app for **macOS and Windows**. Turn an app’s audio into bilingual captions, or translate typed text and recorded speech into a synthesized voice that you can send to Discord and other chat apps through a virtual microphone.
+
+Version 0.3.0 provides test installers for Windows 11 x64 and Apple Silicon Mac. Windows ARM64 is experimental; real audio hardware validation is still pending.
 
 ![VoxBridge workspace with bilingual captions and text input](docs/assets/workspace-overview.png)
 
@@ -19,9 +21,15 @@ _Interface demo with example captions._
 
 ## Download and install
 
-Download the [**0.2.1 test DMG**](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1), open it, and drag VoxBridge into Applications.
+| Platform | Status | Installation |
+| --- | --- | --- |
+| macOS 14.2+ · Apple Silicon | 0.3.0 test release | Download the [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0) and drag VoxBridge into Applications |
+| Windows 11 · x64 | 0.3.0 test release; local audio loopback tested | Download the x64 EXE from the same release page |
+| Windows · ARM64 | Experimental; native CI and builds checked, real audio hardware untested | Download `arm64-setup.exe` from the same release page |
 
-The available installer supports **Apple Silicon Macs running macOS 14.2 or later**. No developer tools are needed. This test release is not notarized, so macOS may block the first launch. See the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1) for instructions.
+No developer tools are required. Windows setup reuses the app interface and preserves settings during upgrades. It offers optional VB-CABLE installation; systems without WebView2 use a native compatibility wizard first. See the [Windows installation guide (中文)](docs/windows-installation.md). Windows 10 remains unvalidated.
+
+Version 0.3.0 includes startup checks, signed in-app updates, microphone permission guidance and Windows DPAPI credential protection. Update signatures are separate from vendor signing: Windows installers are not Authenticode-signed, and the Mac app is not Developer ID-signed or notarized. Read the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0). Older Mac 0.2.1 installations require a manual download because they have no updater.
 
 ## Get started
 
@@ -37,12 +45,19 @@ Play audio in the app you want to follow, select it in VoxBridge, and start list
 
 ### 3. Speak in Discord
 
-1. Install the bundled **virtual microphone** from Settings → General → Audio. Administrator approval is required; end any active calls first.
-2. Set VoxBridge’s **send device** to VoxBridge and its **monitoring device** to the system default or your headphones.
-3. In Discord’s voice settings, select VoxBridge as the **input device**. Keep your headphones or speakers as the output device.
+1. On Mac, install the VoxBridge virtual microphone from Settings → General → Audio. On Windows, install the bundled **VB-CABLE** during VoxBridge setup or from Settings, then restart Windows as instructed. Driver installation requires administrator approval; end active calls first.
+2. Choose the **send device** in the table below, and use the system default or headphones for **local monitoring**.
+3. Select the corresponding **input device** in your chat app. Keep headphones or speakers as its output device.
 4. In VoxBridge, choose the output language, type a message or record with the microphone button, then send. The headphone button controls local monitoring.
 
-Discord is the main tested chat app. QQ and WeChat compatibility is still being improved. If there is no sound or the device is missing, see [troubleshooting (中文)](docs/user-guide.md#常见问题).
+| Platform | VoxBridge send device | Chat app input device |
+| --- | --- | --- |
+| macOS | VoxBridge | VoxBridge |
+| Windows | CABLE Input (VB-Audio Virtual Cable) | CABLE Output (VB-Audio Virtual Cable) |
+
+Windows uses the original, signed base VB-CABLE driver from VB-Audio. Source: [www.vb-cable.com](https://vb-audio.com/Cable/). VB-CABLE is donationware; contributions are welcome.
+
+Discord is the main tested chat app on Mac. Windows virtual microphone audio loopback has passed local testing; actual calls in Discord, Oopz and KOOK still need validation. Other chat apps are not guaranteed compatible. See [troubleshooting (中文)](docs/user-guide.md#常见问题).
 
 ## More
 

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::time::{Duration, Instant};
 use std::{
     collections::VecDeque,
@@ -7,12 +7,12 @@ use std::{
 };
 use tokio_util::sync::CancellationToken;
 
-#[cfg(target_os = "macos")]
-#[path = "platform/macos_capture.rs"]
-mod native;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[path = "platform/capture.rs"]
+pub(crate) mod native;
 
 pub(crate) mod listening;
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(all(test, any(target_os = "macos", target_os = "windows")))]
 mod test_audio;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -160,13 +160,13 @@ impl CaptureState {
 
 #[tauri::command]
 pub async fn list_capture_sources() -> Result<Vec<CaptureSource>, String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
         tauri::async_runtime::spawn_blocking(native::sources)
             .await
             .map_err(|_| "读取音频进程失败。".to_string())?
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     Err("当前系统尚未接入应用声音采集。".into())
 }
 
@@ -225,7 +225,7 @@ fn run_diagnostic(
     channel: &tauri::ipc::Channel<CaptureProgress>,
     event: &mut CaptureProgress,
 ) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
         if token.is_cancelled() {
             return Ok(());
@@ -271,7 +271,7 @@ fn run_diagnostic(
         drop(capture);
         result
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = (source, token, channel, event);
         Err("当前系统尚未接入应用声音采集。".into())

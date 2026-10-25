@@ -12,6 +12,7 @@ test-results/
 playwright-report/
 .playwright-cli/
 native/macos/.build/
+native/windows/.build/
 /github-ssh-key.pub
 /密钥-不可提交/
 *.tsbuildinfo

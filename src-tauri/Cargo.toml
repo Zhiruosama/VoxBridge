@@ -1,6 +1,6 @@
 [package]
 name = "voxbridge"
-version = "0.2.1"
+version = "0.3.0"
 description = "Desktop voice bridge"
 edition = "2021"
 rust-version = "1.96"
@@ -31,6 +31,8 @@ rtrb = "=0.3.2"
 ring = "0.17.14"
 zeroize = "1"
 whatlang = "0.18"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6.2"
@@ -42,5 +44,10 @@ objc2-core-foundation = { version = "0.3.2", default-features = false, features 
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSRunningApplication", "NSWorkspace", "NSWindow", "NSPanel", "NSColor", "libc"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSString", "NSUUID", "NSValue", "NSBundle", "NSURL", "NSNotification"] }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-core = "0.62.2"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_System_Diagnostics_ToolHelp", "Win32_Storage_FileSystem", "Win32_Graphics_Dwm", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Security", "Win32_Security_Cryptography", "Win32_Security_Authorization", "Win32_System_WinRT", "Security_Authorization_AppCapabilityAccess"] }
+
 [dev-dependencies]
+minisign-verify = "0.3"
 tokio = { version = "1", features = ["test-util"] }
