@@ -19,9 +19,9 @@ _Interface demo with example captions._
 
 ## Download and install
 
-Download the [**0.1.0 test DMG**](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.1.0), open it, and drag VoxBridge into Applications.
+Download the [**0.2.0 test DMG**](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.0), open it, and drag VoxBridge into Applications.
 
-The available installer supports **Apple Silicon Macs running macOS 14.2 or later**. No developer tools are needed. This test release is not notarized, so macOS may block the first launch. See the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.1.0) for instructions.
+The available installer supports **Apple Silicon Macs running macOS 14.2 or later**. No developer tools are needed. This test release is not notarized, so macOS may block the first launch. See the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.0) for instructions.
 
 ## Get started
 
