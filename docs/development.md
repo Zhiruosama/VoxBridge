@@ -8,7 +8,7 @@
 
 - macOS 14.2+，优先验证 Apple Silicon。
 - Apple Command Line Tools、Node.js 22.12+（CI 使用 24）、Rust stable 1.96+。
-- Windows 构建需要 C++ Build Tools 与 WebView2，当前应用声音采集和虚拟麦克风尚未接入。
+- Windows 构建需要 C++ Build Tools 与 WebView2，当前应用声音采集和虚拟麦克风尚未接入。适配现状、实机开发步骤与验收要求见 [Windows 开发交接](windows-handoff.md)。
 
 正式安装包已包含前端和原生程序，使用者无需安装这些开发工具。
 
