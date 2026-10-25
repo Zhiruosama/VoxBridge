@@ -173,7 +173,7 @@ export default function OverlayVoiceControls({
             <button
               type="button"
               aria-label="关闭悬浮窗输入框"
-              title="收起输入框，保留草稿"
+              aria-description="收起输入框，保留草稿"
               aria-controls="overlay-text-input"
               onClick={() => {
                 setTextOpen(false);
@@ -185,7 +185,7 @@ export default function OverlayVoiceControls({
             <button
               className="overlay-mic-button"
               aria-label="发送悬浮窗语音"
-              title={`生成语音并输出 · ${voice.targetLanguage}`}
+              aria-description={`生成语音并输出 · ${voice.targetLanguage}`}
               disabled={disabled || capturing || !draft.trim() || length > 2000}
               onClick={() => void request({ action: 'send', text: draft })}
             >
@@ -196,7 +196,7 @@ export default function OverlayVoiceControls({
         <button
           className="overlay-text-button"
           aria-label={showDraft ? '收起悬浮窗输入框' : '打开悬浮窗输入框'}
-          title={showDraft ? '收起输入框' : '打字输入'}
+          aria-description={showDraft ? '收起输入框' : '打字输入'}
           aria-expanded={showDraft}
           aria-controls="overlay-text-input"
           onClick={() => {
@@ -213,7 +213,7 @@ export default function OverlayVoiceControls({
           <button
             className="overlay-mic-button"
             aria-label="悬浮窗开始录音"
-            title={
+            aria-description={
               voice.enabled
                 ? `录音并生成语音 · ${voice.targetLanguage} · 最长 1 分钟`
                 : '请在主窗口完成设置并返回字幕页'
@@ -229,7 +229,7 @@ export default function OverlayVoiceControls({
             <button
               className="overlay-voice-cancel"
               aria-label="取消悬浮窗录音"
-              title="取消录音"
+              aria-description="取消录音"
               disabled={requesting || voice.phase === 'cancelling'}
               onClick={() => void request({ action: 'cancel' })}
             >
@@ -239,7 +239,9 @@ export default function OverlayVoiceControls({
               <button
                 className="overlay-mic-button is-recording"
                 aria-label="悬浮窗结束录音"
-                title={voice.mode === 'send' ? '结束录音并发送语音' : '结束录音，先确认文字'}
+                aria-description={
+                  voice.mode === 'send' ? '结束录音并发送语音' : '结束录音，先确认文字'
+                }
                 disabled={requesting}
                 onClick={() => void request({ action: 'finish' })}
               >
@@ -252,7 +254,7 @@ export default function OverlayVoiceControls({
           <button
             className="overlay-mic-button"
             aria-label="停止悬浮窗语音输出"
-            title="停止当前操作"
+            aria-description="停止当前操作"
             disabled={requesting || voice.phase === 'stopping'}
             onClick={() => void request({ action: 'stop' })}
           >

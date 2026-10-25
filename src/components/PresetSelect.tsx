@@ -55,7 +55,7 @@ export default function PresetSelect({
           <button
             className="icon-button"
             aria-label={`确认${label}`}
-            title="确认"
+            aria-description="确认"
             onClick={confirm}
           >
             <Check size={14} />
@@ -63,7 +63,7 @@ export default function PresetSelect({
           <button
             className="icon-button"
             aria-label={`取消编辑${label}`}
-            title="取消"
+            aria-description="取消"
             onClick={() => setCustomValue(null)}
           >
             <X size={14} />

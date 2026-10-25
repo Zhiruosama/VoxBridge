@@ -38,7 +38,7 @@ function StatusPopover({
   }, []);
   return (
     <details className={`status-popover ${className}`} ref={ref} name="listening-popovers">
-      <summary aria-label={label} title={label}>
+      <summary aria-label={label} aria-description={label}>
         {summary}
       </summary>
       <div className="status-popover-panel">{children}</div>

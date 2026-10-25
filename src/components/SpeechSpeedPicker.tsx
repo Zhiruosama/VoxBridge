@@ -55,7 +55,7 @@ export default function SpeechSpeedPicker({
         aria-label="调整语速"
         aria-expanded={open}
         disabled={disabled}
-        title={`语速 ${value.toFixed(2)} 倍 · 下一次生成生效`}
+        aria-description={`语速 ${value.toFixed(2)} 倍 · 下一次生成生效`}
         onClick={() => {
           if (!open && trigger.current) {
             const anchor = trigger.current.getBoundingClientRect();

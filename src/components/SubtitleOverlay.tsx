@@ -70,7 +70,7 @@ export default function SubtitleOverlay() {
       }
     >
       <section className="subtitle-overlay-panel" aria-label="悬浮字幕">
-        <header className="subtitle-overlay-toolbar" title="拖动字幕窗口" {...drag}>
+        <header className="subtitle-overlay-toolbar" aria-description="拖动字幕窗口" {...drag}>
           <span>
             {snapshot.phase === 'recovering' ? '正在恢复监听…' : active ? '字幕' : '监听已停止'}
           </span>
@@ -80,12 +80,15 @@ export default function SubtitleOverlay() {
                 setHiddenThrough(new Set(snapshot.lines.map((line) => line.segmentId)));
                 reading.jumpLatest();
               }}
-              title="清空此浮窗中的当前字幕，继续监听"
+              aria-description="清空此浮窗中的当前字幕，继续监听"
             >
               清空
             </button>
             {active && <button onClick={() => void action(stopOverlayListening)}>停止监听</button>}
-            <button onClick={() => void action(focusMain)} title="收起字幕窗并返回主窗口，继续监听">
+            <button
+              onClick={() => void action(focusMain)}
+              aria-description="收起字幕窗并返回主窗口，继续监听"
+            >
               返回主窗口
             </button>
           </div>

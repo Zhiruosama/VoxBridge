@@ -858,7 +858,7 @@ export default function SettingsPanel({
                         className="icon-button"
                         disabled={busy}
                         aria-label="重命名配置"
-                        title="重命名配置"
+                        aria-description="重命名配置"
                         onClick={() => {
                           setPreviousName(profile.name);
                           setRenaming(true);
@@ -870,7 +870,7 @@ export default function SettingsPanel({
                         className="icon-button"
                         disabled={busy}
                         aria-label="删除当前配置"
-                        title="删除当前配置"
+                        aria-description="删除当前配置"
                         onClick={() => setDeletingProfile(profile.id)}
                       >
                         <Trash2 size={14} />
@@ -1059,7 +1059,7 @@ export default function SettingsPanel({
                     <button
                       className="icon-button"
                       aria-label="移除保存的密钥"
-                      title="移除保存的密钥"
+                      aria-description="移除保存的密钥"
                       onClick={() => void saveKey('clear')}
                       disabled={busy}
                     >

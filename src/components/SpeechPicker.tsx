@@ -56,7 +56,7 @@ export default function SpeechPicker({
   }, []);
   return (
     <details ref={details} className="speech-picker">
-      <summary aria-label="语音选项" title="切换语音模型与音色，不中断监听">
+      <summary aria-label="语音选项" aria-description="切换语音模型与音色，不中断监听">
         <Volume2 size={14} />
         <span>{label}</span>
         <ChevronDown size={11} />

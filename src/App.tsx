@@ -880,7 +880,7 @@ export default function App() {
               <button
                 disabled={!desktop || !overlayReady}
                 onClick={() => void showOverlay().catch(() => notify('无法打开悬浮字幕窗。'))}
-                title="隐藏字幕窗不会停止监听；可在悬浮窗返回主窗口或停止"
+                aria-description="隐藏字幕窗不会停止监听；可在悬浮窗返回主窗口或停止"
               >
                 悬浮字幕
               </button>
@@ -892,7 +892,7 @@ export default function App() {
                   listenPhase === 'stopping' ||
                   (!listening && (!captureSourceId || refreshingSources))
                 }
-                title="开始后，目标声音会发送到所选的语音识别与翻译服务，可能计费"
+                aria-description="开始后，目标声音会发送到所选的语音识别与翻译服务，可能计费"
               >
                 {listenPhase === 'stopping' ? '正在停止…' : listening ? '停止监听' : '开始监听'}
               </button>
@@ -1051,7 +1051,7 @@ export default function App() {
                       <button
                         className="icon-button voice-cancel"
                         aria-label="取消录音"
-                        title="取消录音"
+                        aria-description="取消录音"
                         disabled={voice.phase === 'cancelling'}
                         onClick={() => void cancelVoice()}
                       >
@@ -1087,7 +1087,7 @@ export default function App() {
                     maxLength={2000}
                     value={text}
                     aria-describedby="composer-hint"
-                    title={composerHint}
+                    aria-description={composerHint}
                     onChange={(event) => {
                       draftRevisionRef.current++;
                       setText(event.target.value);
@@ -1132,7 +1132,7 @@ export default function App() {
                         className="model-button"
                         disabled={busy || listening || Boolean(voice)}
                         onClick={() => openSettings('translation')}
-                        title="配置翻译模型"
+                        aria-description="配置翻译模型"
                       >
                         <Languages size={13} />
                         <span>{translationProfile.modelId || '选择模型'}</span>
@@ -1173,7 +1173,7 @@ export default function App() {
                           aria-label="录音后直接发送"
                           aria-checked={settings.composer.voiceInputMode === 'send'}
                           disabled={busy}
-                          title={
+                          aria-description={
                             settings.composer.voiceInputMode === 'send'
                               ? '开启：结束录音后自动翻译并输出语音'
                               : '关闭：识别结果填入输入框，确认后再发送'
@@ -1202,7 +1202,7 @@ export default function App() {
                         <button
                           className="icon-button"
                           aria-label="开始录音"
-                          title="开始麦克风录音，最长 1 分钟"
+                          aria-description="开始麦克风录音，最长 1 分钟"
                           disabled={busy || !desktop}
                           onClick={() => void beginVoice()}
                         >
@@ -1215,7 +1215,7 @@ export default function App() {
                         aria-label="输出译文"
                         aria-pressed={settings.composer.output === 'translation'}
                         disabled={busy || Boolean(voice)}
-                        title={`切换原文或译文语音；当前 ${direction.source} → ${direction.target}`}
+                        aria-description={`切换原文或译文语音；当前 ${direction.source} → ${direction.target}`}
                         onClick={() =>
                           persist(
                             {
@@ -1239,7 +1239,7 @@ export default function App() {
                         className="icon-button monitor-toggle"
                         aria-label="发送时试听"
                         aria-pressed={settings.audio.monitorEnabled === true}
-                        title={
+                        aria-description={
                           settings.audio.monitorEnabled
                             ? '关闭本地试听，继续发送语音'
                             : '发送语音时同时在耳机试听'
@@ -1305,13 +1305,13 @@ export default function App() {
                             Boolean(voice)
                           }
                           onClick={() => void runComposer('translate')}
-                          title="仅翻译，不输出语音"
+                          aria-description="仅翻译，不输出语音"
                         >
                           翻译
                         </button>
                         <button
                           disabled={!desktop || !text.trim() || Boolean(voice) || composer.busy}
-                          title={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
+                          aria-description={`输出${settings.composer.output === 'translation' ? '译文' : '原文'}到${settings.composer.route === 'preview' ? '试听' : '发送'}设备 · 可能计费`}
                           aria-label="输出合成语音"
                           className="send-button"
                           onClick={() => void runComposer('speak')}

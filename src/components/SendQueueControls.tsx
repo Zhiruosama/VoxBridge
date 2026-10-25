@@ -79,7 +79,7 @@ export default function SendQueueControls({
               <strong>发送队列 · {view.items.length}</strong>
               <button
                 disabled={view.paused && view.items.some((item) => item.status === 'failed')}
-                title={
+                aria-description={
                   view.paused && view.items.some((item) => item.status === 'failed')
                     ? '请先重试或取消失败项，再继续队列'
                     : undefined
@@ -135,7 +135,7 @@ export default function SendQueueControls({
                       <div className="queue-item-actions">
                         {!item.active && (
                           <button
-                            title="已合成的内容修改后需要重新合成，可能计费"
+                            aria-description="已合成的内容修改后需要重新合成，可能计费"
                             onClick={() => {
                               setEditing(item.id);
                               setText(item.text);
@@ -146,7 +146,7 @@ export default function SendQueueControls({
                         )}
                         {item.status === 'failed' && (
                           <button
-                            title="重新请求翻译和语音服务，可能计费"
+                            aria-description="重新请求翻译和语音服务，可能计费"
                             onClick={() => onAction({ action: 'queueRetry', id: item.id })}
                           >
                             重试

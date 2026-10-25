@@ -136,7 +136,7 @@ export default function Diagnostics({
                 <button
                   onClick={() => void play()}
                   disabled={!desktop || !available || loading}
-                  title="播放约 1 秒的低音量 440 Hz 测试音"
+                  aria-description="播放约 1 秒的低音量 440 Hz 测试音"
                 >
                   <Volume2 size={15} />
                   播放测试音
