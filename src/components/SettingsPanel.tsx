@@ -270,6 +270,20 @@ export default function SettingsPanel({
                   ]}
                 />
               </SettingRow>
+              <SettingRow title={t('字幕段落间距')}>
+                <input
+                  type="range"
+                  aria-label={t('字幕段落间距')}
+                  min={8}
+                  max={64}
+                  step={1}
+                  value={draft.captionSpacing}
+                  onChange={(event) =>
+                    setDraft({ ...draft, captionSpacing: Number(event.target.value) })
+                  }
+                />
+                <span className="preference-value">{draft.captionSpacing} px</span>
+              </SettingRow>
             </div>
           </section>
           <section className="preference-section" aria-labelledby="caption-colors-heading">

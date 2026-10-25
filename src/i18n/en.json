@@ -723,5 +723,6 @@
   "远程 ASR 必须使用 HTTPS。": "Remote recognition requires HTTPS.",
   "随机数无效。": "Invalid nonce.",
   "音频测试任务失败。": "Audio test failed.",
-  "音频输出正忙，请先停止当前任务。": "Audio output is busy. Stop the current task first."
+  "音频输出正忙，请先停止当前任务。": "Audio output is busy. Stop the current task first.",
+  "字幕段落间距": "Caption paragraph spacing"
 }

@@ -397,7 +397,7 @@ nav button[aria-current='page'] {
   margin: 0 auto;
 }
 .segment {
-  margin-bottom: 26px;
+  margin-bottom: var(--caption-spacing, 26px);
   color: var(--caption-color, var(--text));
 }
 .segment-meta {

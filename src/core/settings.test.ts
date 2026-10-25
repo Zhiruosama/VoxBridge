@@ -5,6 +5,18 @@ import { defaults, loadSettings, parseSettings, saveSettings, validateProfile } 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('provider profiles', () => {
+  it('migrates and bounds workspace caption spacing independently of overlay line height', () => {
+    expect(parseSettings({ ...defaults, captionSpacing: undefined }).captionSpacing).toBe(26);
+    for (const value of [null, '20', NaN, Infinity]) {
+      expect(parseSettings({ ...defaults, captionSpacing: value }).captionSpacing).toBe(26);
+    }
+    expect(parseSettings({ ...defaults, captionSpacing: -10 }).captionSpacing).toBe(8);
+    expect(parseSettings({ ...defaults, captionSpacing: 1000 }).captionSpacing).toBe(64);
+    const restored = parseSettings(JSON.parse(JSON.stringify({ ...defaults, captionSpacing: 18 })));
+    expect(restored.captionSpacing).toBe(18);
+    expect(restored.subtitle).toEqual(defaults.subtitle);
+  });
+
   it('migrates old settings without routing and strips unknown audio fields', () => {
     const input = { ...structuredClone(defaults), audio: undefined };
     expect(parseSettings(input).audio).toEqual({

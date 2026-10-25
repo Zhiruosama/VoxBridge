@@ -1011,7 +1011,11 @@ export default function App() {
                     <p>{t('暂无字幕')}</p>
                   </div>
                 ) : (
-                  <div className="transcript-content" data-selection-scope>
+                  <div
+                    className="transcript-content"
+                    data-selection-scope
+                    style={{ '--caption-spacing': `${settings.captionSpacing}px` } as CSSProperties}
+                  >
                     {session.segments.map((segment) => {
                       const expression = segment.id.startsWith('expression:');
                       const color =

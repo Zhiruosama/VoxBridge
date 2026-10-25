@@ -16,6 +16,7 @@ export const defaults: Settings = {
   listening: { sourceLanguage: '自动识别', targetLanguage: '简体中文' },
   theme: 'dark',
   captionColors: { ...captionColorDefaults },
+  captionSpacing: 26,
   audio: { previewDeviceId: systemDefaultOutputId, sendDeviceId: '', monitorEnabled: false },
   subtitle: { ...subtitleDefaults },
   composer: {
@@ -240,6 +241,10 @@ export function parseSettings(value: unknown): Settings {
   return {
     schemaVersion: 1,
     captionColors: parseCaptionColors(input.captionColors),
+    captionSpacing:
+      typeof input.captionSpacing === 'number' && Number.isFinite(input.captionSpacing)
+        ? Math.min(64, Math.max(8, Math.round(input.captionSpacing)))
+        : defaults.captionSpacing,
     subtitle: parseSubtitleAppearance(input.subtitle),
     composer: parseComposerSettings(input.composer),
     listening: {
