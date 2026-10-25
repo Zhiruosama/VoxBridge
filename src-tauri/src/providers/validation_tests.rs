@@ -123,6 +123,34 @@ fn indonesian_fragments_require_a_translation_but_preserve_unchanged_domain_name
     assert!(!is_invalid_translation("翻译超时，请重试或更换服务。"));
 }
 
+#[test]
+fn domain_preservation_is_limited_to_unchanged_identifiers() {
+    for source in [
+        "Batak.com.",
+        "batak.com",
+        "chat.example.co.id！",
+        "my-site.example",
+    ] {
+        assert!(is_domain_identifier(source));
+        assert!(valid_translation(source, source, "简体中文"));
+        assert!(valid_translation(source, source, "日语"));
+    }
+    for source in [
+        "Entar, yuk.",
+        "Hello world.",
+        "Aduh, lama nggak ya?",
+        "example..com",
+        "-example.com",
+        "example-.com",
+        "example.com/path",
+        "user@example.com",
+        "127.0.0.1",
+    ] {
+        assert!(!is_domain_identifier(source));
+    }
+    assert!(!valid_translation("Entar, yuk.", "Batak.com.", "简体中文"));
+}
+
 #[tokio::test]
 #[ignore = "manual: five short DeepSeek flash requests using the workspace-provided test key; no Keychain access"]
 async fn live_flash_translates_screenshot_captions_into_chinese() {
