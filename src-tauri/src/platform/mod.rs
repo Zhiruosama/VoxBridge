@@ -10,6 +10,8 @@ pub struct OutputDevice {
     pub name: String,
 }
 
+pub(crate) const SYSTEM_DEFAULT_OUTPUT: &str = "__system_default__";
+
 pub(crate) fn output_id(device: &cpal::Device) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
@@ -60,6 +62,11 @@ fn select_unique<T>(entries: impl Iterator<Item = (T, String)>, id: &str) -> Res
 }
 
 pub fn resolve_output(id: &str) -> Result<cpal::Device, String> {
+    if id == SYSTEM_DEFAULT_OUTPUT {
+        return cpal::default_host()
+            .default_output_device()
+            .ok_or_else(|| "系统当前没有默认输出设备，请连接耳机或扬声器。".into());
+    }
     #[cfg(target_os = "macos")]
     macos::validate_output_id(id)?;
     select_unique(
@@ -99,6 +106,11 @@ mod tests {
             let resolved = resolve_output(&device.id).unwrap();
             assert_eq!(output_id(&resolved).unwrap(), device.id);
         }
+        let default = resolve_output(SYSTEM_DEFAULT_OUTPUT).unwrap();
+        assert_eq!(
+            output_id(&default).unwrap(),
+            output_id(&cpal::default_host().default_output_device().unwrap()).unwrap()
+        );
         let second = list_outputs().unwrap();
         assert_eq!(
             ids,
@@ -152,6 +164,14 @@ pub(crate) async fn wait_for_output(
     stop: &tokio_util::sync::CancellationToken,
     waiting: impl FnMut(),
 ) -> Result<(), String> {
+    if id == SYSTEM_DEFAULT_OUTPUT {
+        return wait_until_available(
+            stop,
+            || async { Ok(cpal::default_host().default_output_device().is_some()) },
+            waiting,
+        )
+        .await;
+    }
     #[cfg(target_os = "macos")]
     macos::validate_output_id(id)?;
     wait_until_available(

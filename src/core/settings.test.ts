@@ -8,7 +8,7 @@ describe('provider profiles', () => {
   it('migrates old settings without routing and strips unknown audio fields', () => {
     const input = { ...structuredClone(defaults), audio: undefined };
     expect(parseSettings(input).audio).toEqual({
-      previewDeviceId: '',
+      previewDeviceId: '__system_default__',
       sendDeviceId: '',
       monitorEnabled: false,
     });
@@ -21,6 +21,13 @@ describe('provider profiles', () => {
       sendDeviceId: 'virtual',
       monitorEnabled: false,
     });
+  });
+  it('defaults empty preview settings to following the system and persists the mode', () => {
+    const settings = structuredClone(defaults);
+    settings.audio.previewDeviceId = '';
+    expect(parseSettings(settings).audio.previewDeviceId).toBe('__system_default__');
+    expect(parseSettings(defaults).audio.previewDeviceId).toBe('__system_default__');
+    expect(parseSettings(defaults).audio.sendDeviceId).toBe('');
   });
   it('persists only a boolean monitoring preference without changing selected audio devices', () => {
     const settings = structuredClone(defaults);

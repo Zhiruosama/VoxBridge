@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, RefreshCw, Save, Square, Volume2 } from 'lucide-react';
 import { desktop, listOutputs, stopTone, testTone } from '../bridge';
 import type { OutputDevice, RuntimeInfo, Settings } from '../core/types';
-import { outputDeviceOptions } from '../core/audio-routing';
+import { previewDeviceOptions, systemDefaultOutputId } from '../core/audio-routing';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import CaptureDiagnostic from './CaptureDiagnostic';
@@ -49,9 +49,10 @@ export default function Diagnostics({
   useEffect(() => {
     setDeviceId(settings.audio.previewDeviceId);
   }, [settings.audio.previewDeviceId]);
-  const available = devices.some((device) => device.id === deviceId);
+  const available =
+    deviceId === systemDefaultOutputId || devices.some((device) => device.id === deviceId);
   const dirty = deviceId !== settings.audio.previewDeviceId;
-  const deviceOptions = outputDeviceOptions(devices, deviceId);
+  const deviceOptions = previewDeviceOptions(devices, deviceId);
   async function play() {
     if (playingRef.current) return;
     playingRef.current = true;

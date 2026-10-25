@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { outputDeviceOptions } from './audio-routing';
+import { outputDeviceOptions, previewDeviceOptions, systemDefaultOutputId } from './audio-routing';
 
 const devices = [
   { id: 'macos-output:62', name: 'Headphones' },
@@ -35,5 +35,18 @@ describe('output device options', () => {
     expect(outputDeviceOptions([...devices, devices[0]], '')).toHaveLength(2);
     expect(outputDeviceOptions([], '')).toEqual([]);
     expect(outputDeviceOptions([], 'Headphones')).toHaveLength(1);
+  });
+});
+
+describe('system default preview output', () => {
+  it('keeps a stable default option as headphones disconnect and reconnect', () => {
+    const option = { value: systemDefaultOutputId, label: '系统默认' };
+    expect(previewDeviceOptions(devices, systemDefaultOutputId)[0]).toEqual(option);
+    expect(previewDeviceOptions([], systemDefaultOutputId)).toEqual([option]);
+    expect(previewDeviceOptions([], 'headphones')).toEqual([
+      option,
+      { value: 'headphones', label: 'headphones（不可用，请重新选择）' },
+    ]);
+    expect(outputDeviceOptions(devices, '')).not.toContainEqual(option);
   });
 });

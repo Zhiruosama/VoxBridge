@@ -5,7 +5,11 @@ import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
 import { blankProfile, profileFor, captionColorDefaults } from '../core/settings';
-import { outputDeviceOptions, voxBridgeOutputId } from '../core/audio-routing';
+import {
+  outputDeviceOptions,
+  previewDeviceOptions,
+  voxBridgeOutputId,
+} from '../core/audio-routing';
 import {
   openVirtualMicInstaller,
   credentialStatus,
@@ -731,7 +735,7 @@ export default function SettingsPanel({
                   value={draft.audio.previewDeviceId}
                   disabled={!desktop || refreshing}
                   placeholder="选择试听设备"
-                  options={deviceOptions(draft.audio.previewDeviceId)}
+                  options={previewDeviceOptions(devices, draft.audio.previewDeviceId)}
                   onChange={(value) =>
                     setDraft({ ...draft, audio: { ...draft.audio, previewDeviceId: value } })
                   }

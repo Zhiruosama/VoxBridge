@@ -1,5 +1,14 @@
 import type { OutputDevice } from './types';
 
+export const systemDefaultOutputId = '__system_default__';
+
+export function previewDeviceOptions(devices: OutputDevice[], value: string) {
+  return [
+    { value: systemDefaultOutputId, label: '系统默认' },
+    ...outputDeviceOptions(devices, value === systemDefaultOutputId ? '' : value),
+  ];
+}
+
 export const voxBridgeOutputId =
   'macos-output:636f6d2e766f786272696467652e617564696f2e646576696365';
 

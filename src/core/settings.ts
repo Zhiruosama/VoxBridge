@@ -1,3 +1,4 @@
+import { systemDefaultOutputId } from './audio-routing';
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import type { ComposerSettings, ProviderProfile, Settings, Stage } from './types';
 import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
@@ -13,7 +14,7 @@ export const defaults: Settings = {
   listening: { sourceLanguage: '自动识别', targetLanguage: '简体中文' },
   theme: 'dark',
   captionColors: { ...captionColorDefaults },
-  audio: { previewDeviceId: '', sendDeviceId: '', monitorEnabled: false },
+  audio: { previewDeviceId: systemDefaultOutputId, sendDeviceId: '', monitorEnabled: false },
   subtitle: { ...subtitleDefaults },
   composer: {
     voiceInputMode: 'dictate',
@@ -277,8 +278,8 @@ export function parseSettings(value: unknown): Settings {
       monitorEnabled: (input.audio as Record<string, unknown> | undefined)?.monitorEnabled === true,
       previewDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.previewDeviceId === 'string'
-          ? (input.audio as Record<string, string>).previewDeviceId
-          : '',
+          ? (input.audio as Record<string, string>).previewDeviceId || systemDefaultOutputId
+          : systemDefaultOutputId,
       sendDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.sendDeviceId === 'string'
           ? (input.audio as Record<string, string>).sendDeviceId
