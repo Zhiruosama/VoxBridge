@@ -6,7 +6,7 @@
 
 VoxBridge 是一款桌面语音桥接工具。选择 Chrome、微信等应用，边听边看翻译；写下想说的话，经翻译和语音合成后，通过 **VoxBridge 虚拟麦克风**送入 Discord。
 
-**当前为 macOS 开发版**，主要在 Apple Silicon Mac 上验证，需自备模型服务 API Key。Windows 已纳入构建与自动化检查，应用声音采集尚未接入。仓库暂未提供正式发布安装包，可从源码运行或打包。
+**当前为 macOS 开发版**，主要在 Apple Silicon Mac 上验证，需自备模型服务 API Key。Windows 已纳入构建与自动化检查，应用声音采集尚未接入。现提供 [0.1.0 测试版 DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.1.0)（Apple Silicon、macOS 14.2+）；尚未公证，安装步骤及已知限制见发布说明。也可从源码运行或打包。
 
 [快速开始](#快速开始) · [接入 Discord](#接入-discord) · [开发与验证](#开发与验证) · [文档](#文档)
 
@@ -163,7 +163,7 @@ npm run desktop:build -- --bundles app
 npm run desktop:build:mac
 ```
 
-产物位于 `src-tauri/target/release/bundle/`。`.app` 已在本机构建验证；`.dmg` 命令可用，但发行镜像尚未单独验收。真实服务、付费调用和设备测试默认忽略，需显式执行；常规 CI 不会使用开发者密钥或代替真实通话验收。
+产物位于 `src-tauri/target/release/bundle/`。`.app` 已在本机构建验证；`.dmg` 已完成本机镜像校验与只读挂载检查，仍需其他用户的干净机器安装反馈。真实服务、付费调用和设备测试默认忽略，需显式执行；常规 CI 不会使用开发者密钥或代替真实通话验收。
 
 `npm run dev` 仅启动界面预览，适合检查布局和普通配置；密钥、真实服务调用与音频设备操作需要桌面版。更多平台依赖、原生探针和历史记录见[开发指南](docs/09-development.md)。
 
