@@ -1,3 +1,100 @@
+/* Interpolate inherited theme tokens once at the root, never on each text ancestor. */
+@property --menu {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #2b2b2b;
+}
+@property --menu-hover {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #3a3a3a;
+}
+@property --bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #1e1e1e;
+}
+@property --side {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #181818;
+}
+@property --raised {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #252525;
+}
+@property --hover {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #2a2a2e;
+}
+@property --border {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #303034;
+}
+@property --text {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ececee;
+}
+@property --muted {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #a4a4ae;
+}
+@property --faint {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #93939e;
+}
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #dedede;
+}
+@property --accent-text {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #202020;
+}
+@property --good {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #98c5a8;
+}
+@property --danger {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f3a6a6;
+}
+@property --focus {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #88888d;
+}
+@property --composer-border {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255 255 255 / 9%);
+}
+@property --composer-focus-border {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255 255 255 / 20%);
+}
+@property --composer-shadow-near {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0 0 0 / 12%);
+}
+@property --composer-shadow-far {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0 0 0 / 14%);
+}
+
 :root {
   font-family:
     'Noto Sans SC Variable',
@@ -32,7 +129,9 @@
   --focus: #88888d;
   --composer-border: rgb(255 255 255 / 9%);
   --composer-focus-border: rgb(255 255 255 / 20%);
-  --composer-shadow: 0 2px 6px rgb(0 0 0 / 12%), 0 8px 28px rgb(0 0 0 / 14%);
+  --composer-shadow-near: rgb(0 0 0 / 12%);
+  --composer-shadow-far: rgb(0 0 0 / 14%);
+  --composer-shadow: 0 2px 6px var(--composer-shadow-near), 0 8px 28px var(--composer-shadow-far);
 }
 :root[data-theme='light'] {
   --menu: #fff;
@@ -52,7 +151,8 @@
   --focus: #73737a;
   --composer-border: rgb(0 0 0 / 7%);
   --composer-focus-border: rgb(0 0 0 / 16%);
-  --composer-shadow: 0 2px 6px rgb(0 0 0 / 3%), 0 8px 28px rgb(0 0 0 / 4%);
+  --composer-shadow-near: rgb(0 0 0 / 3%);
+  --composer-shadow-far: rgb(0 0 0 / 4%);
 }
 * {
   box-sizing: border-box;
@@ -2368,18 +2468,33 @@ input:focus {
   }
 }
 
-/* Theme transitions are temporary, so ordinary hover and recording animations keep their timing. */
+/* Descendants resolve the same animated tokens immediately; nested transitions would lag. */
 @media (prefers-reduced-motion: no-preference) {
-  :root[data-theme-changing],
+  :root[data-theme-changing] {
+    transition:
+      --menu 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --menu-hover 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --bg 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --side 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --raised 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --hover 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --border 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --text 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --muted 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --faint 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --accent 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --accent-text 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --good 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --danger 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --focus 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --composer-border 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --composer-focus-border 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --composer-shadow-near 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      --composer-shadow-far 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
   :root[data-theme-changing] *,
   :root[data-theme-changing] *::before,
   :root[data-theme-changing] *::after {
-    transition:
-      background-color 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      color 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      border-color 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      fill 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      stroke 320ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+    transition: none !important;
   }
 }
