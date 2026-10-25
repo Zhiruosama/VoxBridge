@@ -1426,6 +1426,8 @@ nav button[aria-current='page'] {
   min-width: 0;
 }
 .virtual-mic-help {
+  display: grid;
+  gap: 5px;
   padding: 0 0 16px;
   font-size: 13px;
   color: var(--muted);
@@ -1433,15 +1435,24 @@ nav button[aria-current='page'] {
   overflow-wrap: anywhere;
 }
 .virtual-mic-help p {
-  margin: 5px 0;
+  margin: 0;
 }
 .virtual-mic-help strong {
   color: var(--text);
   font-weight: 550;
 }
+.virtual-mic-credit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 12px;
+}
 .virtual-mic-credit .subtle {
-  display: inline-flex;
+  min-height: 0;
+  padding: 0;
+  border: 0;
   font-size: inherit;
+  line-height: inherit;
 }
 .preference-control > input:not([type='range']) {
   width: 100%;

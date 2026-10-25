@@ -141,7 +141,7 @@ export default function VirtualMicrophone({
           {watching && <p role="status">{t('正在等待虚拟麦克风就绪…')}</p>}
           {windows && (
             <p className="virtual-mic-credit">
-              VB-CABLE · VB-Audio · www.vb-cable.com · {t('捐赠软件，欢迎支持作者。')}{' '}
+              <span>VB-CABLE · VB-Audio · www.vb-cable.com · {t('捐赠软件，欢迎支持作者。')}</span>
               <button
                 className="subtle"
                 onClick={() => void openVirtualMicVendor().catch((e) => notify(String(e)))}
