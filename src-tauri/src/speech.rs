@@ -527,15 +527,27 @@ pub(crate) fn decode(audio: Vec<u8>, token: &CancellationToken) -> Result<Sample
     Ok(SamplesBuffer::new(channels, rate, samples))
 }
 
-fn open_output(device_id: &str, failed: Arc<AtomicBool>) -> Result<rodio::MixerDeviceSink, String> {
+fn open_output(
+    device_id: &str,
+    failed: Arc<AtomicBool>,
+) -> Result<(rodio::MixerDeviceSink, String), String> {
     let device = crate::platform::resolve_output(device_id)?;
-    DeviceSinkBuilder::from_device(device)
+    open_device_output(device, failed)
+}
+
+fn open_device_output(
+    device: cpal::Device,
+    failed: Arc<AtomicBool>,
+) -> Result<(rodio::MixerDeviceSink, String), String> {
+    let id = crate::platform::output_id(&device)?;
+    let stream = DeviceSinkBuilder::from_device(device)
         .map_err(|_| "无法读取设备格式。")?
         .with_error_callback(move |_| {
             failed.store(true, Ordering::SeqCst);
         })
         .open_stream()
-        .map_err(|_| "无法打开所选输出设备。".into())
+        .map_err(|_| "无法打开所选输出设备。".to_string())?;
+    Ok((stream, id))
 }
 
 mod monitor;
@@ -555,10 +567,10 @@ fn playback(
     // The output stream stays on this blocking thread, including on macOS where it is !Send.
     let failed = Arc::new(AtomicBool::new(false));
     let setup = open_output(&device_id, failed.clone());
-    let stream = match setup {
-        Ok(stream) => {
+    let (stream, output_id) = match setup {
+        Ok(output) => {
             let _ = ready.send(Ok(()));
-            stream
+            output
         }
         Err(error) => {
             let _ = ready.send(Err(error.clone()));
@@ -584,7 +596,7 @@ fn playback(
         return Err(STOPPED.into());
     }
     let sink = Player::connect_new(stream.mixer());
-    let mut monitor = monitor::LocalMonitor::new(monitor_device, monitoring);
+    let mut monitor = monitor::LocalMonitor::new(monitor_device, monitoring, output_id);
     if monitor.tick(&channel, &request_id) {
         monitor.buffered(source.clone(), Duration::ZERO);
     }
