@@ -1,3 +1,4 @@
+import { useTheme } from './hooks/useTheme';
 import SidebarResizeHandle from './components/SidebarResizeHandle';
 import { useSidebarLayout } from './hooks/useSidebarLayout';
 import { t, setUiLanguage, useUiLanguage } from './i18n';
@@ -406,16 +407,7 @@ export default function App() {
       .then(setRuntime)
       .catch((e) => notify(String(e)));
   }, [notify]);
-  useEffect(() => {
-    const media = matchMedia('(prefers-color-scheme: light)');
-    function apply() {
-      document.documentElement.dataset.theme =
-        settings.theme === 'system' ? (media.matches ? 'light' : 'dark') : settings.theme;
-    }
-    apply();
-    media.addEventListener('change', apply);
-    return () => media.removeEventListener('change', apply);
-  }, [settings.theme]);
+  useTheme(settings.theme);
   useEffect(() => {
     if (follow)
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'instant' });
