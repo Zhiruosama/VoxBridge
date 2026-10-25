@@ -9,7 +9,7 @@ export function configurationSection(message: string): ConfigurationSection | nu
   if (/完善语音识别服务|语音识别服务.*密钥/.test(message)) return 'asr';
   if (
     /(设备|麦克风)/.test(message) &&
-    /(选择|不可用|断开|标识|缺失|找不到|没有默认|请连接)/.test(message)
+    /(选择|不可用|断开|标识|缺失|找不到|没有默认|请连接|权限|独占)/.test(message)
   )
     return 'general';
   return null;

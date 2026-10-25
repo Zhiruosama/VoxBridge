@@ -20,6 +20,8 @@ import CaptionColorPicker from './CaptionColorPicker';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import VirtualMicrophone from './VirtualMicrophone';
+import MicrophoneAccess from './MicrophoneAccess';
+import UpdateControls from './UpdateControls';
 import PresetEditor from './PresetEditor';
 import PresetSelect from './PresetSelect';
 import {
@@ -712,6 +714,7 @@ export default function SettingsPanel({
                   {t(draft.audio.monitorEnabled ? '开启' : '关闭')}
                 </button>
               </SettingRow>
+              <MicrophoneAccess notify={notify} />
               <SettingRow title={t('语音输入麦克风')}>
                 <Select
                   label={t('语音输入麦克风')}
@@ -785,6 +788,7 @@ export default function SettingsPanel({
               <SettingRow title="VoxBridge">
                 <span className="preference-value">{version}</span>
               </SettingRow>
+              <UpdateControls />
             </div>
           </section>
         </>

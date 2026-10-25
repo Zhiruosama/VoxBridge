@@ -1,4 +1,31 @@
 use super::*;
+#[cfg(target_os = "windows")]
+#[test]
+fn migrates_plain_master_to_current_user_dpapi_without_changing_credentials() {
+    let folder = Folder::new();
+    let directory = folder.0.join("credentials");
+    std::fs::create_dir_all(&directory).unwrap();
+    let key = Zeroizing::new(vec![7; 32]);
+    let master = master(key.clone());
+    let values = [(
+        "synthetic".to_string(),
+        Zeroizing::new("synthetic-secret".to_string()),
+    )]
+    .into_iter()
+    .collect();
+    let ciphertext = crypto::encrypt(&master, &values).unwrap();
+    std::fs::write(directory.join("master.v1.key"), &key).unwrap();
+    std::fs::write(directory.join("keys.v1.enc"), &ciphertext).unwrap();
+    let store = Store::open(directory.clone()).unwrap();
+    assert_eq!(store.read("synthetic").unwrap(), "synthetic-secret");
+    assert!(!directory.join("master.v1.key").exists());
+    assert_eq!(std::fs::read(store.path()).unwrap(), ciphertext);
+    assert_ne!(std::fs::read(store.key_path()).unwrap(), key.to_vec());
+    assert_eq!(
+        Store::open(directory).unwrap().read("synthetic").unwrap(),
+        "synthetic-secret"
+    );
+}
 struct Folder(PathBuf);
 impl Folder {
     fn new() -> Self {

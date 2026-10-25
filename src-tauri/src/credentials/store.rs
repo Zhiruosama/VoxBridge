@@ -1,5 +1,6 @@
 //! Private local storage, independent of executable signatures. The local master is
-//! protected by user-only filesystem permissions, not a same-user application ACL.
+//! protected by user-only filesystem permissions and current-user DPAPI on Windows.
+//! This does not isolate applications running as the same Windows user.
 use super::crypto::{self, Master};
 use std::{
     collections::BTreeMap,
@@ -17,13 +18,28 @@ pub(super) struct Store {
 }
 impl Store {
     pub fn open(directory: PathBuf) -> Result<Self, String> {
+        if directory.exists() {
+            private_directory(&directory)?;
+        }
         let mut store = Self {
             directory,
             values: Values::new(),
             master: None,
             migration_failed: false,
         };
-        if let Some(bytes) = private_read(&store.key_path(), 32)? {
+        #[cfg(target_os = "windows")]
+        let legacy = !store.key_path().exists() && store.directory.join("master.v1.key").exists();
+        #[cfg(target_os = "windows")]
+        let bytes = if legacy {
+            private_read(&store.directory.join("master.v1.key"), 32)?
+        } else {
+            private_read(&store.key_path(), 16_384)?
+                .map(|data| super::windows::unprotect(&data))
+                .transpose()?
+        };
+        #[cfg(not(target_os = "windows"))]
+        let bytes = private_read(&store.key_path(), 32)?;
+        if let Some(bytes) = bytes {
             if bytes.len() != 32 {
                 return Err("本机加密密钥损坏；已保留原文件，请勿删除后重新生成。".into());
             }
@@ -38,13 +54,53 @@ impl Store {
                 &bytes,
             )?;
         }
+        #[cfg(target_os = "windows")]
+        if legacy {
+            // Validate the existing ciphertext above before touching the only working key.
+            private_directory(&store.directory)?;
+            store.write_master(&store.master.as_ref().unwrap().key)?;
+            let protected =
+                private_read(&store.key_path(), 16_384)?.ok_or("本机密钥迁移校验失败。")?;
+            if super::windows::unprotect(&protected)?[..] != store.master.as_ref().unwrap().key[..]
+            {
+                return Err("本机密钥迁移校验失败，旧文件已保留。".into());
+            }
+            std::fs::remove_file(store.directory.join("master.v1.key"))
+                .map_err(|_| "已保护本机密钥，但旧密钥清理失败。")?;
+        }
         Ok(store)
     }
     fn path(&self) -> PathBuf {
         self.directory.join("keys.v1.enc")
     }
     fn key_path(&self) -> PathBuf {
+        #[cfg(target_os = "windows")]
+        return self.directory.join("master.v2.dpapi");
+        #[cfg(not(target_os = "windows"))]
         self.directory.join("master.v1.key")
+    }
+    fn write_master(&self, bytes: &[u8]) -> Result<(), String> {
+        #[cfg(target_os = "windows")]
+        let bytes = super::windows::protect(bytes)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options
+            .open(self.key_path())
+            .map_err(|_| "无法创建本机加密密钥；未覆盖现有文件。")?;
+        if file
+            .write_all(&bytes)
+            .and_then(|_| file.sync_all())
+            .is_err()
+        {
+            let _ = std::fs::remove_file(self.key_path());
+            return Err("无法保存本机加密密钥。".into());
+        }
+        Ok(())
     }
     pub fn read(&self, id: &str) -> Result<String, String> {
         super::validate_id(id)?;
@@ -90,24 +146,7 @@ impl Store {
         private_directory(&self.directory)?;
         if self.master.is_none() {
             let bytes = Zeroizing::new(crypto::random(32)?);
-            let mut options = std::fs::OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                options.mode(0o600);
-            }
-            let mut file = options
-                .open(self.key_path())
-                .map_err(|_| "无法创建本机加密密钥；未覆盖现有文件。")?;
-            if file
-                .write_all(&bytes)
-                .and_then(|_| file.sync_all())
-                .is_err()
-            {
-                let _ = std::fs::remove_file(self.key_path());
-                return Err("无法保存本机加密密钥。".into());
-            }
+            self.write_master(&bytes)?;
             self.master = Some(master(bytes));
         }
         crypto::write_encrypted(
@@ -162,11 +201,20 @@ fn master(key: Zeroizing<Vec<u8>>) -> Master {
         key,
     }
 }
+fn is_link(meta: &std::fs::Metadata) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        meta.file_attributes() & 0x400 != 0
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        meta.file_type().is_symlink()
+    }
+}
 fn private_directory(path: &Path) -> Result<(), String> {
     match std::fs::symlink_metadata(path) {
-        Ok(meta) if !meta.is_dir() || meta.file_type().is_symlink() => {
-            return Err("凭据目录无效。".into())
-        }
+        Ok(meta) if !meta.is_dir() || is_link(&meta) => return Err("凭据目录无效。".into()),
         Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
             return Err("无法检查凭据目录。".into())
         }
@@ -180,6 +228,8 @@ fn private_directory(path: &Path) -> Result<(), String> {
         builder.mode(0o700);
     }
     builder.create(path).map_err(|_| "无法创建私有凭据目录。")?;
+    #[cfg(target_os = "windows")]
+    super::windows::restrict(path)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -190,7 +240,9 @@ fn private_directory(path: &Path) -> Result<(), String> {
 }
 fn private_read(path: &Path, maximum: u64) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
     match std::fs::symlink_metadata(path) {
-        Ok(meta) if meta.is_file() && !meta.file_type().is_symlink() && meta.len() <= maximum => {
+        Ok(meta) if meta.is_file() && !is_link(&meta) && meta.len() <= maximum => {
+            #[cfg(target_os = "windows")]
+            super::windows::restrict(path)?;
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;

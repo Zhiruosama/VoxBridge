@@ -16,6 +16,8 @@ mod platform;
 mod providers;
 mod recovery;
 mod speech;
+#[cfg(all(test, target_os = "windows"))]
+mod update_tests;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +42,8 @@ fn runtime_info() -> RuntimeInfo {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             #[cfg(target_os = "windows")]
             {
@@ -69,6 +73,8 @@ pub fn run() {
             diagnostics::open_diagnostics_folder,
             diagnostics::export_diagnostics,
             microphone::list_inputs,
+            microphone::microphone_access,
+            platform::virtual_mic::open_audio_settings,
             microphone::start_voice_input,
             microphone::finish_voice_input,
             microphone::cancel_voice_input,

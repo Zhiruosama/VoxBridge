@@ -19,6 +19,12 @@ import type {
 } from './core/types';
 
 export const desktop = isTauri();
+export async function microphoneAccess(): Promise<string> {
+  return desktop ? invoke('microphone_access') : 'not-applicable';
+}
+export async function openAudioSettings(page: 'microphone' | 'devices'): Promise<void> {
+  if (desktop) await invoke('open_audio_settings', { page });
+}
 export async function detectTextLanguage(text: string): Promise<string | null> {
   return desktop ? invoke('detect_text_language', { text }) : null;
 }

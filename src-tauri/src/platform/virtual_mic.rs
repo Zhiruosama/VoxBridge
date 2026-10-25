@@ -73,7 +73,10 @@ fn status() -> Result<VirtualMicStatus, String> {
 pub(crate) fn is_cable_endpoint(name: &str, direction: &str) -> bool {
     let name = name.to_ascii_lowercase();
     // Only the base cable. A+B/C+D and other virtual devices are different products.
-    name.starts_with(&format!("cable {direction} (")) && name.contains("vb-audio virtual cable")
+    // The caller enumerates playback/capture separately, so both ends may share
+    // the user's VoxBridge alias without confusing their audio direction.
+    (name.starts_with(&format!("cable {direction} (")) || name.starts_with("voxbridge ("))
+        && name.ends_with("(vb-audio virtual cable)")
 }
 
 #[cfg(target_os = "windows")]
@@ -156,6 +159,27 @@ fn verify_package(directory: &std::path::Path) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn open_audio_settings(window: tauri::WebviewWindow, page: String) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("此操作仅限主窗口。".into());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let target = match page.as_str() {
+            "microphone" => "ms-settings:privacy-microphone",
+            "devices" => "ms-settings:sound",
+            _ => return Err("无效的音频设置页面。".into()),
+        };
+        shell_open("open", std::path::Path::new(target), None)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = page;
+        Err("此入口仅用于 Windows。".into())
+    }
+}
+
+#[tauri::command]
 pub fn open_virtual_mic_vendor(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "main" {
         return Err("此操作仅限主窗口。".into());
@@ -205,6 +229,15 @@ mod tests {
     }
     #[test]
     fn base_cable_direction_and_vendor_are_required() {
+        assert!(is_cable_endpoint(
+            "VoxBridge (VB-Audio Virtual Cable)",
+            "output"
+        ));
+        assert!(!is_cable_endpoint("VoxBridge (Other Device)", "output"));
+        assert!(is_cable_endpoint(
+            "VoxBridge (VB-Audio Virtual Cable)",
+            "input"
+        ));
         assert!(is_cable_endpoint(
             "CABLE Input (VB-Audio Virtual Cable)",
             "input"

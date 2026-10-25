@@ -23,4 +23,15 @@ describe('native command permission integration', () => {
       expect(subtitle.permissions).not.toContain(permission);
     }
   });
+  it('keeps application installation and Windows settings actions out of the subtitle window', () => {
+    for (const permission of [
+      'updater:default',
+      'process:allow-restart',
+      'allow-open-audio-settings',
+      'allow-microphone-access',
+    ]) {
+      expect(main.permissions).toContain(permission);
+      expect(subtitle.permissions).not.toContain(permission);
+    }
+  });
 });

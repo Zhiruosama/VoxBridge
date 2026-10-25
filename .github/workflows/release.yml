@@ -1,23 +1,30 @@
-name: Release macOS test build
+name: Release desktop test build
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: desktop-release
   cancel-in-progress: false
 
 jobs:
-  macos:
-    runs-on: macos-15
-    timeout-minutes: 45
-    permissions:
-      contents: write
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+          - os: macos-15
+            platform: macos-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,35 +37,66 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - name: Validate version, architecture and release notes
-        run: |
-          test "$(uname -m)" = arm64
-          node --input-type=module -e 'import fs from "node:fs"; const p=JSON.parse(fs.readFileSync("package.json")); const t=JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json")); if (`v${p.version}` !== process.env.GITHUB_REF_NAME || p.version !== t.version) throw new Error("Release tag and app versions differ");'
-          test -f "docs/releases/${GITHUB_REF_NAME}.md"
+      - name: Validate release metadata
+        run: node scripts/prepare-release.mjs validate
       - run: npm ci
       - run: npm run format:check
       - run: npm test
-      - name: Build driver and test native code
+      - run: npm run test:release
+      - name: Prepare native resources
+        run: node scripts/build-desktop-resources.mjs
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked -- --test-threads=1
+      - name: Build signed Windows updater and installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run desktop:build:windows -- --config '{"bundle":{"createUpdaterArtifacts":true}}'
+      - name: Build signed Mac updater and DMG
+        if: runner.os == 'macOS'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          bash native/macos/virtual-mic/build.sh
-          cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-          cargo test --manifest-path src-tauri/Cargo.toml --locked -- --test-threads=1
-      - name: Build DMG and verify app signature and microphone entitlement
-        run: npm run desktop:build:mac
-      - name: Prepare download and checksum
-        run: |
-          mkdir -p release-assets
-          cp src-tauri/target/release/bundle/dmg/*.dmg release-assets/
-          cd release-assets
-          shasum -a 256 *.dmg > SHA256SUMS.txt
-          shasum -a 256 -c SHA256SUMS.txt
-      - name: Retain release artifacts
-        uses: actions/upload-artifact@v4
+          test "$(uname -m)" = arm64
+          npm run desktop:build:mac -- --config '{"bundle":{"createUpdaterArtifacts":true}}'
+      - name: Collect and checksum platform artifacts
+        run: node scripts/prepare-release.mjs collect
+      - uses: actions/upload-artifact@v4
         with:
-          name: macos-dmg
+          name: release-${{ matrix.platform }}
           path: release-assets/
           if-no-files-found: error
-      - name: Publish GitHub prerelease
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Verify checksums and assemble update manifest
+        run: node scripts/prepare-release.mjs manifest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-combined
+          path: release-assets/
+      # Manual runs build and validate without publishing or changing the update feed.
+      - name: Publish prerelease only after both platform builds succeed
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -66,5 +104,24 @@ jobs:
           if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release create "$GITHUB_REF_NAME" --verify-tag --draft --prerelease --title "VoxBridge ${GITHUB_REF_NAME#v} 测试版" --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
           fi
-          gh release upload "$GITHUB_REF_NAME" release-assets/*.dmg release-assets/SHA256SUMS.txt --clobber
+          gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
           gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --title "VoxBridge ${GITHUB_REF_NAME#v} 测试版" --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
+      - name: Advance signed-package update feed after release publication
+        if: github.ref_type == 'tag'
+        id: feed
+        run: |
+          git fetch origin update-feed
+          git show origin/update-feed:latest.json > "$RUNNER_TEMP/voxbridge-previous.json"
+          node scripts/prepare-release.mjs feed-check "$RUNNER_TEMP/voxbridge-previous.json"
+      - name: Publish monotonic update feed
+        if: github.ref_type == 'tag' && steps.feed.outputs.advance == 'true'
+        run: |
+          cp release-assets/latest.json "$RUNNER_TEMP/voxbridge-latest.json"
+          git fetch origin update-feed
+          git switch --force-create update-feed origin/update-feed
+          cp "$RUNNER_TEMP/voxbridge-latest.json" latest.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add latest.json
+          git diff --cached --quiet || git commit -m "Update feed for $GITHUB_REF_NAME"
+          git push origin HEAD:update-feed

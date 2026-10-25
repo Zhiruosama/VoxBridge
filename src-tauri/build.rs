@@ -6,6 +6,8 @@ fn main() {
             "open_diagnostics_folder",
             "export_diagnostics",
             "list_inputs",
+            "microphone_access",
+            "open_audio_settings",
             "start_voice_input",
             "finish_voice_input",
             "cancel_voice_input",

@@ -3,6 +3,7 @@ import {
   desktop,
   openVirtualMicInstaller,
   openVirtualMicVendor,
+  openAudioSettings,
   virtualMicStatus,
 } from '../bridge';
 import type { OutputDevice, VirtualMicStatus } from '../core/types';
@@ -123,7 +124,7 @@ export default function VirtualMicrophone({
             <p role="alert">{t(error)}</p>
           ) : ready ? (
             <>
-              <p>{t('VoxBridge 发送声音到 CABLE Input；聊天软件的麦克风请选择：')}</p>
+              <p>{t('VoxBridge 将声音发送到所选虚拟输出；聊天软件的麦克风请选择：')}</p>
               <p>
                 <strong>{status.inputName}</strong>
               </p>
@@ -152,6 +153,23 @@ export default function VirtualMicrophone({
                 <button className="subtle" disabled={opening} onClick={() => void install()}>
                   {t(opening ? '正在打开…' : '安装或卸载驱动')}
                 </button>
+              )}
+              {ready && (
+                <button
+                  className="subtle"
+                  onClick={() =>
+                    void openAudioSettings('devices').catch((error) => notify(String(error)))
+                  }
+                >
+                  {t('设置麦克风名称')}
+                </button>
+              )}
+            </p>
+          )}
+          {windows && ready && (
+            <p>
+              {t(
+                '可在 Windows 声音设置中选择该输入设备，将名称改为 VoxBridge；驱动仍由 VB-Audio 提供。',
               )}
             </p>
           )}

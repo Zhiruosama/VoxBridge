@@ -12,8 +12,30 @@
   "app": {
     "macOSPrivateApi": true,
     "windows": [
-      { "label": "main", "title": "VoxBridge", "width": 1062, "height": 738, "minWidth": 680, "minHeight": 560 },
-      { "label": "subtitle", "title": "VoxBridge 字幕", "url": "index.html?window=subtitle", "width": 760, "height": 320, "minWidth": 480, "minHeight": 220, "visible": false, "focus": false, "alwaysOnTop": true, "visibleOnAllWorkspaces": true, "transparent": true, "decorations": false, "skipTaskbar": true }
+      {
+        "label": "main",
+        "title": "VoxBridge",
+        "width": 1062,
+        "height": 738,
+        "minWidth": 680,
+        "minHeight": 560
+      },
+      {
+        "label": "subtitle",
+        "title": "VoxBridge 字幕",
+        "url": "index.html?window=subtitle",
+        "width": 760,
+        "height": 320,
+        "minWidth": 480,
+        "minHeight": 220,
+        "visible": false,
+        "focus": false,
+        "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
+        "transparent": true,
+        "decorations": false,
+        "skipTaskbar": true
+      }
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'",
@@ -22,8 +44,31 @@
   },
   "bundle": {
     "active": true,
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "targets": "all",
-    "macOS": { "minimumSystemVersion": "14.2", "infoPlist": "Info.plist", "signingIdentity": "-", "entitlements": "Entitlements.plist" }
+    "macOS": {
+      "minimumSystemVersion": "14.2",
+      "infoPlist": "Info.plist",
+      "signingIdentity": "-",
+      "entitlements": "Entitlements.plist"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1MTU2RjUxODIxQ0MzMkQKUldRdHd4eUNVVzhWTmF5SEZSLzNnZEE1Q1ZBeFZ5SmlGUzB0YlNqblNsclBOeklpczE1cXRkaE4K",
+      "endpoints": [
+        "https://raw.githubusercontent.com/Zhiruosama/VoxBridge/update-feed/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      },
+      "requireSignedVersion": true
+    }
   }
 }

@@ -192,9 +192,57 @@ async fn permission() -> Result<(), String> {
         Err("未获得麦克风权限，请在系统设置中允许 VoxBridge。".into())
     }
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 async fn permission() -> Result<(), String> {
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+async fn permission() -> Result<(), String> {
+    let status = tauri::async_runtime::spawn_blocking(windows_access)
+        .await
+        .map_err(|_| "无法检查 Windows 麦克风权限。")?;
+    if status == "denied" {
+        Err("Windows 已禁用麦克风权限，请在 Windows 设置 → 隐私和安全性 → 麦克风中允许麦克风访问及桌面应用访问。".into())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_access() -> &'static str {
+    use windows::{
+        core::HSTRING,
+        Security::Authorization::AppCapabilityAccess::{AppCapability, AppCapabilityAccessStatus},
+        Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED},
+    };
+    unsafe {
+        if RoInitialize(RO_INIT_MULTITHREADED).is_err() {
+            return "unknown";
+        }
+        let status = AppCapability::Create(&HSTRING::from("microphone"))
+            .and_then(|capability| capability.CheckAccess());
+        RoUninitialize();
+        match status {
+            Ok(AppCapabilityAccessStatus::Allowed) => "allowed",
+            Ok(
+                AppCapabilityAccessStatus::DeniedBySystem | AppCapabilityAccessStatus::DeniedByUser,
+            ) => "denied",
+            // Unpackaged desktop applications may not declare a WinRT capability.
+            // Never mistake that for approval or reject a usable WASAPI device.
+            _ => "unknown",
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn microphone_access() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    return tauri::async_runtime::spawn_blocking(|| windows_access().to_string())
+        .await
+        .map_err(|_| "无法检查麦克风权限。".into());
+    #[cfg(not(target_os = "windows"))]
+    Ok("not-applicable".into())
 }
 
 const MAX_SECONDS: u64 = 60;
@@ -301,7 +349,15 @@ fn record(
         cpal::SampleFormat::U16 => stream!(u16, |v: &u16| (*v as f32 - 32768.0) / 32768.0),
         _ => return Err("暂不支持此麦克风采样格式。".into()),
     }
-    .map_err(|_| "无法打开麦克风，请检查权限和设备连接。")?;
+    .map_err(|error| match error {
+        cpal::BuildStreamError::DeviceNotAvailable => {
+            "麦克风已断开或不可用，请连接设备后刷新。".to_string()
+        }
+        cpal::BuildStreamError::StreamConfigNotSupported => {
+            "麦克风不支持当前录音格式，请更换设备或检查 Windows 声音设置。".to_string()
+        }
+        _ => "无法打开麦克风，请检查系统麦克风权限、设备连接及其他软件的独占占用。".to_string(),
+    })?;
     stream.play().map_err(|_| "无法启动麦克风。")?;
     on_progress
         .send(Progress {

@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import SettingsPanel, { type SettingsSection } from './components/SettingsPanel';
+import { appUpdates } from './app-updates';
 import Diagnostics from './components/Diagnostics';
 import Select from './components/Select';
 import Toast from './components/Toast';
@@ -206,6 +207,19 @@ export default function App() {
       }),
   );
   const [queueView, setQueueView] = useState<QueueView>({ paused: false, items: [] });
+  const updateBlocked = useRef(true);
+  useEffect(() => {
+    if (!desktop) return;
+    appUpdates.blocked = () => updateBlocked.current;
+    void appUpdates.check().then(() => {
+      const next = appUpdates.snapshot();
+      if (next.status === 'available')
+        notify(t('发现新版本 {0}，可在设置的关于部分更新。', next.version));
+    });
+    return () => {
+      appUpdates.blocked = () => true;
+    };
+  }, [notify]);
   const [sendQueue] = useState(
     () =>
       new SendQueue({
@@ -256,6 +270,15 @@ export default function App() {
     else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
   }
   const [overlayDraft, setOverlayDraft] = useState('');
+  updateBlocked.current =
+    settingsBusy ||
+    listenPhase !== 'idle' ||
+    Boolean(voice) ||
+    composer.busy ||
+    busy ||
+    queueView.items.length > 0 ||
+    Boolean(text.trim() || overlayDraft.trim()) ||
+    JSON.stringify(settings) !== JSON.stringify(savedSettings);
   const [overlayVoiceError, setOverlayVoiceError] = useState('');
   const [overlayVoiceReady, setOverlayVoiceReady] = useState(false);
   const overlayActionsRef = useRef<(request: OverlayVoiceRequest) => void>(() => {});
