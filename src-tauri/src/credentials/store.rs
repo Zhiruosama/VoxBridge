@@ -65,6 +65,17 @@ impl Store {
             {
                 return Err("本机密钥迁移校验失败，旧文件已保留。".into());
             }
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(old) = private_read(&store.directory.join("master.v1.key"), 32)? {
+            // Also finishes a migration interrupted after writing the protected copy.
+            if store
+                .master
+                .as_ref()
+                .is_none_or(|master| master.key[..] != old[..])
+            {
+                return Err("新旧本机密钥不一致；原文件已保留。".into());
+            }
             std::fs::remove_file(store.directory.join("master.v1.key"))
                 .map_err(|_| "已保护本机密钥，但旧密钥清理失败。")?;
         }

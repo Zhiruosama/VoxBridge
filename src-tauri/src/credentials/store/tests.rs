@@ -26,6 +26,33 @@ fn migrates_plain_master_to_current_user_dpapi_without_changing_credentials() {
         "synthetic-secret"
     );
 }
+#[cfg(target_os = "windows")]
+#[test]
+fn resumes_interrupted_dpapi_migration() {
+    let folder = Folder::new();
+    let mut store = folder.store();
+    store.set("synthetic", "synthetic-secret").unwrap();
+    std::fs::write(
+        store.directory.join("master.v1.key"),
+        &store.master.as_ref().unwrap().key,
+    )
+    .unwrap();
+    let restarted = folder.store();
+    assert_eq!(restarted.read("synthetic").unwrap(), "synthetic-secret");
+    assert!(!store.directory.join("master.v1.key").exists());
+}
+#[cfg(target_os = "windows")]
+#[test]
+#[ignore = "manual installed-vault metadata check; never outputs credential content"]
+fn verify_installed_windows_vault_metadata() {
+    let directory = PathBuf::from(std::env::var_os("APPDATA").unwrap())
+        .join("com.voxbridge.desktop/credentials");
+    let store = Store::open(directory).unwrap();
+    println!(
+        "Installed vault opened successfully; saved profiles: {}",
+        store.values.len()
+    );
+}
 struct Folder(PathBuf);
 impl Folder {
     fn new() -> Self {

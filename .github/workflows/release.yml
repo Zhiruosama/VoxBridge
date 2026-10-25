@@ -37,9 +37,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - run: npm ci
       - name: Validate release metadata
         run: node scripts/prepare-release.mjs validate
-      - run: npm ci
       - run: npm run format:check
       - run: npm test
       - run: npm run test:release
