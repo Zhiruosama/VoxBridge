@@ -1,3 +1,5 @@
+import { recordDiagnostic } from '../diagnostics';
+import { correlationId, errorKind } from './diagnostics';
 import { ComposerController, type ComposerPhase } from './composer';
 import { profileFor, validateProfile } from './settings';
 import type { Settings, SpeechProgress } from './types';
@@ -52,6 +54,8 @@ export class SendQueue {
   private playing: Job | null = null;
   private playingGeneration = -1;
   private paused = false;
+  private diagnosticStates = new Map<string, string>();
+  private diagnosticPaused: boolean | null = null;
   private listeners = new Set<(view: QueueView) => void>();
   constructor(private readonly deps: Dependencies) {}
   get busy() {
@@ -79,6 +83,30 @@ export class SendQueue {
   }
   private emit() {
     const view = this.snapshot();
+    if (this.diagnosticPaused !== view.paused) {
+      recordDiagnostic({
+        operation: 'queue',
+        kind: 'state',
+        phase: view.paused ? 'paused' : 'running',
+        count: view.items.length,
+      });
+      this.diagnosticPaused = view.paused;
+    }
+    for (const item of view.items) {
+      if (this.diagnosticStates.get(item.id) !== item.status) {
+        recordDiagnostic({
+          operation: 'queue',
+          kind: 'state',
+          phase: item.status,
+          correlationId: correlationId(item.id),
+          count: view.items.length,
+        });
+        this.diagnosticStates.set(item.id, item.status);
+      }
+    }
+    for (const id of this.diagnosticStates.keys()) {
+      if (!view.items.some((item) => item.id === id)) this.diagnosticStates.delete(id);
+    }
     this.listeners.forEach((l) => l(view));
     this.jobs.forEach((j) => j.wake?.());
   }
@@ -192,11 +220,23 @@ export class SendQueue {
         },
       );
       if (valid()) {
+        recordDiagnostic({
+          operation: 'queue',
+          kind: 'state',
+          correlationId: correlationId(job.id),
+          phase: outcome === 'completed' ? 'completed' : 'cancelled',
+        });
         this.jobs = this.jobs.filter((j) => j !== job);
         job.resolve(outcome === 'completed' ? 'completed' : 'stopped');
       }
     } catch (error) {
       if (valid()) {
+        recordDiagnostic({
+          operation: 'queue',
+          kind: 'error',
+          correlationId: correlationId(job.id),
+          reason: errorKind(error),
+        });
         job.status = 'failed';
         job.error = Array.from(String(error).replace(/^Error: /, ''))
           .slice(0, 400)
@@ -226,6 +266,12 @@ export class SendQueue {
   async cancel(id: string) {
     const job = this.jobs.find((j) => j.id === id);
     if (!job) return;
+    recordDiagnostic({
+      operation: 'queue',
+      kind: 'state',
+      correlationId: correlationId(job.id),
+      phase: 'cancelled',
+    });
     if (this.playing === job) this.paused = true;
     this.jobs = this.jobs.filter((j) => j !== job);
     job.wake?.();

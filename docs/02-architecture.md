@@ -111,6 +111,8 @@ flowchart LR
 
 ## 继续阅读
 
+- [本机诊断日志](diagnostics.md)：0.2.1 之后主分支新增的日志范围、导出与排查方式。
+
 - [内部流程与状态](internal-flows.md)：分句、翻译、队列、取消、自动恢复和浮窗协作。
 - [开发与打包](development.md)：运行命令、测试与发布工作流。
 - [虚拟麦克风实现](../native/macos/virtual-mic/README.md)：驱动的格式、路由和安装。

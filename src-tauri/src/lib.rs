@@ -4,6 +4,7 @@ mod audio;
 mod audio_pipeline;
 mod capture;
 mod credentials;
+mod diagnostics;
 mod language;
 #[cfg(test)]
 mod live_tests;
@@ -36,6 +37,8 @@ fn runtime_info() -> RuntimeInfo {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            // Diagnostics must never prevent the application from starting.
+            let _ = diagnostics::initialize(app.handle());
             credentials::initialize(app.handle()).map_err(std::io::Error::other)?;
             Ok(())
         })
@@ -51,6 +54,9 @@ pub fn run() {
         .manage(speech::AudioGate::new())
         .invoke_handler(tauri::generate_handler![
             runtime_info,
+            diagnostics::record_diagnostic,
+            diagnostics::open_diagnostics_folder,
+            diagnostics::export_diagnostics,
             microphone::list_inputs,
             microphone::start_voice_input,
             microphone::finish_voice_input,
@@ -131,6 +137,8 @@ pub fn run() {
                 app.state::<providers::Requests>().stop_all();
                 app.state::<speech::SpeechState>().stop_all();
                 app.state::<speech::PreparedSpeechState>().stop_all();
+                diagnostics::lifecycle("shutdown");
+                let _ = diagnostics::flush();
                 credentials::clear_session();
                 app.state::<audio::ToneState>()
                     .0

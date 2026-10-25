@@ -1,3 +1,4 @@
+import { exportDiagnostics, openDiagnosticsFolder } from '../diagnostics';
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, RefreshCw, Save, Square, Volume2 } from 'lucide-react';
@@ -20,6 +21,19 @@ export default function Diagnostics({
   settings: Settings;
   onSave: (settings: Settings) => void;
 }) {
+  const [logBusy, setLogBusy] = useState(false);
+  async function logs(exportFile: boolean) {
+    if (logBusy) return;
+    setLogBusy(true);
+    try {
+      await (exportFile ? exportDiagnostics() : openDiagnosticsFolder());
+      if (exportFile) notify(t('已导出诊断日志，文件夹已打开。'));
+    } catch (error) {
+      notify(t(String(error)));
+    } finally {
+      setLogBusy(false);
+    }
+  }
   const [devices, setDevices] = useState<OutputDevice[]>([]);
   const [deviceId, setDeviceId] = useState(settings.audio.previewDeviceId);
   const [busy, setBusy] = useState(false);
@@ -170,6 +184,24 @@ export default function Diagnostics({
         enabled={desktop && runtime?.platform === 'macos' && runtime.nativeCapture}
       />
       <AsrDiagnostic settings={settings} />
+      <section className="preference-section" aria-labelledby="diagnostic-logs-heading">
+        <h2 id="diagnostic-logs-heading">{t('本机诊断日志')}</h2>
+        <div className="preference-card">
+          <SettingRow title={t('问题排查')}>
+            <div className="diagnostic-actions diagnostic-log-actions">
+              <button disabled={!desktop || logBusy} onClick={() => void logs(false)}>
+                {t('打开日志文件夹')}
+              </button>
+              <button disabled={!desktop || logBusy} onClick={() => void logs(true)}>
+                {t('导出日志')}
+              </button>
+            </div>
+          </SettingRow>
+        </div>
+        <p className="diagnostic-feedback">
+          {t('仅保存在本机，不记录密钥、音频或正文。导出后可自行发送给开发者排查。')}
+        </p>
+      </section>
       <section className="preference-section" aria-labelledby="runtime-heading">
         <h2 id="runtime-heading">{t('运行状态')}</h2>
         <div className="preference-card">

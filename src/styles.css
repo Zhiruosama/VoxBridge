@@ -2498,3 +2498,13 @@ input:focus {
     transition: none !important;
   }
 }
+
+.diagnostic-log-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@container preferences (max-width:580px) {
+  .diagnostic-log-actions {
+    justify-content: flex-start;
+  }
+}

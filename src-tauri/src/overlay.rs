@@ -473,6 +473,8 @@ mod tests {
         assert_eq!(capability["windows"], serde_json::json!(["subtitle"]));
         let permissions = capability["permissions"].as_array().unwrap();
         let allowed = [
+            // Metadata-only append; the floating window cannot read or export logs.
+            "allow-record-diagnostic",
             "core:event:allow-listen",
             "core:event:allow-unlisten",
             "allow-drag-overlay",

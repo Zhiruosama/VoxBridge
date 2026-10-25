@@ -1,4 +1,9 @@
-import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
+import { Channel, isTauri } from '@tauri-apps/api/core';
+import {
+  diagnosticInvoke as invoke,
+  diagnosticSpeechProgress,
+  diagnosticListeningProgress,
+} from './diagnostics';
 import type {
   AudioRouting,
   CaptureProgress,
@@ -68,7 +73,7 @@ export async function speak(
 ): Promise<void> {
   if (!desktop) throw new Error('语音合成与设备输出需要桌面版。');
   const channel = new Channel<SpeechProgress>();
-  channel.onmessage = onProgress;
+  channel.onmessage = diagnosticSpeechProgress('speak', requestId, onProgress);
   return invoke('speak', { profile, text, routing, route, requestId, onProgress: channel });
 }
 export async function stopSpeech(requestId: string) {
@@ -117,7 +122,7 @@ export async function startListening(
 ): Promise<void> {
   if (!desktop) throw new Error('分段监听需要 Mac 桌面版。');
   const channel = new Channel<ListeningEvent>();
-  channel.onmessage = onEvent;
+  channel.onmessage = diagnosticListeningProgress(onEvent);
   return invoke('start_listening', { request, onEvent: channel });
 }
 export async function publishOverlay(snapshot: OverlaySnapshot): Promise<void> {
@@ -211,7 +216,7 @@ export async function playPreparedSpeech(
   onProgress: (event: SpeechProgress) => void,
 ): Promise<void> {
   const channel = new Channel<SpeechProgress>();
-  channel.onmessage = onProgress;
+  channel.onmessage = diagnosticSpeechProgress('play_prepared_speech', requestId, onProgress);
   return invoke('play_prepared_speech', { routing, route, requestId, onProgress: channel });
 }
 export async function discardPreparedSpeech(requestId: string): Promise<void> {

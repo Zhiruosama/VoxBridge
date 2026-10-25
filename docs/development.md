@@ -82,6 +82,8 @@ GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*
 
 ## 进一步阅读
 
+- [本机诊断日志、导出和字段说明](diagnostics.md)
+
 - [服务配置与协议边界](08-provider-configuration.md)
 - [实时字幕优化记录](12-streamvox-optimization-progress.md)
 - [虚拟麦克风、安装和卸载](../native/macos/virtual-mic/README.md)

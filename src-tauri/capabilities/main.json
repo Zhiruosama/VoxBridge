@@ -4,6 +4,7 @@
   "description": "Local workspace window only",
   "windows": ["main"],
   "permissions": [
+    "allow-record-diagnostic", "allow-open-diagnostics-folder", "allow-export-diagnostics",
     "core:default", "allow-list-inputs", "allow-start-voice-input", "allow-finish-voice-input", "allow-cancel-voice-input", "allow-runtime-info", "allow-credential-status", "allow-set-credential",
     "allow-remove-credential", "allow-translate",
     "allow-detect-text-language", "allow-cancel-translation", "allow-transcribe-wav",

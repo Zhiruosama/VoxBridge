@@ -130,6 +130,26 @@ pub(super) async fn run(
             }
         },
         |attempt, delay, reason| {
+            crate::diagnostics::record(crate::diagnostics::DiagnosticEvent {
+                operation: "start_listening".into(),
+                kind: "recovery".into(),
+                correlation_id: Some(request.session_id.clone()),
+                attempt: Some(attempt),
+                reason: Some(
+                    if reason.contains("音频")
+                        || reason.contains("采集")
+                        || reason.contains("应用")
+                        || reason.contains("进程")
+                    {
+                        "device"
+                    } else {
+                        "network"
+                    }
+                    .into(),
+                ),
+                delay_ms: Some(delay.as_millis() as u64),
+                ..Default::default()
+            });
             send(
                 channel,
                 ListeningEvent::Recovering {

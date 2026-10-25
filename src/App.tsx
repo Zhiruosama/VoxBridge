@@ -1,3 +1,4 @@
+import { watchFrontendErrors, recordDiagnostic } from './diagnostics';
 import { useTheme } from './hooks/useTheme';
 import SidebarResizeHandle from './components/SidebarResizeHandle';
 import { useSidebarLayout } from './hooks/useSidebarLayout';
@@ -105,6 +106,7 @@ type Page = 'workspace' | 'settings' | 'diagnostics';
 export default function App() {
   useUiLanguage();
   useTextSelection();
+  useEffect(watchFrontendErrors, []);
   const [initial] = useState(() => {
     try {
       return { settings: loadSettings(), error: '' };
@@ -119,6 +121,18 @@ export default function App() {
   useEffect(() => setUiLanguage(settings.uiLanguage), [settings.uiLanguage]);
   const [savedSettings, setSavedSettings] = useState<Settings>(initial.settings);
   const [page, setPage] = useState<Page>('workspace');
+  useEffect(() => {
+    recordDiagnostic({ operation: 'frontend', kind: 'state', phase: `page_${page}` });
+  }, [page]);
+  useEffect(() => {
+    if (initial.error)
+      recordDiagnostic({
+        operation: 'frontend',
+        kind: 'error',
+        phase: 'settings_load_failed',
+        reason: 'configuration',
+      });
+  }, [initial]);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
@@ -567,8 +581,15 @@ export default function App() {
       saveSettings(next);
       setSettings(next);
       setSavedSettings(next);
+      recordDiagnostic({ operation: 'frontend', kind: 'state', phase: 'settings_saved' });
       if (!silent) notify('已保存');
     } catch (e) {
+      recordDiagnostic({
+        operation: 'frontend',
+        kind: 'error',
+        phase: 'settings_save_failed',
+        reason: 'configuration',
+      });
       notify(t('保存失败：{0}', String(e)));
     }
   }
