@@ -20,7 +20,8 @@ import {
   removeCredential,
   setCredential,
 } from '../bridge';
-import { subtitleColors, subtitleDefaults } from '../core/overlay';
+import { subtitleDefaults } from '../core/overlay';
+import CaptionColorPicker from './CaptionColorPicker';
 import Select from './Select';
 import SettingRow from './SettingRow';
 import PresetEditor from './PresetEditor';
@@ -288,39 +289,17 @@ export default function SettingsPanel({
                 ] as const
               ).map(([kind, label]) => (
                 <SettingRow title={label} key={kind}>
-                  <div
-                    className="subtitle-color-options"
-                    role="group"
-                    aria-label={t('{0}字幕颜色', t(label))}
-                  >
-                    {subtitleColors.map((color, index) => (
-                      <button
-                        key={color}
-                        className="subtitle-color"
-                        aria-label={t(['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index])}
-                        aria-pressed={draft.captionColors[kind] === color}
-                        style={{ backgroundColor: color }}
-                        onClick={() =>
-                          setDraft({
-                            ...draft,
-                            captionColors: { ...draft.captionColors, [kind]: color },
-                          })
-                        }
-                      />
-                    ))}
-                    <input
-                      type="color"
-                      className="caption-custom-color"
-                      aria-label={t('{0}自定义颜色', t(label))}
-                      value={draft.captionColors[kind]}
-                      onChange={(event) =>
-                        setDraft({
-                          ...draft,
-                          captionColors: { ...draft.captionColors, [kind]: event.target.value },
-                        })
-                      }
-                    />
-                  </div>
+                  <CaptionColorPicker
+                    label={t('{0}字幕颜色', t(label))}
+                    customLabel={t('{0}自定义颜色', t(label))}
+                    value={draft.captionColors[kind]}
+                    onChange={(color) =>
+                      setDraft({
+                        ...draft,
+                        captionColors: { ...draft.captionColors, [kind]: color },
+                      })
+                    }
+                  />
                 </SettingRow>
               ))}
             </div>
@@ -555,39 +534,14 @@ export default function SettingsPanel({
               {draft.subtitle.colorMode === 'custom' && (
                 <>
                   <SettingRow title={t('文字颜色')}>
-                    <div
-                      className="subtitle-color-options"
-                      role="group"
-                      aria-label={t('悬浮字幕文字颜色')}
-                    >
-                      {subtitleColors.map((color, index) => (
-                        <button
-                          key={color}
-                          className="subtitle-color"
-                          aria-label={t(['白色', '黄色', '绿色', '青色', '橙色', '粉色'][index])}
-                          aria-pressed={draft.subtitle.textColor === color}
-                          style={{ backgroundColor: color }}
-                          onClick={() =>
-                            setDraft({
-                              ...draft,
-                              subtitle: { ...draft.subtitle, textColor: color },
-                            })
-                          }
-                        />
-                      ))}
-                      <input
-                        type="color"
-                        aria-label={t('悬浮字幕自定义颜色')}
-                        className="caption-custom-color"
-                        value={draft.subtitle.textColor}
-                        onChange={(event) =>
-                          setDraft({
-                            ...draft,
-                            subtitle: { ...draft.subtitle, textColor: event.target.value },
-                          })
-                        }
-                      />
-                    </div>
+                    <CaptionColorPicker
+                      label={t('悬浮字幕文字颜色')}
+                      customLabel={t('悬浮字幕自定义颜色')}
+                      value={draft.subtitle.textColor}
+                      onChange={(color) =>
+                        setDraft({ ...draft, subtitle: { ...draft.subtitle, textColor: color } })
+                      }
+                    />
                   </SettingRow>
                 </>
               )}
