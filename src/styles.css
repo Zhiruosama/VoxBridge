@@ -30,6 +30,9 @@
   --good: #98c5a8;
   --danger: #f3a6a6;
   --focus: #88888d;
+  --composer-border: rgb(255 255 255 / 9%);
+  --composer-focus-border: rgb(255 255 255 / 20%);
+  --composer-shadow: 0 2px 6px rgb(0 0 0 / 12%), 0 8px 28px rgb(0 0 0 / 14%);
 }
 :root[data-theme='light'] {
   --menu: #fff;
@@ -47,6 +50,9 @@
   --good: #386648;
   --danger: #a52a2a;
   --focus: #73737a;
+  --composer-border: rgb(0 0 0 / 7%);
+  --composer-focus-border: rgb(0 0 0 / 16%);
+  --composer-shadow: 0 2px 6px rgb(0 0 0 / 3%), 0 8px 28px rgb(0 0 0 / 4%);
 }
 * {
   box-sizing: border-box;
@@ -449,13 +455,13 @@ nav button[aria-current='page'] {
 .composer-box {
   position: relative;
   background: var(--raised);
-  border: 1px solid #414141;
+  border: 1px solid var(--composer-border);
+  box-shadow: var(--composer-shadow);
   border-radius: 20px;
   overflow: visible;
 }
 .composer-box:focus-within {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 1px var(--focus);
+  border-color: var(--composer-focus-border);
 }
 .composer-box textarea {
   display: block;
