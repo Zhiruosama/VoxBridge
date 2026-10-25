@@ -75,6 +75,14 @@ export default function Setup() {
       setError(text('无法打开应用，请从开始菜单启动。', 'Open VoxBridge from the Start menu.'));
     }
   }
+  async function control(action: 'minimize' | 'close') {
+    try {
+      if (action === 'minimize') await getCurrentWindow().minimize();
+      else await getCurrentWindow().close();
+    } catch {
+      setError(text('无法操作窗口，请重试。', 'Could not control the window. Please retry.'));
+    }
+  }
   return (
     <div className="setup-shell">
       <header className="window-chrome" data-tauri-drag-region>
@@ -84,16 +92,13 @@ export default function Setup() {
         </span>
         <div className="window-chrome-drag" data-tauri-drag-region />
         <div className="window-controls">
-          <button
-            aria-label={text('最小化', 'Minimize')}
-            onClick={() => void getCurrentWindow().minimize()}
-          >
+          <button aria-label={text('最小化', 'Minimize')} onClick={() => void control('minimize')}>
             <Minus size={15} />
           </button>
           <button
             aria-label={text('关闭', 'Close')}
             disabled={busy}
-            onClick={() => void getCurrentWindow().close()}
+            onClick={() => void control('close')}
           >
             <X size={17} />
           </button>
