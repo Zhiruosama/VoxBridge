@@ -1,5 +1,19 @@
 {
-  "version": "0.2.1",
-  "notes": "Windows updater bootstrap; no newer package published yet.",
-  "platforms": {}
+  "version": "0.3.0",
+  "notes": "VoxBridge 0.3.0",
+  "pub_date": "2026-10-25T16:46:09.774Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTmVFWmRleWN3S1lsZFJOcFF6SUJvRTJWOVFpSmo3a01qK1NMTU9KS3lMUXkzU296Vys4QVZ5S0hYMnZ6SmUwWkNVRE5KcHQ0SEtJL0FXYU1zUWdoNGdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTQ2NTY3CWZpbGU6Vm94QnJpZGdlXzAuMy4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMAo4WUR0TURlVHhMS2lhbG41bzJ6MXJvckMrbnNOZGRodk90cnExVU5ZNjdmUDVTeEROMTdlWDJWY0U1OFhkNTRoOVBvemFRVi9DWkNjR2ZrYXdKMlJEQT09Cg==",
+      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.3.0/VoxBridge_0.3.0_x64-setup.exe"
+    },
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTmRzQ1dJOCtPd1JRY1ZMRzRQWVROcjJUdnFORmZQK2tHTGtybkFVN3ExWjNwdzRGbDFRSFlUeDR2MUg3U3F5eW1USmcyRjRPekNkYnl3a3Z4ckdzdkFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTQ2NDc5CWZpbGU6Vm94QnJpZGdlLmFwcC50YXIuZ3oJdmVyc2lvbjowLjMuMApxd2JpRTNTcHBnOW0xSm9wc1FkenFWQUlYN3loUk5MN0YybGlJV0tiUWJ3bmNVWldKcVRMd2tBV0hvNHBRdlBWYmJSd0NkNDVZL0VZT1JvdGNqai9CQT09Cg==",
+      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.3.0/VoxBridge.app.tar.gz"
+    },
+    "windows-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTmJBRHZDdmp3RFZCQzZUYUJVbW50L3dpUUVpb0psQ0J3aEFpSWVEbVFBYjJ5NmxLV2xEdzV2a255bTVuM0ZxTXdJdmNSc2JQTG5ZNHVFaExkOUpwSUFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTQ2NzAyCWZpbGU6Vm94QnJpZGdlXzAuMy4wX2FybTY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy4wCkhKQmFFL0lPczV4QTVWZzhjcUgzRWw3clpKSEpxWlAxMTlqbG12cmpMRUROVFl1MTlVYlFRcnNESnR1cThDZnppWDJkTE1EMHhmMUtiUVhlVjBLQ0RRPT0K",
+      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.3.0/VoxBridge_0.3.0_arm64-setup.exe"
+    }
+  }
 }
