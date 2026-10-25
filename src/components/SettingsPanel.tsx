@@ -1,11 +1,11 @@
 import { t, useUiLanguage } from '../i18n';
 import SpeechSpeed from './SpeechSpeed';
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react';
 import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
-import { blankProfile, profileFor, captionColorDefaults } from '../core/settings';
+import { blankProfile, profileFor, captionColorDefaults, defaults } from '../core/settings';
 import { previewDeviceOptions, migrateLegacyOutputRouting } from '../core/audio-routing';
 import {
   credentialStatus,
@@ -297,14 +297,47 @@ export default function SettingsPanel({
           </section>
           <section className="preference-section" aria-labelledby="caption-colors-heading">
             <div className="preference-section-title">
-              <h2 id="caption-colors-heading">{t('工作台字幕配色')}</h2>
+              <h2 id="caption-colors-heading">{t('工作台字幕')}</h2>
               <button
-                onClick={() => setDraft({ ...draft, captionColors: { ...captionColorDefaults } })}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    captionFontSize: defaults.captionFontSize,
+                    captionColors: { ...captionColorDefaults },
+                  })
+                }
               >
                 {t('恢复默认')}
               </button>
             </div>
             <div className="preference-card">
+              <SettingRow title={t('字号')}>
+                <input
+                  type="range"
+                  aria-label={t('工作台字幕字号')}
+                  min={12}
+                  max={32}
+                  step={1}
+                  value={draft.captionFontSize}
+                  onChange={(event) =>
+                    setDraft({ ...draft, captionFontSize: Number(event.target.value) })
+                  }
+                />
+                <span className="preference-value">{draft.captionFontSize} px</span>
+              </SettingRow>
+              <div
+                className="workspace-caption-preview"
+                aria-label={t('工作台字幕预览')}
+                style={
+                  {
+                    '--caption-font-size': `${draft.captionFontSize}px`,
+                    '--caption-source-font-size': `${(draft.captionFontSize * 14) / 17}px`,
+                  } as CSSProperties
+                }
+              >
+                <p className="source-text">{t('这是原文预览')}</p>
+                <p className="translation-text">{t('这是译文预览')}</p>
+              </div>
               {(
                 [
                   ['recognition', '语音识别'],

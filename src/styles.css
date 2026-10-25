@@ -598,16 +598,19 @@ nav button[aria-current='page'] {
 }
 .source-text {
   color: var(--caption-source, var(--muted));
-  font-size: 14px;
+  font-size: var(--caption-source-font-size, 14px);
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
 .translation-text {
-  font-size: 17px;
+  font-size: var(--caption-font-size, 17px);
   line-height: 1.8;
   margin-top: 5px;
   overflow-wrap: anywhere;
   font-weight: 500;
+}
+.workspace-caption-preview {
+  padding-block: 16px;
 }
 .expression-word {
   animation: expression-reveal 200ms ease-out both;

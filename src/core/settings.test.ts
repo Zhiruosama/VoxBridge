@@ -6,6 +6,24 @@ import { migrateLegacyOutputRouting } from './audio-routing';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('provider profiles', () => {
+  it('migrates and persists workspace font size independently of floating captions', () => {
+    for (const value of [undefined, null, '24', NaN, Infinity]) {
+      expect(parseSettings({ ...defaults, captionFontSize: value }).captionFontSize).toBe(17);
+    }
+    expect(parseSettings({ ...defaults, captionFontSize: 1 }).captionFontSize).toBe(12);
+    expect(parseSettings({ ...defaults, captionFontSize: 99 }).captionFontSize).toBe(32);
+    expect(parseSettings({ ...defaults, captionFontSize: 22.6 }).captionFontSize).toBe(23);
+    let stored = '';
+    vi.stubGlobal('localStorage', {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value;
+      },
+    });
+    saveSettings({ ...structuredClone(defaults), captionFontSize: 24 });
+    expect(loadSettings().captionFontSize).toBe(24);
+    expect(loadSettings().subtitle).toEqual(defaults.subtitle);
+  });
   it('persists upgraded Windows output IDs across restart without changing provider settings', () => {
     let stored = JSON.stringify({
       ...structuredClone(defaults),

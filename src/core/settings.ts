@@ -17,6 +17,7 @@ export const defaults: Settings = {
   theme: 'dark',
   captionColors: { ...captionColorDefaults },
   captionSpacing: 26,
+  captionFontSize: 17,
   audio: {
     previewDeviceId: systemDefaultOutputId,
     sendDeviceId: systemDefaultOutputId,
@@ -249,6 +250,10 @@ export function parseSettings(value: unknown): Settings {
       typeof input.captionSpacing === 'number' && Number.isFinite(input.captionSpacing)
         ? Math.min(64, Math.max(8, Math.round(input.captionSpacing)))
         : defaults.captionSpacing,
+    captionFontSize:
+      typeof input.captionFontSize === 'number' && Number.isFinite(input.captionFontSize)
+        ? Math.min(32, Math.max(12, Math.round(input.captionFontSize)))
+        : defaults.captionFontSize,
     subtitle: parseSubtitleAppearance(input.subtitle),
     composer: parseComposerSettings(input.composer),
     listening: {

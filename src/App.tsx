@@ -1114,7 +1114,13 @@ export default function App() {
                   <div
                     className="transcript-content"
                     data-selection-scope
-                    style={{ '--caption-spacing': `${settings.captionSpacing}px` } as CSSProperties}
+                    style={
+                      {
+                        '--caption-spacing': `${settings.captionSpacing}px`,
+                        '--caption-font-size': `${settings.captionFontSize}px`,
+                        '--caption-source-font-size': `${(settings.captionFontSize * 14) / 17}px`,
+                      } as CSSProperties
+                    }
                   >
                     {session.segments.map((segment) => {
                       const expression = segment.id.startsWith('expression:');
