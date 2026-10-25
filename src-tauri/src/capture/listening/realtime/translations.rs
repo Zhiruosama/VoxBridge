@@ -93,7 +93,7 @@ where
                 measurements.record(queue_ms, request_ms, text.is_ok());
                 if !token.is_cancelled() { metrics(measurements.report(queue.len(), pending.len()))?; }
                 if let Err(error) = &text {
-                    if error != crate::providers::INVALID_TRANSLATION { return Err(error.clone()); }
+                    if !crate::providers::is_invalid_translation(error) { return Err(error.clone()); }
                 }
                 if !token.is_cancelled() { emit(sentence, text)?; }
             },

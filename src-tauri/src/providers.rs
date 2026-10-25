@@ -439,6 +439,13 @@ async fn request_translation_with_context(
 
 pub(crate) const INVALID_TRANSLATION: &str = "翻译服务未返回有效译文，请重试或更换模型。";
 
+pub(crate) fn is_invalid_translation(error: &str) -> bool {
+    error == INVALID_TRANSLATION
+        || error
+            .strip_prefix(INVALID_TRANSLATION)
+            .is_some_and(|detail| detail.starts_with(' '))
+}
+
 fn valid_translation(source: &str, result: &str, target: &str) -> bool {
     // Short Japanese words can contain only kanji (e.g. 学校). Script-based
     // recognizers commonly label these Chinese; this is not evidence of a wrong target.
