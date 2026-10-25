@@ -231,7 +231,8 @@ h2 {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
+  position: relative;
+  grid-template-columns: var(--sidebar-width, 196px) minmax(0, 1fr);
   height: 100dvh;
   min-height: 480px;
   padding: 8px;
@@ -957,9 +958,6 @@ nav button[aria-current='page'] {
   display: none;
 }
 @media (max-width: 760px) {
-  .app-shell {
-    grid-template-columns: 150px minmax(0, 1fr);
-  }
   .sidebar-collapsed {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2244,4 +2242,43 @@ input:focus {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
   box-shadow: none;
+}
+
+.sidebar-resize-handle {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  bottom: 12px;
+  left: calc(var(--sidebar-width, 196px) + 6px);
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+.sidebar-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 12px 4px;
+  border-radius: 2px;
+  background: transparent;
+}
+.sidebar-resize-handle:hover::after,
+.sidebar-resize-handle:focus-visible::after,
+.sidebar-resize-handle.is-dragging::after {
+  background: var(--focus);
+}
+.sidebar-resize-handle:focus-visible {
+  outline: none;
+}
+.sidebar nav button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar nav button svg {
+  flex-shrink: 0;
+}
+@media (max-width: 540px) {
+  .sidebar-resize-handle {
+    display: none;
+  }
 }

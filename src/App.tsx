@@ -1,3 +1,5 @@
+import SidebarResizeHandle from './components/SidebarResizeHandle';
+import { useSidebarLayout } from './hooks/useSidebarLayout';
 import { t, setUiLanguage, useUiLanguage } from './i18n';
 import SendQueueControls from './components/SendQueueControls';
 import type { QueueAction } from './core/send-queue';
@@ -233,6 +235,7 @@ export default function App() {
   const composingRef = useRef(false);
   const [follow, setFollow] = useState(true);
   const [sidebar, setSidebar] = useState(true);
+  const sidebarLayout = useSidebarLayout();
   const scrollRef = useRef<HTMLDivElement>(null);
   const translationProfile = profileFor(settings, 'translation');
   const speechSpeed = profileFor(settings, 'tts').speed ?? 1;
@@ -810,7 +813,11 @@ export default function App() {
     ` · ${t(direction.source)} → ${t(direction.target)}`;
 
   return (
-    <div className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}>
+    <div
+      ref={sidebarLayout.shellRef}
+      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'}`}
+      style={{ '--sidebar-width': `${sidebarLayout.width}px` } as CSSProperties}
+    >
       <a className="skip-link" href="#main-content">
         {t('跳到主内容')}
       </a>
@@ -881,6 +888,13 @@ export default function App() {
           </nav>
         )}
       </aside>
+      {sidebar && (
+        <SidebarResizeHandle
+          width={sidebarLayout.width}
+          maximum={sidebarLayout.maximum}
+          onChange={sidebarLayout.setWidth}
+        />
+      )}
       <div className="main-shell">
         <header className="titlebar">
           <div>
