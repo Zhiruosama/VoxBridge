@@ -1,6 +1,6 @@
 # Windows 虚拟麦克风（VB-CABLE）
 
-Windows 首版使用 VB-Audio 官方已签名的基础版 VB-CABLE Pack45，由 VoxBridge 提供安装引导、两端检测与发送设备快捷设置。设备保持厂商原名，不伪装成自有 VoxBridge 驱动。
+Windows 首版使用 VB-Audio 官方已签名的基础版 VB-CABLE Pack45，由 VoxBridge 提供安装引导、两端检测与发送设备快捷设置。默认使用厂商名称，也支持通过 Windows 设置把端点显示名改为 VoxBridge；驱动和签名仍属于 VB-Audio，不作为自有驱动。
 
 ## 使用
 
@@ -29,6 +29,6 @@ VB-CABLE is a donationware, all participations are welcome.
 
 ## 验证范围
 
-设备识别限定基础版、正确方向和厂商名称，不将 Steam 或其他虚拟设备当作 VB-CABLE。两端都出现才允许快捷选为发送设备；部分缺失提示检查启用状态与重启。发送沿用现有稳定端点 ID 和独立试听路径。
+设备识别限定基础版、枚举方向和厂商名称；接受默认名称及用户设置的 VoxBridge 别名，不将 Steam 或其他虚拟设备当作 VB-CABLE。两端都出现才允许快捷选为发送设备；部分缺失提示检查启用状态与重启。发送沿用现有稳定端点 ID 和独立试听路径。
 
 自动测试与打包验证不能替代真实驱动回环/通话验收。安装驱动后需检查：静音试听仍能发送、试听开启不重复播放、发送取消、队列连续发送、实体麦克风输入、聊天软件收音和重启后的设备恢复。

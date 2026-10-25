@@ -59,7 +59,7 @@ npm run desktop:build:mac
 
 当前使用 ad-hoc 签名，尚未 Developer ID 签名或公证。临时签名的程序更新后，macOS 隐私授权可能需要重新确认。发布前还需要单独验证目标架构、安装权限和干净机器行为；不要将本机调试设备作为发行依赖。
 
-GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*` 标签时构建 Apple Silicon DMG、生成 SHA-256 校验值并发布为 prerelease。标签必须与 `package.json` 和 Tauri 配置中的版本一致，并提供 `docs/releases/<标签>.md`。先完成测试、打包和附件上传，再公开 Release。
+GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*` 标签时构建 Apple Silicon DMG 和 Windows x64 NSIS，生成更新签名与分平台 SHA-256 校验清单，两个平台都成功后统一发布 prerelease 并推进更新源；手动运行只构建验证，不发布。标签必须与 `package.json` 和 Tauri 配置中的版本一致，并提供 `docs/releases/<标签>.md`。先完成测试、打包和附件上传，再公开 Release。
 
 ## 实现入口
 
@@ -78,7 +78,7 @@ GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*
 
 ## 配置与凭据
 
-普通设置由前端保存，不包含 API Key 或字幕历史。凭据使用独立的本机私有目录，密钥与随机本机加密钥分文件保存；macOS / Linux 目录权限为 `0700`，文件权限为 `0600`。该方案依靠当前系统用户的文件权限，不隔离同一用户下有相应文件读取权限的其他程序。
+普通设置由前端保存，不包含 API Key 或字幕历史。凭据使用独立的本机私有目录，密钥与随机本机加密钥分文件保存；macOS / Linux 目录权限为 `0700`，文件权限为 `0600`。Windows 主密钥使用当前用户 DPAPI，目录与文件 DACL 限定当前用户和 SYSTEM；旧 master.v1.key 在校验服务密文及新格式回读成功后迁移为 master.v2.dpapi。该方案仍不隔离同一用户下的其他程序。
 
 现行凭据流程不依赖每次构建的签名，也不在正常保存、读取、重启时访问 Keychain。旧存储的一次性迁移、删除语义与验证见[密钥持久化记录](validation/2026-10-24-private-credentials.md)。开发密钥、用户配置、克隆样本和录音不能随安装包或源码发布。
 
@@ -92,3 +92,12 @@ GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*
 - [Discord 实测与音质边界](13-virtual-microphone-and-monitoring.md)
 - [微信虚拟麦克风调查](wechat-virtual-microphone-investigation.md)
 - [设计文档目录](README.md)（含早期方案）
+
+
+## 签名更新与发布
+
+应用更新使用 Tauri updater，公共验证密钥在 tauri.conf.json；签名私钥仅保存于受保护的本机目录以及 GitHub Actions Secret `TAURI_SIGNING_PRIVATE_KEY`，不得提交源码。可选密码使用 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。更新签名不同于 Windows Authenticode 或 Apple Developer ID 签名。
+
+开发打包默认不生成更新产物；正式发布流水线通过配置启用 createUpdaterArtifacts。发布收集和清单检查由 scripts/prepare-release.mjs 执行，`npm run test:release` 验证校验拒绝、版本一致性及防止更新源降级。
+
+`update-feed` 是只存 latest.json 的分发分支，不是应用开发分支。只有完整 Release 上传后才推进它；Windows x64、Windows ARM64、Mac ARM64 的签名产物分别使用 windows-x86_64、windows-aarch64、darwin-aarch64 键。客户端拒绝损坏的签名包，且要求签名中的版本与更新清单一致。启动时只检查，用户点击后才下载/安装；安装前两次检查未完成任务和未保存内容。

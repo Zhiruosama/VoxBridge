@@ -28,6 +28,9 @@ _Interface demo with example captions._
 
 Installers include the frontend and native app; developer tools are needed only for source builds. The Mac test release is not notarized; see its [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1). See the [Windows installation guide (中文)](docs/windows-installation.md) for driver setup, updates that preserve settings, and removal. Windows 10, ARM64 and other Windows environments have not been validated.
 
+
+The development branch also includes startup update checks, signed in-app updates, Windows microphone access guidance and DPAPI credential protection. Native Windows ARM64 CI tests and installer builds have passed; experimental artifacts are available as `windows-arm64-nsis`. Real ARM64 audio hardware still needs validation. The older published Mac 0.2.1 does not include the new update controls.
+
 ## Get started
 
 ### 1. Set up your services

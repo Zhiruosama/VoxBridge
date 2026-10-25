@@ -28,6 +28,9 @@ _界面演示，字幕为示例内容。_
 
 安装包内置前端和原生程序，使用者无需开发工具；从源码构建才需要。Mac 测试版尚未公证，首次打开处理步骤见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.2.1)。Windows 安装、虚拟麦克风、覆盖更新与卸载见 [Windows 安装指南](docs/windows-installation.md)。Windows 10、ARM64 及其他 Windows 环境尚未验收。
 
+
+开发分支还提供启动检查与签名更新、Windows 麦克风权限引导和 DPAPI 凭据保护。Windows ARM64 已通过原生 CI 测试及安装包构建，可从 Check 的 `windows-arm64-nsis` 获取实验产物，真实音频设备仍待验收。公开的旧版 Mac 0.2.1 不包含这些新增更新入口。
+
 ## 开始使用
 
 ### 1. 配置服务

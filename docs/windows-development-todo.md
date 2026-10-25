@@ -1,12 +1,12 @@
 # Windows 当前进度与开发待办
 
-更新：2026-10-25（Asia/Hong_Kong）。工作分支：`codex/windows-support`；本次盘点代码基线：`40ebbb1`。与远端 `main` 相比领先 17 个实现/修复提交，尚未合并、未发布 Windows Release。原始计划见 [Windows 交接](windows-handoff.md)，具体证据见 [实机验证记录](validation/2026-10-25-windows-native.md)。
+更新：2026-10-25（Asia/Hong_Kong）。工作分支：`codex/windows-support`；本轮实现基线：`cb7e8e3`。尚未合并到 `main`，未发布 Windows Release。原始计划见 [Windows 交接](windows-handoff.md)，具体证据见 [实机验证记录](validation/2026-10-25-windows-native.md)。
 
 ## 是否可以提交 MR / PR
 
 **可以进入 MR 评审；不等于已经具备正式发布条件。** GitHub 称为 Pull Request（PR）。分支可合并性与 CI 必须按提交 PR 时的最新 HEAD 再检查。
 
-盘点时，`40ebbb1` 的 [Check 工作流](https://github.com/Zhiruosama/VoxBridge/actions/runs/40196018632) 全部成功：前端、Windows 原生测试/Release NSIS 构建、macOS 原生测试与探针编译。当前前端 180 项测试通过；Windows Rust 139 项通过、20 项硬件/付费等测试默认忽略，另有显式执行的 VB-CABLE 回环测试通过。macOS CI 通过不能替代真实 Mac 的界面与音频回归。
+盘点时，`40ebbb1` 的 [Check 工作流](https://github.com/Zhiruosama/VoxBridge/actions/runs/40196018632) 全部成功：前端、Windows 原生测试/Release NSIS 构建、macOS 原生测试与探针编译。上述为早期盘点；本轮前端 186 项测试通过、发布脚本 5 项通过，Windows Rust 144 项通过、22 项硬件/付费等测试默认忽略，另有显式执行的 VB-CABLE 回环测试通过。macOS CI 通过不能替代真实 Mac 的界面与音频回归。
 
 MR 范围建议为“Windows 11 x64 首版支持与共享前端修复”，明确列出未测项，不把 Windows 10、ARM64、聊天客户端实际通话或自有驱动写成已支持。MR 可以先评审；合并前至少确认共享改动的 Mac 实机回归及下方关键音频验收的处理安排。正式发布需补齐发布阻塞项。
 
@@ -26,12 +26,19 @@ MR 范围建议为“Windows 11 x64 首版支持与共享前端修复”，明�
 | 日常体验 | 隐藏调试控制台、默认窗口尺寸、滑块焦点样式、字体修复、工作台字幕字号及虚拟麦克风说明区排版 |
 | 诊断与凭据持久化 | 复用固定元数据日志与本机加密存储；重启/覆盖更新保留已验证，未宣称实现 DPAPI 或同用户程序隔离 |
 
+## 本批已补齐（2026-10-25）
+
+- [x] **Windows 自动发布**：双平台签名构建、分平台校验文件、统一发布和签名更新清单；手动运行只验证产物，不公开 Release。
+- [x] **软件内更新**：启动检查、设置页手动检查、签名与签名版本校验、下载安装和重启；音频任务、发送队列、输入草稿或未保存设置存在时阻止安装。
+- [x] **Windows 凭据保护**：主密钥改用当前用户 DPAPI，目录/文件 DACL 限定当前用户和 SYSTEM；旧明文主密钥先校验解密，再写入并回读验证新格式，成功后删除旧主密钥。原服务密文保持不变。
+- [x] **麦克风权限引导**：只读权限检查、未知状态不冒充已授权、设备/格式错误提示，以及直达 Windows 麦克风权限设置。
+- [x] **端点改名兼容**：本机 Windows 录音端改名 VoxBridge，兼容两端使用该名称并保留 VB-Audio 厂商核对；设置页提供改名入口与来源说明，未修改官方签名驱动包。
+- [x] **Windows ARM64 构建入口**：Check 的 windows-11-arm 原生编译、测试和独立安装包产物已通过，签名发布流程加入 ARM64；仍不能替代真实 ARM64 音频设备验收。
+
 ## 尚未开发实现
 
-- [ ] **Windows 自动发布流水线（发布阻塞）**：Check 已构建并保留 `windows-nsis`，但 Release 工作流仍只发布 Mac DMG。需加入 Windows Release 构建、平台校验清单与附件上传，避免多个任务覆盖同一校验文件。
-- [ ] **Windows 凭据专项加固**：评估/实现 DPAPI 主密钥保护与目录 ACL，包含旧文件迁移、失败不覆盖及损坏恢复。现有加密文件持久化可用，不能表述成已完成 Windows 原生凭据保护。
 - [ ] **自有 VoxBridge 虚拟麦克风驱动（后续可选）**：当前经用户选择使用 VB-CABLE，端点保留厂商名称；名为 VoxBridge 的 Windows 驱动、签名和分发均未实现，不阻塞 VB-CABLE 首版。
-- [ ] **额外平台支持（范围外）**：Windows 10 的低版本采集路径、Windows ARM64 等未交付；不能仅因 Tauri 可运行或厂商驱动含 ARM64 文件就声明支持。
+- [ ] **额外平台支持（范围外）**：Windows 10 的低版本按进程采集路径未交付；ARM64 新增原生构建验证，但实机声音链路未验收；不能仅因 Tauri 可运行或厂商驱动含 ARM64 文件就声明支持。
 
 ## 已实现但尚未完整验收
 
@@ -50,5 +57,5 @@ MR 范围建议为“Windows 11 x64 首版支持与共享前端修复”，明�
 
 1. 先提交 MR 进入评审，范围、已验收项和未测项在描述中写清，保留 `main` 稳定。
 2. 优先完成 Mac 实机回归、Windows 真实服务与聊天收音、干净机器安装/升级/卸载及长期运行验收。
-3. 实现 Windows Release 流水线，准备双平台发布说明与独立校验附件，再发布新测试版；不要把当前 Mac-only 的 v0.2.1 Release 描述成已有 Windows 下载。
-4. DPAPI/ACL 和自有驱动分别排期，不能用文档勾选替代实现或验收。
+3. 验证本批双平台签名发布流程，准备新版本号和双平台发布说明后再发布；不要把当前 Mac-only 的 v0.2.1 Release 描述成已有 Windows 下载。
+4. 自有签名驱动和 Windows 10 旧系统采集路径独立排期，需要驱动实现、签名及硬件验收；不能把端点改名当作自有驱动。
