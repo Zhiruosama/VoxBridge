@@ -2258,13 +2258,15 @@ input:focus {
 .sidebar-resize-handle::after {
   content: '';
   position: absolute;
-  inset: 12px 4px;
+  top: 50%;
+  left: 4px;
+  width: 2px;
+  height: 24px;
+  transform: translateY(-50%);
   border-radius: 2px;
   background: transparent;
 }
-.sidebar-resize-handle:hover::after,
-.sidebar-resize-handle:focus-visible::after,
-.sidebar-resize-handle.is-dragging::after {
+.sidebar-resize-handle:focus-visible:not(.is-dragging)::after {
   background: var(--focus);
 }
 .sidebar-resize-handle:focus-visible {

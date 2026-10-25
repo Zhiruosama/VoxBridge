@@ -50,7 +50,6 @@ export default function SidebarResizeHandle({
       onPointerDown={(event) => {
         if (event.button !== 0 || !event.isPrimary) return;
         event.preventDefault();
-        event.currentTarget.focus();
         event.currentTarget.setPointerCapture(event.pointerId);
         drag.current = { pointer: event.pointerId, x: event.clientX, width, latest: width };
         setDragging(true);
