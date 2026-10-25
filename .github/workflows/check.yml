@@ -39,9 +39,11 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm run build
-      - name: Build macOS virtual microphone resource
-        if: runner.os == 'macOS'
-        run: bash native/macos/virtual-mic/build.sh
+      # Tauri's build script validates bundled resources during cargo test too.
+      # Prepare them on a clean runner before compiling, rather than relying on
+      # the later desktop build hook or a developer's local cache.
+      - name: Prepare platform desktop resources
+        run: node scripts/build-desktop-resources.mjs
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - name: Build Windows installer

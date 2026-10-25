@@ -120,3 +120,9 @@ cargo test --offline --manifest-path src-tauri/Cargo.toml --locked live_native_c
 验证：前端 166 项通过；Rust 默认 138 项通过，另外显式运行资源/只读库存检查通过，覆盖完整包可用、缺失包拒绝、篡改文件拒绝。严格 Clippy、格式检查、前端构建及 Windows Debug/NSIS 构建通过，安装包约 9.96 MiB。检查生成的 NSIS 脚本与 exe 相邻资源目录，31 个文件均正确包含且摘要一致。
 
 只读本机检测返回 `provider=vb-cable, output=null, inputName=null, partial=false`：当前机器尚未安装 VB-CABLE，没有把 Steam 设备误报为就绪。尚未执行驱动安装、重启、音频回录或聊天通话；真实链路与音质需用户安装后继续验收。本批不将 W4 的真实收音标准或 W7 的自有驱动标为完成。使用步骤见 [Windows 虚拟麦克风说明](../../native/windows/README.md)。
+
+## CI 资源准备顺序修复
+
+Check 的 Windows job 在 Rust 测试阶段失败，macOS 与前端通过。原工作流只在测试前构建 macOS 驱动；Windows 的 VB-CABLE 资源直到后面的桌面打包钩子才准备，导致全新 runner 的 Tauri build.rs 提前校验资源时失败。本机缓存掩盖了这个依赖。
+
+临时移走源资源目录后执行同样的 locked Cargo 构建，复现 `resource path ... VBCABLE_Driver_Pack45 doesn't exist`；目录已在 finally 中恢复。工作流改为两个平台都在 Rust 编译/测试前运行统一 `build-desktop-resources.mjs`。独立空目录验证 Windows 官方包首次下载、摘要与签名校验成功，再按修正后的顺序运行资源准备、rustfmt 和完整 locked Cargo 测试，138 项通过、19 项手动测试跳过。本批仅修改 CI 与验证记录，应用行为及安装资源内容未变。
