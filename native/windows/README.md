@@ -12,7 +12,7 @@ Windows 首版使用 VB-Audio 官方已签名的基础版 VB-CABLE Pack45，由 
 
 VoxBridge 不修改系统默认输入/输出。厂商安装器可能调整 Windows 默认设备；安装后请检查系统声音设置，把日常默认输入/输出保留为实体设备。只有一端出现时先重启，检查声音设置中两端是否启用，再刷新。不要启用 Windows 的「侦听此设备」并同时打开应用试听，避免重复回放。虚拟录音端不会出现在 VoxBridge 的语音输入麦克风列表，防止自身回采。
 
-卸载驱动使用 VB-CABLE 官方安装器的 Remove Driver，并按提示重启；卸载 VoxBridge 不连带卸载共享驱动。
+卸载驱动使用 VB-CABLE 官方安装器的 Remove Driver，并按提示重启；卸载 VoxBridge 默认保留共享驱动，交互卸载时可选择先打开驱动卸载程序。开始菜单和软件设置页都有驱动管理入口。安装、覆盖更新与卸载详见 [Windows 安装指南](../../docs/windows-installation.md)。
 
 ## 来源、许可与构建
 

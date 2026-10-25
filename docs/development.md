@@ -2,13 +2,13 @@
 
 [返回首页](../README.md) · [使用指南](user-guide.md) · [架构设计](02-architecture.md)
 
-本页介绍当前主分支。历史设计文档和联调记录可能描述已被替代的方案，例如 Keychain、密钥模板和旧音频路由；实际行为以当前代码、使用指南及对应版本说明为准。
+本页介绍当前开发代码；Windows 实现位于 `codex/windows-support`，尚未合并发布。历史设计文档和联调记录可能描述已被替代的方案，例如 Keychain、密钥模板和旧音频路由；实际行为以当前代码、使用指南及对应版本说明为准。
 
 ## 环境
 
 - macOS 14.2+，优先验证 Apple Silicon。
 - Apple Command Line Tools、Node.js 22.12+（CI 使用 24）、Rust stable 1.96+。
-- Windows 构建需要 C++ Build Tools 与 WebView2。Windows 11 x64 已接入 WASAPI 应用进程树采集、共用监听业务和 NSIS 打包；自有虚拟麦克风驱动尚未实现。当前验证与限制见 [Windows 实机记录](validation/2026-10-25-windows-native.md)，后续见 [开发待办](windows-development-todo.md)。
+- Windows 构建需要 C++ Build Tools 与 WebView2。Windows 11 x64 已接入 WASAPI 应用进程树采集、共用监听业务和 NSIS 打包；虚拟麦克风使用随包的官方签名基础版 VB-CABLE，已验证本机音频回环；自有 VoxBridge Windows 驱动不属于首版实现。当前验证与限制见 [Windows 实机记录](validation/2026-10-25-windows-native.md)，后续见 [开发待办](windows-development-todo.md)。
 
 正式安装包已包含前端和原生程序，使用者无需安装这些开发工具。
 
@@ -28,6 +28,8 @@ npm start
 `npm start` / `npm run desktop` 启动 Tauri 开发应用，并自动启动 Vite。不要另外启动占用 1420 端口的服务。
 
 `npm run dev` 只提供界面预览。原生音频、凭据和真实模型调用需要桌面版。
+
+Windows 开发启动前先运行 `node scripts/build-desktop-resources.mjs`，获取并校验随包的 VB-CABLE 原始资源，再运行 `npm start`；也适用于干净检出后的原生测试。Windows 安装包使用 `npm run desktop:build:windows`。首次构建需要网络。详见 [Windows 安装与更新](windows-installation.md)。
 
 ## 检查
 
@@ -67,10 +69,10 @@ GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*
 | -------------------- | ------------------------------------------------------------------------------------- |
 | 界面与设置           | React + TypeScript，`src/`                                                            |
 | 桌面后端与供应商请求 | Tauri 2 + Rust，`src-tauri/src/`                                                      |
-| 应用声音采集         | macOS Core Audio process tap，`src-tauri/src/platform/macos_capture.rs`               |
+| 应用声音采集         | macOS Core Audio process tap / Windows WASAPI Application Loopback；`src-tauri/src/platform/capture.rs`               |
 | 设置页设备列表       | 只读 Core Audio 属性，`src-tauri/src/platform/macos/inventory.rs`；不初始化麦克风输入 |
 | 发送队列             | `src/core/send-queue.ts`、`src-tauri/src/speech/prepared.rs`                          |
-| 虚拟麦克风           | AudioServerPlugIn，`native/macos/virtual-mic/`                                        |
+| 虚拟麦克风           | macOS AudioServerPlugIn，`native/macos/virtual-mic/`；Windows VB-CABLE，`native/windows/`                                        |
 
 模型服务目前接入 Qwen 实时 WebSocket 与 HTTP 短音频 ASR、OpenAI 兼容 Chat Completions、MiniMax WebSocket 和 OpenAI 兼容 Speech。MiniMax 支持 PCM 流式播放，兼容 HTTP Speech 当前接收完成后播放。扩展服务需要遵循对应适配器协议，不能只增加下拉菜单选项。
 
