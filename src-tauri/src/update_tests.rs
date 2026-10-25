@@ -49,8 +49,12 @@ fn ci_release_signatures_match_embedded_key() {
         config["plugins"]["updater"]["pubkey"].as_str().unwrap(),
     ))
     .unwrap();
-    let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../native/windows/.build/release-verified");
+    let directory = std::env::var_os("VOXBRIDGE_RELEASE_VERIFY_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../native/windows/.build/release-verified")
+        });
     let mut checked = 0;
     for entry in std::fs::read_dir(&directory).unwrap() {
         let path = entry.unwrap().path();

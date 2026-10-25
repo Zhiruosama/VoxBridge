@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { AudioLines, Check, ChevronRight, Folder, LoaderCircle, Minus, X } from 'lucide-react';
+import {
+  AudioLines,
+  Check,
+  ChevronRight,
+  Copy,
+  Folder,
+  LoaderCircle,
+  Minus,
+  Square,
+  X,
+} from 'lucide-react';
 import './Setup.css';
 
 type Info = { path: string; upgrade: boolean; driver: boolean; language: string };
@@ -16,6 +26,7 @@ export default function Setup() {
   const [error, setError] = useState('');
   const [warning, setWarning] = useState(false);
   const [choosing, setChoosing] = useState(false);
+  const [maximized, setMaximized] = useState(false);
   const text = (zh: string, en: string) => (english ? en : zh);
   const busy = phase === 'installing';
   async function inspect() {
@@ -34,6 +45,33 @@ export default function Setup() {
   useEffect(() => {
     document.documentElement.dataset.theme = 'dark';
     void inspect();
+  }, []);
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    async function sync() {
+      try {
+        const next = await appWindow.isMaximized();
+        if (active) setMaximized(next);
+      } catch {
+        if (active) setError('无法读取窗口状态，请重试。');
+      }
+    }
+    void sync();
+    void appWindow
+      .onResized(sync)
+      .then((off) => {
+        if (active) unlisten = off;
+        else off();
+      })
+      .catch(() => {
+        if (active) setError('无法读取窗口状态，请重试。');
+      });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
   }, []);
   async function choose() {
     setChoosing(true);
@@ -75,10 +113,13 @@ export default function Setup() {
       setError(text('无法打开应用，请从开始菜单启动。', 'Open VoxBridge from the Start menu.'));
     }
   }
-  async function control(action: 'minimize' | 'close') {
+  async function control(action: 'minimize' | 'maximize' | 'close') {
     try {
       if (action === 'minimize') await getCurrentWindow().minimize();
-      else await getCurrentWindow().close();
+      else if (action === 'maximize') {
+        await getCurrentWindow().toggleMaximize();
+        setMaximized(await getCurrentWindow().isMaximized());
+      } else await getCurrentWindow().close();
     } catch {
       setError(text('无法操作窗口，请重试。', 'Could not control the window. Please retry.'));
     }
@@ -94,6 +135,13 @@ export default function Setup() {
         <div className="window-controls">
           <button aria-label={text('最小化', 'Minimize')} onClick={() => void control('minimize')}>
             <Minus size={15} />
+          </button>
+          <button
+            aria-label={maximized ? text('还原窗口', 'Restore window') : text('最大化', 'Maximize')}
+            title={maximized ? text('还原窗口', 'Restore window') : text('最大化', 'Maximize')}
+            onClick={() => void control('maximize')}
+          >
+            {maximized ? <Copy size={13} /> : <Square size={13} />}
           </button>
           <button
             aria-label={text('关闭', 'Close')}

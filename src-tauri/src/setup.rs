@@ -30,7 +30,8 @@ pub fn create_window(app: &mut tauri::App) -> Result<bool, Box<dyn std::error::E
     .title("VoxBridge 安装")
     .inner_size(900.0, 640.0)
     .min_inner_size(820.0, 580.0)
-    .resizable(false)
+    .resizable(true)
+    .maximizable(true)
     .decorations(false)
     .background_color(tauri::window::Color(30, 30, 30, 255));
     #[cfg(target_os = "windows")]

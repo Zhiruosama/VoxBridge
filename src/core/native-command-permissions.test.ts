@@ -8,7 +8,14 @@ import setup from '../../src-tauri/capabilities/setup.json';
 describe('native command permission integration', () => {
   it('isolates installer commands and excludes saved keys and audio from setup', () => {
     expect(setup.windows).toEqual(['setup']);
-    for (const operation of ['minimize', 'close', 'start-dragging']) {
+    for (const operation of [
+      'minimize',
+      'close',
+      'start-dragging',
+      'toggle-maximize',
+      'internal-toggle-maximize',
+      'is-maximized',
+    ]) {
       expect(setup.permissions).toContain(`core:window:allow-${operation}`);
     }
     for (const command of [
