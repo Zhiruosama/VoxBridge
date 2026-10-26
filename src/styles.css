@@ -1622,6 +1622,9 @@ input:not([type='range']):focus {
   color: #f5f5f7;
 }
 .subtitle-overlay {
+  --overlay-surface-shadow: 0 2px 6px rgb(0 0 0 / 9%);
+  --overlay-surface-edge: inset 0 0 0 1px rgb(255 255 255 / 8%);
+  padding: 6px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1637,8 +1640,9 @@ input:not([type='range']):focus {
   min-height: 0;
   background: var(--overlay-background);
   padding: 14px 20px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 0;
   border-radius: 16px;
+  box-shadow: var(--overlay-surface-edge), var(--overlay-surface-shadow);
   overflow: hidden;
 }
 .subtitle-overlay-toolbar {
@@ -2154,8 +2158,9 @@ input:not([type='range']):focus {
 }
 .overlay-text-panel {
   padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 0;
   border-radius: 16px;
+  box-shadow: var(--overlay-surface-edge), var(--overlay-surface-shadow);
   background: var(--overlay-background);
 }
 .overlay-voice-footer {

@@ -123,7 +123,10 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
             panel.setLevel(NSStatusWindowLevel);
             panel.setOpaque(false);
             panel.setBackgroundColor(Some(&NSColor::clearColor()));
-            panel.setHasShadow(true);
+            // AppKit shadows on a transparent, resizable panel produce a dark
+            // rectangular rim. The rounded web surfaces draw a subtle shadow
+            // inside transparent window padding instead.
+            panel.setHasShadow(false);
             panel.setContentMinSize(original.contentMinSize());
             let directory = window.app_handle().path().app_log_dir().map_err(|_| "无法初始化字幕窗诊断。")?;
             let _ = std::fs::create_dir_all(&directory);
