@@ -858,5 +858,6 @@
   "目标语言": "Target language",
   "文本翻译面板不透明度": "Text translation panel opacity",
   "调整翻译区域宽度": "Resize translation panels",
-  "左右拖动调整，双击恢复等宽。": "Drag left or right to resize. Double-click for equal widths."
+  "左右拖动调整，双击恢复等宽。": "Drag left or right to resize. Double-click for equal widths.",
+  "Enter 翻译，Shift + Enter 换行。": "Enter to translate, Shift + Enter for a new line."
 }

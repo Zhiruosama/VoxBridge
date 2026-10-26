@@ -2743,18 +2743,30 @@ input[type='range']:focus-visible::-moz-range-thumb {
   gap: 0;
 }
 .text-translation-panel {
+  position: relative;
+  isolation: isolate;
   min-width: 0;
   display: flex;
   flex-direction: column;
   padding: 20px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 20px;
-  background: color-mix(in srgb, var(--raised) var(--text-panel-opacity, 85%), transparent);
-  border-color: var(--composer-border);
-  box-shadow: var(--composer-shadow);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease;
+}
+/* Fade the whole surface, including its edge, without fading text or controls. */
+.text-translation-panel::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--composer-border);
+  border-radius: inherit;
+  background: var(--raised);
+  box-shadow:
+    0 1px 3px var(--composer-shadow-near),
+    0 6px 24px var(--composer-shadow-far);
+  opacity: var(--text-panel-opacity, 85%);
+  transition: opacity 150ms ease;
 }
 .text-translation-panel > label,
 .text-translation-result-heading {
@@ -2781,12 +2793,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   outline: none;
   box-shadow: none;
 }
-.text-translation-panel:focus-within {
-  border-color: var(--composer-focus-border);
-  box-shadow:
-    0 0 0 3px var(--composer-shadow-near),
-    var(--composer-shadow);
-}
+
 .text-translation-result {
   white-space: pre-wrap;
   user-select: text;
@@ -2823,7 +2830,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   .text-translation-progress .status-spinner {
     animation: none;
   }
-  .text-translation-panel {
+  .text-translation-panel::before {
     transition: none;
   }
 }

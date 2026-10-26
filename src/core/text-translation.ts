@@ -98,3 +98,20 @@ export class TextTranslationController {
     }
   }
 }
+
+/** Safari can report the IME-confirming Enter with keyCode 229 after composition ends. */
+export function textTranslationSubmitKey(event: {
+  key: string;
+  shiftKey: boolean;
+  altKey: boolean;
+  isComposing: boolean;
+  keyCode?: number;
+}): boolean {
+  return (
+    event.key === 'Enter' &&
+    !event.shiftKey &&
+    !event.altKey &&
+    !event.isComposing &&
+    event.keyCode !== 229
+  );
+}

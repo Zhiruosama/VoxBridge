@@ -1,7 +1,7 @@
 import { useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { textSplitRatio, textSplitStorageKey } from '../core/text-translation-layout';
 import { ArrowRight, Check, Copy, LoaderCircle, Settings2, X } from 'lucide-react';
-import type { TextTranslationController } from '../core/text-translation';
+import { textTranslationSubmitKey, type TextTranslationController } from '../core/text-translation';
 import { profileFor } from '../core/settings';
 import type { Settings } from '../core/types';
 import { t } from '../i18n';
@@ -105,15 +105,20 @@ export default function TextTranslation({
             id="text-translation-input"
             value={state.input}
             placeholder={t('输入要翻译的文字…')}
+            aria-description={t('Enter 翻译，Shift + Enter 换行。')}
             onChange={(event) => controller.update({ input: event.target.value })}
             onKeyDown={(event) => {
               if (
-                event.key === 'Enter' &&
-                (event.metaKey || event.ctrlKey) &&
-                !event.nativeEvent.isComposing
+                textTranslationSubmitKey({
+                  key: event.key,
+                  shiftKey: event.shiftKey,
+                  altKey: event.altKey,
+                  isComposing: event.nativeEvent.isComposing,
+                  keyCode: event.nativeEvent.keyCode,
+                })
               ) {
                 event.preventDefault();
-                submit();
+                if (!event.repeat) submit();
               }
             }}
           />

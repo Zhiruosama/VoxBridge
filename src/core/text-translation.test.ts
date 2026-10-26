@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { TextTranslationController } from './text-translation';
+import { TextTranslationController, textTranslationSubmitKey } from './text-translation';
 import { defaults, profileFor } from './settings';
 
 function fixture() {
@@ -139,5 +139,18 @@ describe('independent text translation', () => {
     controller.update({ input: '继续' });
     expect(reopened).toHaveBeenCalledTimes(1);
     close();
+  });
+});
+
+describe('text translation Enter behavior', () => {
+  const enter = { key: 'Enter', shiftKey: false, altKey: false, isComposing: false };
+  it('sends on Enter and leaves Shift+Enter available for newlines', () => {
+    expect(textTranslationSubmitKey(enter)).toBe(true);
+    expect(textTranslationSubmitKey({ ...enter, shiftKey: true })).toBe(false);
+    expect(textTranslationSubmitKey({ ...enter, key: 'a' })).toBe(false);
+  });
+  it('does not send when confirming IME candidates, including Safari keyCode 229', () => {
+    expect(textTranslationSubmitKey({ ...enter, isComposing: true })).toBe(false);
+    expect(textTranslationSubmitKey({ ...enter, keyCode: 229 })).toBe(false);
   });
 });
