@@ -2779,7 +2779,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
   min-height: 180px;
   margin: 12px 0 20px;
   font: inherit;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
