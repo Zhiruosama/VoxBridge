@@ -12,8 +12,16 @@ const subtitleWindow = isTauri() && getCurrentWebviewWindow().label === 'subtitl
 const setupWindow = isTauri() && getCurrentWebviewWindow().label === 'setup';
 if (subtitleWindow) document.documentElement.dataset.overlay = 'true';
 
+function StartupReady() {
+  React.useLayoutEffect(() => {
+    window.dispatchEvent(new Event('voxbridge:ready'));
+  }, []);
+  return null;
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {subtitleWindow ? <SubtitleOverlay /> : setupWindow ? <Setup /> : <App />}
+    {!subtitleWindow && <StartupReady />}
   </React.StrictMode>,
 );

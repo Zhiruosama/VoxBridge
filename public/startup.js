@@ -18,10 +18,9 @@
       : 'dark';
   root.dataset.language = settings?.uiLanguage === 'en' ? 'en' : 'zh-CN';
   root.lang = root.dataset.language;
-  setTimeout(() => {
+  const slowStartup = setTimeout(() => {
     const caption = document.getElementById('startup-caption');
     const retry = document.getElementById('startup-retry');
-    // React replaces the startup content on its first successful commit.
     if (!caption || !retry) return;
     caption.textContent =
       root.dataset.language === 'en'
@@ -30,4 +29,33 @@
     retry.hidden = false;
     retry.addEventListener('click', () => location.reload());
   }, 12000);
+
+  // Keep the loading layer outside React's root. Once the UI has committed,
+  // paint it underneath before fading the old surface away, without a hold delay.
+  window.addEventListener(
+    'voxbridge:ready',
+    () => {
+      clearTimeout(slowStartup);
+      const splash = document.getElementById('startup-screen');
+      if (!splash) return;
+      const finish = () => splash.remove();
+      splash.setAttribute('aria-hidden', 'true');
+      splash.inert = true;
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        finish();
+        return;
+      }
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          splash.addEventListener('animationend', (event) => {
+            if (event.target === splash) finish();
+          });
+          splash.classList.add('startup-leaving');
+          // Also clean up if the window becomes hidden or animations are disabled.
+          setTimeout(finish, 600);
+        }),
+      );
+    },
+    { once: true },
+  );
 })();
