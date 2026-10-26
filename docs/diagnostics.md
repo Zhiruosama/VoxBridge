@@ -78,3 +78,5 @@
 - [`src-tauri/src/diagnostics.rs`](../src-tauri/src/diagnostics.rs)：字段白名单、来源限制、有界通道与日志命令。
 - [`writer.rs`](../src-tauri/src/diagnostics/writer.rs)：权限、轮转、顺序导出。
 - [`前端测试`](../src/diagnostics.test.ts)、[`原生测试`](../src-tauri/src/diagnostics/tests.rs)：内容过滤、原始错误不落盘、日志失效不影响请求、轮转上限、导出范围与文件权限。
+
+Rust panic 时会尝试在最多 800 ms 内刷新已入队的诊断元数据（日志写线程自身异常时不等待自身），以减少原生回调随后 abort 导致事件丢失的情况。这不保证记录所有系统级崩溃，也不记录 panic 消息或调用栈。

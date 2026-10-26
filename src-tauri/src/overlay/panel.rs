@@ -10,6 +10,8 @@ use objc2_foundation::{NSNotification, NSObject, NSObjectProtocol, NSPoint, NSSt
 use std::{cell::RefCell, path::PathBuf};
 use tauri::Manager;
 
+mod content;
+
 define_class!(
     #[unsafe(super(NSPanel))]
     #[name = "VoxBridgeSubtitlePanel"]
@@ -103,7 +105,6 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
             }
             // Borrow only while the owning Tauri window is retained by this call.
             let original = unsafe { &*raw.cast::<NSWindow>() };
-            let content = original.contentView().ok_or("字幕内容不可用。")?;
             let allocated = SubtitlePanel::alloc(mtm).set_ivars(());
             let panel: Retained<SubtitlePanel> = unsafe { objc2::msg_send![super(allocated),
                 initWithContentRect: original.frame(),
@@ -134,8 +135,7 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
             let delegate: Retained<PanelDelegate> = unsafe { objc2::msg_send![super(allocated), init] };
             // Move the complete root view only after all fallible initialization.
             // Its WKWebView keeps its original Tauri label and IPC identity.
-            original.setContentView(None);
-            panel.setContentView(Some(&content));
+            content::transfer(original, &panel)?;
             original.orderOut(None);
             unsafe {
                 NSWorkspace::sharedWorkspace().notificationCenter().addObserver_selector_name_object(

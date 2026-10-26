@@ -286,6 +286,12 @@ pub fn initialize(app: &tauri::AppHandle) -> Result<(), String> {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         lifecycle("panic");
+        // A panic in an Objective-C callback aborts immediately after the hook;
+        // give the metadata writer a bounded chance to persist the event first.
+        // Never wait on the writer from its own panic hook.
+        if std::thread::current().name() != Some("diagnostics-writer") {
+            let _ = flush();
+        }
         previous(info);
     }));
     Ok(())
