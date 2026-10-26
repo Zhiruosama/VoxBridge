@@ -1,3 +1,4 @@
+import { textPanelOpacity } from './text-translation-layout';
 import { parseSpeechOptions } from './speech-options';
 import { parseUiLanguage } from '../i18n';
 import { systemDefaultOutputId } from './audio-routing';
@@ -18,6 +19,7 @@ export const defaults: Settings = {
   theme: 'dark',
   captionColors: { ...captionColorDefaults },
   captionSpacing: 26,
+  textTranslationOpacity: textPanelOpacity(undefined),
   captionFontSize: 17,
   audio: {
     previewDeviceId: systemDefaultOutputId,
@@ -250,6 +252,7 @@ export function parseSettings(value: unknown): Settings {
   return {
     schemaVersion: 1,
     captionColors: parseCaptionColors(input.captionColors),
+    textTranslationOpacity: textPanelOpacity(input.textTranslationOpacity),
     captionSpacing:
       typeof input.captionSpacing === 'number' && Number.isFinite(input.captionSpacing)
         ? Math.min(64, Math.max(8, Math.round(input.captionSpacing)))

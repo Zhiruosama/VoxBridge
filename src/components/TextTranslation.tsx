@@ -1,4 +1,5 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { textSplitRatio, textSplitStorageKey } from '../core/text-translation-layout';
 import { ArrowRight, Check, Copy, LoaderCircle, Settings2, X } from 'lucide-react';
 import type { TextTranslationController } from '../core/text-translation';
 import { profileFor } from '../core/settings';
@@ -27,6 +28,39 @@ export default function TextTranslation({
   settings: Settings;
   onSettings: () => void;
 }) {
+  const [ratio, setRatio] = useState(() => {
+    try {
+      return textSplitRatio(JSON.parse(localStorage.getItem(textSplitStorageKey) ?? 'null'));
+    } catch {
+      return 50;
+    }
+  });
+  const panels = useRef<HTMLDivElement>(null);
+  const drag = useRef<{
+    id: number;
+    x: number;
+    width: number;
+    ratio: number;
+    latest: number;
+  } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  function changeRatio(value: number, persist = true) {
+    const next = textSplitRatio(value);
+    setRatio(next);
+    if (persist) {
+      try {
+        localStorage.setItem(textSplitStorageKey, JSON.stringify(next));
+      } catch {
+        /* Keep resizing usable without storage. */
+      }
+    }
+  }
+  function finishResize() {
+    if (!drag.current) return;
+    changeRatio(drag.current.latest);
+    drag.current = null;
+    setDragging(false);
+  }
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const [copied, setCopied] = useState('');
   const [copyError, setCopyError] = useState(false);
@@ -34,7 +68,11 @@ export default function TextTranslation({
   const options = languages.map((label) => ({ label, value: label }));
   const submit = () => void controller.submit(profile);
   return (
-    <section className="text-translation" aria-label={t('文本翻译')}>
+    <section
+      className="text-translation"
+      aria-label={t('文本翻译')}
+      style={{ '--text-panel-opacity': `${settings.textTranslationOpacity}%` } as CSSProperties}
+    >
       <div className="text-translation-toolbar">
         <div className="text-translation-direction">
           <Select
@@ -56,7 +94,11 @@ export default function TextTranslation({
           {t('翻译设置')}
         </button>
       </div>
-      <div className="text-translation-panels">
+      <div
+        ref={panels}
+        className={`text-translation-panels${dragging ? ' is-resizing' : ''}`}
+        style={{ '--text-left': `${ratio}fr`, '--text-right': `${100 - ratio}fr` } as CSSProperties}
+      >
         <div className="text-translation-panel">
           <label htmlFor="text-translation-input">{t('原文')}</label>
           <textarea
@@ -101,6 +143,58 @@ export default function TextTranslation({
             </div>
           </div>
         </div>
+        <div
+          className="text-translation-divider"
+          role="separator"
+          tabIndex={0}
+          aria-label={t('调整翻译区域宽度')}
+          aria-orientation="vertical"
+          aria-description={t('左右拖动调整，双击恢复等宽。')}
+          aria-valuemin={30}
+          aria-valuemax={70}
+          aria-valuenow={ratio}
+          onDoubleClick={() => changeRatio(50)}
+          onKeyDown={(event) => {
+            const next =
+              event.key === 'ArrowLeft'
+                ? ratio - 2
+                : event.key === 'ArrowRight'
+                  ? ratio + 2
+                  : event.key === 'Home'
+                    ? 30
+                    : event.key === 'End'
+                      ? 70
+                      : null;
+            if (next !== null) {
+              event.preventDefault();
+              changeRatio(next);
+            }
+          }}
+          onPointerDown={(event) => {
+            if (event.button !== 0 || !event.isPrimary || !panels.current) return;
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            drag.current = {
+              id: event.pointerId,
+              x: event.clientX,
+              width: panels.current.clientWidth - 18,
+              ratio,
+              latest: ratio,
+            };
+            setDragging(true);
+          }}
+          onPointerMove={(event) => {
+            const current = drag.current;
+            if (!current || current.id !== event.pointerId) return;
+            current.latest = textSplitRatio(
+              current.ratio + (100 * (event.clientX - current.x)) / Math.max(1, current.width),
+            );
+            changeRatio(current.latest, false);
+          }}
+          onPointerUp={finishResize}
+          onPointerCancel={finishResize}
+          onLostPointerCapture={finishResize}
+        />
         <div className="text-translation-panel" aria-busy={state.busy}>
           <div className="text-translation-result-heading">
             <span>

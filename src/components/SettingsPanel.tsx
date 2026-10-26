@@ -283,6 +283,20 @@ export default function SettingsPanel({
                   ]}
                 />
               </SettingRow>
+              <SettingRow title={t('文本翻译面板不透明度')}>
+                <input
+                  type="range"
+                  aria-label={t('文本翻译面板不透明度')}
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={draft.textTranslationOpacity}
+                  onChange={(event) =>
+                    setDraft({ ...draft, textTranslationOpacity: Number(event.target.value) })
+                  }
+                />
+                <span className="preference-value">{draft.textTranslationOpacity}%</span>
+              </SettingRow>
               <SettingRow title={t('字幕段落间距')}>
                 <input
                   type="range"

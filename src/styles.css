@@ -2698,6 +2698,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 
 .text-translation {
+  container-type: inline-size;
   width: min(1120px, 100%);
   flex: 1 0 auto;
   display: flex;
@@ -2735,8 +2736,11 @@ input[type='range']:focus-visible::-moz-range-thumb {
   flex: 1;
   display: grid;
   grid-auto-rows: minmax(340px, 1fr);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: 18px;
+  grid-template-columns: minmax(240px, var(--text-left, 50fr)) 18px minmax(
+      240px,
+      var(--text-right, 50fr)
+    );
+  gap: 0;
 }
 .text-translation-panel {
   min-width: 0;
@@ -2745,7 +2749,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: var(--raised);
+  background: color-mix(in srgb, var(--raised) var(--text-panel-opacity, 85%), transparent);
   border-color: var(--composer-border);
   box-shadow: var(--composer-shadow);
   transition:
@@ -2810,9 +2814,6 @@ input[type='range']:focus-visible::-moz-range-thumb {
   .text-translation {
     padding: 18px;
   }
-  .text-translation-panels {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .text-translation-panel textarea,
   .text-translation-result {
     min-height: 160px;
@@ -2824,5 +2825,45 @@ input[type='range']:focus-visible::-moz-range-thumb {
   }
   .text-translation-panel {
     transition: none;
+  }
+}
+
+.text-translation-divider {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.text-translation-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 32px;
+  border-radius: 3px;
+  background: var(--border);
+  opacity: 0.45;
+  transform: translate(-50%, -50%);
+}
+.text-translation-divider:hover::after,
+.text-translation-divider:focus-visible::after,
+.is-resizing > .text-translation-divider::after {
+  background: var(--muted);
+  opacity: 1;
+}
+.is-resizing,
+.is-resizing * {
+  cursor: col-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+@container (max-width: 660px) {
+  .text-translation-panels {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .text-translation-divider {
+    display: none;
   }
 }

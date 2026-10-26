@@ -855,5 +855,8 @@
   "请输入要翻译的文字。": "Enter text to translate.",
   "每次最多翻译 2000 个字符。": "Translate up to 2,000 characters at a time.",
   "请选择文字翻译服务。": "Select a text translation service.",
-  "目标语言": "Target language"
+  "目标语言": "Target language",
+  "文本翻译面板不透明度": "Text translation panel opacity",
+  "调整翻译区域宽度": "Resize translation panels",
+  "左右拖动调整，双击恢复等宽。": "Drag left or right to resize. Double-click for equal widths."
 }

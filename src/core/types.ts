@@ -84,6 +84,7 @@ export interface Settings {
   targetLanguage: string;
   theme: 'dark' | 'light' | 'system';
   captionColors: { recognition: string; expression: string };
+  textTranslationOpacity: number;
   captionSpacing: number;
   captionFontSize: number;
   audio: AudioRouting;
