@@ -6,6 +6,8 @@
 
 ## 监听、识别与字幕
 
+- [Windows 与 Mac 后端对齐](2026-10-26-windows-backend-parity.md) — 2026-10-26
+
 - [Application selection for listening](2026-10-23-application-capture.md) — 2026-10-23
 - [2026-10-23 Mac 受控音频闭环](2026-10-23-capture-loop.md) — 2026-10-23
 - [More frequent realtime subtitle translation](2026-10-23-faster-realtime-translation.md) — 2026-10-23
@@ -37,6 +39,10 @@
 
 ## 界面与悬浮窗口
 
+- [侧栏拖动与主窗宽度限制](2026-10-26-sidebar-layout-limits.md) — 2026-10-26
+
+- [Mac 主题切换中断与备用动画](2026-10-26-theme-transition.md) — 2026-10-26
+
 - [Chrome discovery and stable picker scrolling](2026-10-23-chrome-picker-scroll.md) — 2026-10-23
 - [Content-only text selection](2026-10-23-text-selection.md) — 2026-10-23
 - [主动输入动画与工作台字幕配色](2026-10-24-caption-appearance.md) — 2026-10-24
@@ -48,6 +54,8 @@
 - [macOS 悬浮窗跨屏拖动修复](2026-10-26-overlay-multiple-displays.md) — 2026-10-26
 
 ## 密钥、权限与服务
+
+- [麦克风选择与设置保护](2026-10-26-microphone-settings-recovery.md) — 2026-10-26
 
 - [2026-10-23 设置页重复钥匙串提示修复](2026-10-23-keychain-status.md) — 2026-10-23
 - [2026-10-23 真实服务验证](2026-10-23-live-providers.md) — 2026-10-23

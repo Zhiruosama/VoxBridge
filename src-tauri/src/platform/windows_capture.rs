@@ -30,6 +30,22 @@ use windows::{
 const RATE: u32 = 48_000;
 const GONE: &str = "目标音频进程已退出或改变，请刷新后重新监听。";
 
+// Preserve the same retry contract as Core Audio: recover only known transient
+// device/service failures, never permissions or an unsupported format.
+fn audio_error(error: windows::core::Error, fallback: &str) -> String {
+    match error.code() {
+        AUDCLNT_E_DEVICE_INVALIDATED
+        | AUDCLNT_E_RESOURCES_INVALIDATED
+        | AUDCLNT_E_SERVICE_NOT_RUNNING => {
+            "音频系统暂时不可用：Windows 音频设备或服务正在恢复。".into()
+        }
+        windows::Win32::Foundation::E_ACCESSDENIED => {
+            "系统拒绝了应用声音采集，请检查 Windows 权限和目标应用的保护限制。".into()
+        }
+        _ => fallback.into(),
+    }
+}
+
 #[path = "windows_capture/inventory.rs"]
 mod inventory;
 pub use inventory::sources;
@@ -248,14 +264,21 @@ fn activate(pid: u32, stop: &CancellationToken) -> Result<IAudioClient, String> 
             &handler,
         )
     }
-    .map_err(|_| "无法启动应用声音采集，请检查 Windows 版本与音频服务。")?;
+    .map_err(|error| {
+        audio_error(
+            error,
+            "无法启动应用声音采集，请检查 Windows 版本与音频服务。",
+        )
+    })?;
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         if stop.is_cancelled() {
             return Err("采集已停止。".into());
         }
         match rx.recv_timeout(Duration::from_millis(25)) {
-            Ok(result) => return result.map_err(|_| "无法激活目标应用声音采集。".into()),
+            Ok(result) => {
+                return result.map_err(|error| audio_error(error, "无法激活目标应用声音采集。"))
+            }
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 return Err("无法激活目标应用声音采集。".into())
             }
@@ -304,13 +327,16 @@ fn run(
                 &format,
                 None,
             )
-            .map_err(|_| "无法初始化应用采集音频格式。")?;
+            .map_err(|error| audio_error(error, "无法初始化应用采集音频格式。"))?;
         client
             .SetEventHandle(event.0)
-            .map_err(|_| "无法设置音频采集事件。")?;
-        let input: IAudioCaptureClient =
-            client.GetService().map_err(|_| "无法获取应用采集缓冲。")?;
-        client.Start().map_err(|_| "无法启动应用音频流。")?;
+            .map_err(|error| audio_error(error, "无法设置音频采集事件。"))?;
+        let input: IAudioCaptureClient = client
+            .GetService()
+            .map_err(|error| audio_error(error, "无法获取应用采集缓冲。"))?;
+        client
+            .Start()
+            .map_err(|error| audio_error(error, "无法启动应用音频流。"))?;
         let _started = StartedClient(client);
         if ready.send(Ok(())).is_err() {
             return Ok(());
@@ -448,6 +474,44 @@ impl Drop for Capture {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test(start_paused = true)]
+    async fn transient_activation_errors_recover_but_permissions_and_formats_do_not_retry() {
+        for code in [
+            AUDCLNT_E_DEVICE_INVALIDATED,
+            AUDCLNT_E_RESOURCES_INVALIDATED,
+            AUDCLNT_E_SERVICE_NOT_RUNNING,
+        ] {
+            let message = audio_error(code.into(), "无法激活目标应用声音采集。");
+            let mut attempts = 0;
+            crate::recovery::supervise(
+                &CancellationToken::new(),
+                |_| {
+                    attempts += 1;
+                    let result = if attempts == 1 {
+                        Err(message.clone())
+                    } else {
+                        Ok(())
+                    };
+                    async move { result }
+                },
+                |_, _, error| {
+                    assert_eq!(error, message);
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+            assert_eq!(attempts, 2);
+        }
+        for code in [
+            windows::Win32::Foundation::E_ACCESSDENIED,
+            AUDCLNT_E_UNSUPPORTED_FORMAT,
+            windows::Win32::Foundation::E_INVALIDARG,
+        ] {
+            let message = audio_error(code.into(), "无法初始化应用采集音频格式。");
+            assert!(!crate::recovery::transient(&message));
+        }
+    }
     fn source(pid: i32, app: char, birth: u64) -> CaptureSource {
         CaptureSource {
             pid,

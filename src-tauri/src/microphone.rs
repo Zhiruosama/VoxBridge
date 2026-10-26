@@ -94,18 +94,70 @@ fn device_id(device: &cpal::Device) -> Result<String, String> {
 }
 fn physical(device: &cpal::Device) -> bool {
     #[cfg(target_os = "windows")]
-    if device.description().is_ok_and(|d| {
-        let name = d.extended().first().map(String::as_str).unwrap_or(d.name());
-        crate::platform::is_cable_endpoint(name, "output")
-    }) {
-        return false;
+    {
+        // A physical microphone may have a user-assigned VoxBridge name. Only
+        // reject the identified cable endpoint, not every matching display name.
+        device.description().is_ok_and(|d| {
+            !crate::platform::is_cable_endpoint(&crate::platform::device_name(&d), "output")
+        })
     }
-    device
-        .description()
-        .is_ok_and(|d| !d.name().to_lowercase().contains("voxbridge"))
-        && device
-            .id()
-            .is_ok_and(|id| id.1 != "com.voxbridge.audio.device")
+    #[cfg(not(target_os = "windows"))]
+    {
+        device
+            .description()
+            .is_ok_and(|d| !d.name().to_lowercase().contains("voxbridge"))
+            && device
+                .id()
+                .is_ok_and(|id| id.1 != "com.voxbridge.audio.device")
+    }
+}
+
+fn input_choice(
+    requested: &str,
+    default: Option<&str>,
+    available: &[(String, bool)],
+) -> Result<String, String> {
+    if !requested.is_empty() {
+        return match available.iter().find(|(id, _)| id == requested) {
+            Some((id, true)) => Ok(id.clone()),
+            Some((_, false)) => Err("请选择实体麦克风，不能录制 VoxBridge 自身输出。".into()),
+            None => Err("麦克风不可用，请在设置中重新选择。".into()),
+        };
+    }
+    // The virtual cable is often the system default after setting up a call.
+    // Automatic input must still select a usable microphone without recording
+    // our own output. Explicit choices above never silently switch devices.
+    default
+        .and_then(|id| {
+            available
+                .iter()
+                .find(|(candidate, safe)| candidate == id && *safe)
+        })
+        .or_else(|| available.iter().find(|(_, safe)| *safe))
+        .map(|(id, _)| id.clone())
+        .ok_or_else(|| "没有可用的实体麦克风，请连接麦克风后刷新。".into())
+}
+
+fn resolve_input(requested: &str) -> Result<cpal::Device, String> {
+    let host = cpal::default_host();
+    let default = host
+        .default_input_device()
+        .and_then(|device| device_id(&device).ok());
+    let devices: Vec<_> = host
+        .input_devices()
+        .map_err(|_| "无法读取麦克风。")?
+        .filter_map(|device| device_id(&device).ok().map(|id| (device, id)))
+        .collect();
+    let metadata: Vec<_> = devices
+        .iter()
+        .map(|(device, id)| (id.clone(), physical(device)))
+        .collect();
+    let chosen = input_choice(requested, default.as_deref(), &metadata)?;
+    devices
+        .into_iter()
+        .find(|(_, id)| *id == chosen)
+        .map(|(device, _)| device)
+        .ok_or_else(|| "麦克风不可用，请在设置中重新选择。".into())
 }
 #[tauri::command]
 pub fn list_inputs() -> Result<Vec<InputDevice>, String> {
@@ -132,7 +184,7 @@ pub fn list_inputs() -> Result<Vec<InputDevice>, String> {
                 if let (Ok(id), Ok(description)) = (device_id(&device), device.description()) {
                     devices.push(InputDevice {
                         id,
-                        name: description.name().to_owned(),
+                        name: crate::platform::device_name(&description),
                     });
                 }
             }
@@ -323,15 +375,7 @@ fn record(
     on_progress: tauri::ipc::Channel<Progress>,
     mut audio: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
 ) -> Result<Vec<i16>, String> {
-    let host = cpal::default_host();
-    let device = if device_id_value.is_empty() {
-        host.default_input_device()
-    } else {
-        host.input_devices()
-            .map_err(|_| "无法读取麦克风。")?
-            .find(|d| device_id(d).is_ok_and(|id| id == device_id_value))
-    }
-    .ok_or("麦克风不可用，请在设置中重新选择。")?;
+    let device = resolve_input(&device_id_value)?;
     if !physical(&device) {
         return Err("请选择实体麦克风，不能录制 VoxBridge 自身输出。".into());
     }
@@ -488,8 +532,15 @@ pub async fn start_voice_input(
     let token = active.token;
     let finished = active.finished;
     let _cleanup = Cleanup(&state, request_id);
-    let key = tokio::select! { _ = token.cancelled() => return Err("录音已取消。".into()), result = crate::credentials::read_async(&profile.id) => result? };
     tokio::select! { _ = token.cancelled() => return Err("录音已取消。".into()), result = permission() => result? }
+    // Validate the route before opening a potentially paid ASR stream. Pin an
+    // automatic choice to its stable ID for the remainder of this recording.
+    let device_id = tokio::select! {
+        _ = token.cancelled() => return Err("录音已取消。".into()),
+        result = tokio::task::spawn_blocking(move || resolve_input(&device_id).and_then(|device| self::device_id(&device))) =>
+            result.map_err(|_| "无法检查麦克风。")??,
+    };
+    let key = tokio::select! { _ = token.cancelled() => return Err("录音已取消。".into()), result = crate::credentials::read_async(&profile.id) => result? };
     let capture_token = token.clone();
     let samples = if profile.is_realtime() {
         let (tx, rx) = tokio::sync::mpsc::channel(64);
@@ -563,6 +614,75 @@ pub async fn start_voice_input(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn auto_input_skips_own_output_but_explicit_choices_are_never_replaced() {
+        let devices = vec![
+            ("cable".into(), false),
+            ("real-mic".into(), true),
+            ("headset".into(), true),
+        ];
+        assert_eq!(
+            super::input_choice("", Some("cable"), &devices).unwrap(),
+            "real-mic"
+        );
+        assert_eq!(
+            super::input_choice("", Some("headset"), &devices).unwrap(),
+            "headset"
+        );
+        assert_eq!(
+            super::input_choice("headset", Some("cable"), &devices).unwrap(),
+            "headset"
+        );
+        assert!(super::input_choice("cable", Some("real-mic"), &devices)
+            .unwrap_err()
+            .contains("自身输出"));
+        assert!(super::input_choice("disconnected", Some("real-mic"), &devices).is_err());
+        assert!(super::input_choice("", Some("cable"), &devices[..1]).is_err());
+    }
+    #[cfg(target_os = "windows")]
+    #[test]
+    #[ignore = "manual read-only Windows input inventory; no recording or cloud calls"]
+    fn windows_microphone_inventory_keeps_stable_ids_and_full_hardware_names() {
+        let first = super::list_inputs().unwrap();
+        let host = cpal::default_host();
+        if let Some(default) = host.default_input_device() {
+            println!(
+                "Default input: {}; safe: {}",
+                crate::platform::device_name(&default.description().unwrap()),
+                super::physical(&default)
+            );
+        }
+        for input in &first {
+            let device = host
+                .input_devices()
+                .unwrap()
+                .find(|device| super::device_id(device).is_ok_and(|id| id == input.id))
+                .unwrap();
+            assert!(super::physical(&device));
+            assert_eq!(
+                input.name,
+                crate::platform::device_name(&device.description().unwrap())
+            );
+            assert!(input.id.starts_with("mic:"));
+            assert_eq!(
+                super::device_id(&super::resolve_input(&input.id).unwrap()).unwrap(),
+                input.id
+            );
+        }
+        let mut first_ids: Vec<_> = first.iter().map(|input| input.id.clone()).collect();
+        let mut second_ids: Vec<_> = super::list_inputs()
+            .unwrap()
+            .into_iter()
+            .map(|input| input.id)
+            .collect();
+        first_ids.sort();
+        second_ids.sort();
+        assert_eq!(first_ids, second_ids);
+        println!(
+            "Validated {} physical input endpoints without opening audio streams.",
+            first.len()
+        );
+    }
     #[test]
     fn microphone_errors_classify_access_and_exclusive_use_without_echoing_backend_text() {
         let error = |description: &str| {

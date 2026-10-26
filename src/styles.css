@@ -233,9 +233,15 @@ h2 {
 }
 
 .app-shell {
+  /* Enforce the limit during layout too, before ResizeObserver/React can run. */
+  --sidebar-layout-width: clamp(
+    180px,
+    var(--sidebar-width, 196px),
+    calc(100vw - var(--workspace-min-width, 780px) - 22px)
+  );
   display: grid;
   position: relative;
-  grid-template-columns: var(--sidebar-width, 196px) minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-layout-width) minmax(0, 1fr);
   height: 100dvh;
   min-height: 480px;
   padding: 8px;
@@ -2391,7 +2397,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   z-index: 5;
   top: 12px;
   bottom: 12px;
-  left: calc(var(--sidebar-width, 196px) + 6px);
+  left: calc(var(--sidebar-layout-width, var(--sidebar-width, 196px)) + 6px);
   width: 10px;
   cursor: col-resize;
   touch-action: none;
@@ -2571,6 +2577,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
 
 .text-translation {
   container-type: inline-size;
+  container-name: text-translation;
   width: min(1120px, 100%);
   flex: 1 0 auto;
   display: flex;
@@ -2738,7 +2745,10 @@ input[type='range']:focus-visible::-moz-range-thumb {
   user-select: none;
   -webkit-user-select: none;
 }
-@container (max-width: 660px) {
+/* Two 240px panels and the 18px divider still fit well below 660px. Do not
+   stack merely because the sidebar was widened; reserve stacking for narrow
+   browser previews where the two columns actually no longer fit. */
+@container text-translation (max-width: 540px) {
   .text-translation-panels {
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
@@ -2822,6 +2832,9 @@ input[type='range']:focus-visible::-moz-range-thumb {
   background: var(--bg);
   pointer-events: none;
   user-select: none;
+  opacity: 1;
+}
+.theme-snapshot[data-playing='true'] {
   animation: theme-surface-out 400ms ease-in-out both;
 }
 .theme-snapshot *,

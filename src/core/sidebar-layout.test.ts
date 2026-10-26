@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { sidebarDefault, sidebarLimit, sidebarWidth } from './sidebar-layout';
+import {
+  sidebarDefault,
+  sidebarLimit,
+  sidebarMinimum,
+  sidebarWidth,
+  workspaceMinimum,
+} from './sidebar-layout';
+import commonConfig from '../../src-tauri/tauri.conf.json';
+import windowsConfig from '../../src-tauri/tauri.windows.conf.json';
 
 describe('sidebar layout bounds', () => {
   it('rejects corrupt preferences and clamps stored widths', () => {
@@ -10,9 +18,21 @@ describe('sidebar layout bounds', () => {
   });
   it('preserves content room in the minimum desktop window without discarding wide preferences', () => {
     expect(sidebarLimit(1180)).toBe(360);
-    expect(sidebarLimit(680)).toBe(258);
-    expect(sidebarWidth(360, sidebarLimit(680))).toBe(258);
+    expect(sidebarLimit(1062)).toBe(260);
+    expect(sidebarWidth(360, sidebarLimit(1062))).toBe(260);
     expect(sidebarWidth(360, sidebarLimit(1180))).toBe(360);
     expect(sidebarLimit(360)).toBe(180);
+  });
+  it('keeps the composer on one row at native minimum size and at maximum sidebar drag', () => {
+    for (const config of [commonConfig, windowsConfig]) {
+      const main = config.app.windows.find((window) => window.label === 'main')!;
+      expect(main.minWidth).toBeGreaterThanOrEqual(sidebarMinimum + 22 + workspaceMinimum);
+      expect(main.width).toBeGreaterThanOrEqual(main.minWidth!);
+      for (const width of [main.minWidth!, main.width, 1440]) {
+        const available = width - sidebarLimit(width) - 22;
+        expect(available).toBeGreaterThanOrEqual(workspaceMinimum);
+        expect(available - 48 - 4).toBeGreaterThan(700);
+      }
+    }
   });
 });

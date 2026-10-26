@@ -1,6 +1,5 @@
 //! Conservative offline detection: uncertain or mixed-language input uses translation.
 pub fn detect(text: &str) -> Option<&'static str> {
-    let language = recognize(text)?;
     // A dominant language is insufficient when the input also contains another script.
     let latin = text.chars().any(|c| c.is_ascii_alphabetic());
     let han = text.chars().any(|c| ('\u{3400}'..='\u{9fff}').contains(&c));
@@ -9,6 +8,7 @@ pub fn detect(text: &str) -> Option<&'static str> {
     if (latin && (han || kana || hangul)) || (hangul && (han || kana)) {
         return None;
     }
+    let language = recognize(text)?;
     if language == "简体中文" && kana {
         return None;
     }
@@ -53,6 +53,9 @@ fn recognize(text: &str) -> Option<&'static str> {
 fn recognize(text: &str) -> Option<&'static str> {
     let info = whatlang::detect(text)?;
     if !info.is_reliable() {
+        #[cfg(target_os = "windows")]
+        return recognize_short_text(text);
+        #[cfg(not(target_os = "windows"))]
         return None;
     }
     Some(match info.lang() {
@@ -69,12 +72,53 @@ fn recognize(text: &str) -> Option<&'static str> {
     })
 }
 
+#[cfg(target_os = "windows")]
+fn recognize_short_text(text: &str) -> Option<&'static str> {
+    use lingua::{Language, LanguageDetector, LanguageDetectorBuilder};
+    use std::sync::OnceLock;
+    // Whatlang's trigram confidence often rejects ordinary chat sentences.
+    // Load only our supported models, plus French as an unsupported-language
+    // negative control; the full Whatlang recognizer above still rejects reliable
+    // unsupported-language results before reaching this fallback.
+    static DETECTOR: OnceLock<LanguageDetector> = OnceLock::new();
+    let detector = DETECTOR.get_or_init(|| {
+        LanguageDetectorBuilder::from_languages(&[
+            Language::Chinese,
+            Language::English,
+            Language::Finnish,
+            Language::French,
+            Language::German,
+            Language::Indonesian,
+            Language::Japanese,
+            Language::Korean,
+            Language::Russian,
+            Language::Spanish,
+        ])
+        .with_minimum_relative_distance(0.2)
+        .build()
+    });
+    match detector.detect_language_of(text)? {
+        Language::English => Some("英语"),
+        Language::Chinese => Some("简体中文"),
+        Language::Japanese => Some("日语"),
+        Language::Korean => Some("韩语"),
+        Language::Spanish => Some("西班牙语"),
+        Language::Indonesian => Some("印尼语"),
+        Language::Finnish => Some("芬兰语"),
+        Language::Russian => Some("俄语"),
+        Language::German => Some("德语"),
+        _ => None,
+    }
+}
+
 #[tauri::command]
-pub fn detect_text_language(text: String) -> Result<Option<String>, String> {
+pub async fn detect_text_language(text: String) -> Result<Option<String>, String> {
     if text.chars().count() > 500 {
         return Err("语言识别内容超过 500 字。".into());
     }
-    Ok(detect(&text).map(str::to_owned))
+    tauri::async_runtime::spawn_blocking(move || detect(&text).map(str::to_owned))
+        .await
+        .map_err(|_| "无法识别文本语言。".into())
 }
 
 pub fn speech_language(language: Option<&str>) -> Result<&'static str, String> {
@@ -98,7 +142,20 @@ pub fn speech_language(language: Option<&str>) -> Result<&'static str, String> {
 mod tests {
     use super::*;
     #[test]
-    #[cfg(target_os = "macos")]
+    fn mixed_scripts_identifiers_and_unsupported_languages_remain_uncertain() {
+        for text in [
+            "",
+            "123 😊",
+            "我想说 hello, how are you today?",
+            "你好こんにちは hello",
+            "안녕하세요 hello",
+            "Bonjour, comment allez-vous aujourd’hui ?",
+            "Je voudrais discuter avec mes amis et préparer notre voyage.",
+        ] {
+            assert_eq!(detect(text), None, "{text}");
+        }
+    }
+    #[test]
     fn recognizes_short_chat_messages_and_leaves_unsupported_language_uncertain() {
         for (text, expected) in [
             ("Hello, how are you?", "英语"),
@@ -113,7 +170,6 @@ mod tests {
         assert_eq!(detect("Bonjour, comment allez-vous aujourd’hui ?"), None);
     }
     #[test]
-    #[cfg(target_os = "macos")]
     fn identifies_supported_languages_without_trusting_source_setting() {
         for (text, language) in [
             (
