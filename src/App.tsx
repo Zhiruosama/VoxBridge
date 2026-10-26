@@ -1078,7 +1078,13 @@ export default function App() {
         <main
           key={page}
           id="main-content"
-          className={page === 'workspace' ? 'workspace' : 'page-scroll'}
+          className={
+            page === 'workspace'
+              ? 'workspace'
+              : page === 'text'
+                ? 'page-scroll text-translation-page'
+                : 'page-scroll'
+          }
         >
           {page === 'text' && (
             <TextTranslation

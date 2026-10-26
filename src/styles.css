@@ -2692,10 +2692,18 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 
 /* Independent, audio-free translation workspace. */
+.text-translation-page {
+  display: flex;
+  flex-direction: column;
+}
+
 .text-translation {
   width: min(1120px, 100%);
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
   margin: 0 auto;
-  padding: 24px 28px 36px;
+  padding: 24px 28px 28px;
 }
 .text-translation-toolbar,
 .text-translation-direction,
@@ -2724,7 +2732,9 @@ input[type='range']:focus-visible::-moz-range-thumb {
   width: 160px;
 }
 .text-translation-panels {
+  flex: 1;
   display: grid;
+  grid-auto-rows: minmax(340px, 1fr);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 18px;
 }
@@ -2736,6 +2746,11 @@ input[type='range']:focus-visible::-moz-range-thumb {
   border: 1px solid var(--border);
   border-radius: 20px;
   background: var(--raised);
+  border-color: var(--composer-border);
+  box-shadow: var(--composer-shadow);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 .text-translation-panel > label,
 .text-translation-result-heading {
@@ -2745,7 +2760,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
 .text-translation-panel textarea,
 .text-translation-result {
   flex: 1;
-  min-height: 270px;
+  min-height: 180px;
   margin: 12px 0 20px;
   font: inherit;
   font-size: 16px;
@@ -2758,12 +2773,15 @@ input[type='range']:focus-visible::-moz-range-thumb {
   border-radius: 0;
   padding: 0;
   background: transparent;
-  resize: vertical;
+  resize: none;
   outline: none;
   box-shadow: none;
 }
 .text-translation-panel:focus-within {
-  border-color: var(--muted);
+  border-color: var(--composer-focus-border);
+  box-shadow:
+    0 0 0 3px var(--composer-shadow-near),
+    var(--composer-shadow);
 }
 .text-translation-result {
   white-space: pre-wrap;
@@ -2803,5 +2821,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
 @media (prefers-reduced-motion: reduce) {
   .text-translation-progress .status-spinner {
     animation: none;
+  }
+  .text-translation-panel {
+    transition: none;
   }
 }
