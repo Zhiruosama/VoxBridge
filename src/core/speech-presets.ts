@@ -1,5 +1,6 @@
 import type { ProviderProfile, Settings } from './types';
 import { profileFor } from './settings';
+import { editProfilePreset } from './profile-presets';
 
 export interface SpeechOption {
   value: string;
@@ -115,6 +116,27 @@ function withCurrent(options: SpeechOption[], current: string): SpeechOption[] {
     : options;
 }
 
+/** Keep manually entered voices in the credential profile, including older
+ * custom voices saved before automatic remembering was introduced. */
+export function selectSpeechVoice(profile: ProviderProfile, voice: string): ProviderProfile {
+  const builtins = voiceOptions({ ...profile, voice: '', voicePresets: [] });
+  let next = profile;
+  for (const value of [profile.voice.trim(), voice.trim()]) {
+    if (
+      !value ||
+      builtins.some((option) => option.value === value) ||
+      next.voicePresets?.some((entry) => entry.adapter === profile.adapter && entry.value === value)
+    )
+      continue;
+    next = editProfilePreset(next, 'voicePresets', null, {
+      name: [...value].slice(0, 80).join(''),
+      value,
+      adapter: profile.adapter,
+    });
+  }
+  return { ...next, voice: voice.trim() };
+}
+
 /** Updating a voice/model must retain the credential identity and all unrelated settings. */
 export function updateSpeechProfile(
   settings: Settings,
@@ -122,10 +144,18 @@ export function updateSpeechProfile(
 ): Settings {
   const profile = profileFor(settings, 'tts');
   const modelChange = change.modelId ? speechModelChange(profile, change.modelId) : {};
+  const selected = change.voice !== undefined ? selectSpeechVoice(profile, change.voice) : profile;
   return {
     ...settings,
     profiles: settings.profiles.map((p) =>
-      p.id === profile.id ? { ...p, ...modelChange, ...change } : p,
+      p.id === profile.id
+        ? {
+            ...selected,
+            ...modelChange,
+            ...change,
+            ...(change.voice !== undefined ? { voice: selected.voice } : {}),
+          }
+        : p,
     ),
   };
 }

@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Volume2 } from 'lucide-react';
 import Select from './Select';
 import SpeechSpeed from './SpeechSpeed';
@@ -23,6 +23,7 @@ export default function SpeechPicker({
   onSettings: () => void;
 }) {
   const details = useRef<HTMLDetailsElement>(null);
+  const [voiceError, setVoiceError] = useState('');
   const profile = profileFor(settings, 'tts');
   const voices = voiceOptions(profile);
   const selected = voices.find((option) => option.value === profile.voice);
@@ -92,8 +93,20 @@ export default function SpeechPicker({
           value={profile.voice}
           placeholder={t('先配置音色')}
           options={voices}
-          onChange={(voice) => onChange(updateSpeechProfile(settings, { voice }))}
+          onChange={(voice) => {
+            try {
+              onChange(updateSpeechProfile(settings, { voice }));
+              setVoiceError('');
+            } catch (error) {
+              setVoiceError(error instanceof Error ? error.message : String(error));
+            }
+          }}
         />
+        {voiceError && (
+          <p role="alert" className="error-text">
+            {t(voiceError)}
+          </p>
+        )}
         <label>{t('语速')}</label>
         <SpeechSpeed
           value={profile.speed}

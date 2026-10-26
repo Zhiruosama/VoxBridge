@@ -34,6 +34,7 @@ import {
   voiceOptions,
   speechProvider,
   speechModelChange,
+  selectSpeechVoice,
 } from '../core/speech-presets';
 
 export type SettingsSection = 'general' | Stage;
@@ -1006,7 +1007,13 @@ export default function SettingsPanel({
                     label={t('音色')}
                     value={profile.voice}
                     options={voiceOptions(profile)}
-                    onChange={(voice) => update({ voice })}
+                    onChange={(voice) => {
+                      try {
+                        update(selectSpeechVoice(profile, voice));
+                      } catch (error) {
+                        notify(t(error instanceof Error ? error.message : String(error)));
+                      }
+                    }}
                   />
                 </SettingRow>
               )}

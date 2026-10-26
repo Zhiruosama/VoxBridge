@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { defaults, profileFor, parseSettings } from './settings';
 import { applyProviderPreset } from './provider-presets';
-import { modelOptions, voiceOptions, updateSpeechProfile } from './speech-presets';
+import {
+  modelOptions,
+  voiceOptions,
+  updateSpeechProfile,
+  selectSpeechVoice,
+} from './speech-presets';
 
 describe('provider-specific speech choices', () => {
   it('keeps custom/cloned voices and separates vendors and model voice support', () => {
@@ -55,5 +60,66 @@ describe('provider-specific speech choices', () => {
       voice: 'English_CalmWoman',
       modelId: 'speech-2.8-hd',
     });
+  });
+});
+
+describe('remembered custom speech voices', () => {
+  it('keeps new and legacy custom voices selectable after switching and a settings round trip', () => {
+    let settings = applyProviderPreset(structuredClone(defaults), 'provider-minimax-cn');
+    settings.profiles = settings.profiles.map((p) =>
+      p.id === settings.active.tts ? { ...p, voice: 'legacy-clone' } : p,
+    );
+    const original = structuredClone(settings);
+    settings = updateSpeechProfile(settings, { voice: '  new-clone  ' });
+    settings = updateSpeechProfile(settings, { voice: 'English_CalmWoman' });
+    settings = parseSettings(JSON.parse(JSON.stringify(settings)));
+    const profile = profileFor(settings, 'tts');
+    expect(profile.voice).toBe('English_CalmWoman');
+    expect(profile.voicePresets?.map((p) => p.value)).toEqual(['legacy-clone', 'new-clone']);
+    expect(
+      voiceOptions(profile)
+        .filter((p) => p.group === '我的预设')
+        .map((p) => p.value),
+    ).toEqual(['legacy-clone', 'new-clone']);
+    expect(
+      profileFor(updateSpeechProfile(settings, { voice: 'new-clone' }), 'tts').voicePresets,
+    ).toEqual(profile.voicePresets);
+    expect(profileFor(original, 'tts').voicePresets).toBeUndefined();
+  });
+
+  it('preserves preset names, keeps libraries separate, and does not save stock voices', () => {
+    const settings = applyProviderPreset(structuredClone(defaults), 'provider-minimax-cn');
+    const profile = {
+      ...profileFor(settings, 'tts'),
+      voice: 'clone-a',
+      voicePresets: [{ name: 'My voice', value: 'clone-a', adapter: 'minimax_tts_ws' as const }],
+    };
+    const selected = selectSpeechVoice(profile, 'clone-a');
+    expect(selected.voicePresets).toEqual(profile.voicePresets);
+    expect(selectSpeechVoice(selected, 'female-tianmei').voicePresets).toEqual(
+      profile.voicePresets,
+    );
+    const otherAccount = { ...profile, id: 'other-account', voice: '', voicePresets: [] };
+    expect(voiceOptions(otherAccount).some((p) => p.value === 'clone-a')).toBe(false);
+    expect(selectSpeechVoice(otherAccount, 'clone-b').voicePresets?.map((p) => p.value)).toEqual([
+      'clone-b',
+    ]);
+  });
+
+  it('rejects invalid or overflowing additions without discarding any saved voice', () => {
+    const settings = applyProviderPreset(structuredClone(defaults), 'provider-minimax-cn');
+    const profile = profileFor(settings, 'tts');
+    expect(() => selectSpeechVoice(profile, 'bad\nvoice')).toThrow();
+    const full = {
+      ...profile,
+      voicePresets: Array.from({ length: 50 }, (_, i) => ({
+        name: `Voice ${i}`,
+        value: `clone-${i}`,
+        adapter: profile.adapter,
+      })),
+    };
+    expect(() => selectSpeechVoice(full, 'one-more')).toThrow();
+    expect(full.voicePresets).toHaveLength(50);
+    expect(selectSpeechVoice(full, 'clone-1').voice).toBe('clone-1');
   });
 });
