@@ -326,10 +326,36 @@ export function parseSettings(value: unknown): Settings {
 }
 
 const storageKey = 'voxbridge.settings.v1';
+const backupKey = `${storageKey}.backup`;
 export function loadSettings(): Settings {
   const raw = localStorage.getItem(storageKey);
-  return raw ? parseSettings(JSON.parse(raw)) : structuredClone(defaults);
+  if (raw) {
+    try {
+      return parseSettings(JSON.parse(raw));
+    } catch (error) {
+      const backup = localStorage.getItem(backupKey);
+      if (backup) return parseSettings(JSON.parse(backup));
+      throw error;
+    }
+  }
+  const backup = localStorage.getItem(backupKey);
+  return backup ? parseSettings(JSON.parse(backup)) : structuredClone(defaults);
 }
 export function saveSettings(settings: Settings) {
-  localStorage.setItem(storageKey, JSON.stringify(parseSettings(settings)));
+  const next = JSON.stringify(parseSettings(settings));
+  const previous = localStorage.getItem(storageKey);
+  if (previous && previous !== next) {
+    let valid = false;
+    try {
+      parseSettings(JSON.parse(previous));
+      valid = true;
+    } catch {
+      // Keep unreadable data separately instead of replacing the last good backup.
+    }
+    localStorage.setItem(valid ? backupKey : `${storageKey}.unreadable`, previous);
+  } else if (!previous) {
+    localStorage.setItem(backupKey, next);
+  }
+  // If the backup cannot be written, leave the current settings untouched.
+  localStorage.setItem(storageKey, next);
 }

@@ -5,6 +5,49 @@ import { migrateLegacyOutputRouting } from './audio-routing';
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe('settings recovery', () => {
+  function storage() {
+    const values = new Map<string, string>();
+    const setItem = vi.fn((key: string, value: string) => values.set(key, value));
+    vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem });
+    return { values, setItem };
+  }
+  it('retains configured profiles and routing when the main record is missing or corrupt', () => {
+    const { values } = storage();
+    const configured = structuredClone(defaults);
+    configured.profiles[0].modelId = 'saved-model';
+    configured.audio.inputDeviceId = 'mic:saved';
+    saveSettings(configured);
+    values.delete('voxbridge.settings.v1');
+    expect(loadSettings().profiles[0].modelId).toBe('saved-model');
+    values.set('voxbridge.settings.v1', '{broken');
+    expect(loadSettings().audio.inputDeviceId).toBe('mic:saved');
+    expect(values.get('voxbridge.settings.v1')).toBe('{broken');
+  });
+  it('keeps unreadable data and the previous valid backup when saving after recovery', () => {
+    const { values } = storage();
+    saveSettings(structuredClone(defaults));
+    const valid = values.get('voxbridge.settings.v1.backup');
+    values.set('voxbridge.settings.v1', '{broken');
+    const recovered = loadSettings();
+    recovered.theme = 'light';
+    saveSettings(recovered);
+    expect(values.get('voxbridge.settings.v1.unreadable')).toBe('{broken');
+    expect(values.get('voxbridge.settings.v1.backup')).toBe(valid);
+    expect(loadSettings().theme).toBe('light');
+  });
+  it('does not overwrite current settings when the backup write fails', () => {
+    const { values, setItem } = storage();
+    saveSettings(structuredClone(defaults));
+    const original = values.get('voxbridge.settings.v1');
+    setItem.mockImplementation(() => {
+      throw new Error('quota');
+    });
+    expect(() => saveSettings({ ...defaults, theme: 'light' })).toThrow('quota');
+    expect(values.get('voxbridge.settings.v1')).toBe(original);
+  });
+});
+
 describe('provider profiles', () => {
   it('migrates and persists workspace font size independently of floating captions', () => {
     for (const value of [undefined, null, '24', NaN, Infinity]) {
