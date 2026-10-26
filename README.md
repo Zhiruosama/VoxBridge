@@ -6,7 +6,7 @@
 
 VoxBridge 是一款面向 **macOS 和 Windows** 的实时语音翻译工具：把应用声音变成双语字幕，也能把你输入的文字或录下的语音翻译、合成为语音，通过虚拟麦克风送入 Discord 等聊天软件。
 
-0.3.0 测试版提供 Windows 11 x64 和 Apple Silicon Mac 安装包；Windows ARM64 为实验版本，真实音频硬件仍待验收。
+0.4.0 新增独立文本翻译、请求重试与服务测试，并改进 Mac 窗口和语音设置。提供 Windows 11 x64、Windows ARM64 和 Apple Silicon Mac 安装包；本轮 Windows 实机回归待补充，ARM64 音频硬件仍待验收。
 
 ![VoxBridge：双语字幕与文字输入工作台](docs/assets/workspace-overview.png)
 
@@ -14,6 +14,7 @@ _界面演示，字幕为示例内容。_
 
 ## 可以做什么
 
+- **文本翻译**：单独输入文字并选择目标语言，不调用录音或语音合成。
 - **听与看**：选择要监听的应用，实时查看原文和翻译字幕。
 - **说与打字**：输入文字或录音，修改确认后发送，也可开启语音直接发送。
 - **悬浮字幕**：切换桌面或全屏窗口时继续阅读，也能在浮窗中输入。
@@ -23,13 +24,13 @@ _界面演示，字幕为示例内容。_
 
 | 平台 | 当前状态 | 安装方式 |
 | --- | --- | --- |
-| macOS 14.2+ · Apple Silicon | 0.3.0 测试版 | 下载 [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)，拖入「应用程序」 |
-| Windows 11 · x64 | 0.3.0 测试版，已做本机音频回环验证 | 下载 [x64 安装包](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)，直接运行 EXE |
+| macOS 14.2+ · Apple Silicon | 0.4.0 测试版 | 下载 [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0)，拖入「应用程序」 |
+| Windows 11 · x64 | 0.4.0 测试版，本轮 Windows 实机回归待补充 | 下载 [x64 安装包](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0)，直接运行 EXE |
 | Windows · ARM64 | 实验版；原生 CI 与打包检查，真实音频硬件未验收 | 同一发布页下载 `arm64-setup.exe` |
 
 安装包内置前端和原生程序，无需开发工具。Windows 安装器使用与应用一致的界面，支持可选虚拟麦克风、覆盖更新和配置保留；详见 [安装指南](docs/windows-installation.md)。系统缺少 WebView2 时会先使用兼容向导安装运行环境。Windows 10 尚未完成验收。
 
-0.3.0 支持启动检查、签名更新、Windows 麦克风权限引导和 DPAPI 凭据保护。更新签名不等于系统厂商签名：Windows 安装器尚未进行 Authenticode 签名，Mac 测试版尚未通过 Developer ID 签名或公证；首次打开说明见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)。旧 Mac 0.2.1 没有应用内更新入口，需要手动下载新版。
+0.4.0 支持启动检查、签名更新、Windows 麦克风权限引导和 DPAPI 凭据保护。更新签名不等于系统厂商签名：Windows 安装器尚未进行 Authenticode 签名，Mac 测试版尚未通过 Developer ID 签名或公证；首次打开说明见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0)。旧 Mac 0.2.1 没有应用内更新入口，需要手动下载新版。
 
 ## 开始使用
 

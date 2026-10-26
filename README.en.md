@@ -6,7 +6,7 @@
 
 VoxBridge is a real-time voice translation app for **macOS and Windows**. Turn an app’s audio into bilingual captions, or translate typed text and recorded speech into a synthesized voice that you can send to Discord and other chat apps through a virtual microphone.
 
-Version 0.3.0 provides test installers for Windows 11 x64 and Apple Silicon Mac. Windows ARM64 is experimental; real audio hardware validation is still pending.
+Version 0.4.0 adds standalone text translation, request recovery and service checks, plus Mac window and voice-setting improvements. Installers are available for Windows 11 x64, Windows ARM64 and Apple Silicon Mac. Windows hardware regression for this release is pending; ARM64 audio hardware remains unverified.
 
 ![VoxBridge workspace with bilingual captions and text input](docs/assets/workspace-overview.png)
 
@@ -23,13 +23,13 @@ _Interface demo with example captions._
 
 | Platform | Status | Installation |
 | --- | --- | --- |
-| macOS 14.2+ · Apple Silicon | 0.3.0 test release | Download the [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0) and drag VoxBridge into Applications |
-| Windows 11 · x64 | 0.3.0 test release; local audio loopback tested | Download the x64 EXE from the same release page |
+| macOS 14.2+ · Apple Silicon | 0.4.0 test release | Download the [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0) and drag VoxBridge into Applications |
+| Windows 11 · x64 | 0.4.0 test release; Windows hardware regression pending | Download the x64 EXE from the same release page |
 | Windows · ARM64 | Experimental; native CI and builds checked, real audio hardware untested | Download `arm64-setup.exe` from the same release page |
 
 No developer tools are required. Windows setup reuses the app interface and preserves settings during upgrades. It offers optional VB-CABLE installation; systems without WebView2 use a native compatibility wizard first. See the [Windows installation guide (中文)](docs/windows-installation.md). Windows 10 remains unvalidated.
 
-Version 0.3.0 includes startup checks, signed in-app updates, microphone permission guidance and Windows DPAPI credential protection. Update signatures are separate from vendor signing: Windows installers are not Authenticode-signed, and the Mac app is not Developer ID-signed or notarized. Read the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0). Older Mac 0.2.1 installations require a manual download because they have no updater.
+Version 0.4.0 includes startup checks, signed in-app updates, microphone permission guidance and Windows DPAPI credential protection. Update signatures are separate from vendor signing: Windows installers are not Authenticode-signed, and the Mac app is not Developer ID-signed or notarized. Read the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0). Older Mac 0.2.1 installations require a manual download because they have no updater.
 
 ## Get started
 

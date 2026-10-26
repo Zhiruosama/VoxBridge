@@ -6,7 +6,7 @@
 
 VoxBridge は **macOS と Windows** 向けのリアルタイム音声翻訳アプリです。アプリの音声を原文・訳文の字幕で表示できます。入力したテキストや録音した音声を翻訳・音声合成し、仮想マイクを通じて Discord などのチャットアプリに送ることもできます。
 
-0.3.0 テスト版は Windows 11 x64 と Apple Silicon Mac 向けのインストーラを提供します。Windows ARM64 は実験版で、実機の音声デバイスは未検証です。
+0.4.0 は独立したテキスト翻訳、再試行、サービスのテストを追加し、Mac のウィンドウと音声設定を改善しました。Windows 11 x64、Windows ARM64、Apple Silicon Mac 向けのインストーラを提供します。今回の Windows 実機回帰は未検証で、ARM64 の音声デバイスも未検証です。
 
 ![VoxBridge：原文・訳文の字幕とテキスト入力画面](docs/assets/workspace-overview.png)
 
@@ -14,6 +14,7 @@ _字幕はサンプルを使用した画面イメージです。_
 
 ## できること
 
+- **テキスト翻訳**：録音や音声合成を使わず、入力した文章を選んだ言語に翻訳。
 - **聞いて読む**：対象アプリを選び、原文と翻訳字幕をリアルタイムで確認。
 - **話す・入力する**：録音やテキスト入力に対応。内容を確認してから送信するほか、音声の直接送信も選択可能。
 - **字幕を持ち歩く**：デスクトップや全画面表示を切り替えても字幕を表示。フローティングウィンドウから入力・録音も可能。
@@ -23,13 +24,13 @@ _字幕はサンプルを使用した画面イメージです。_
 
 | プラットフォーム | 状態 | インストール |
 | --- | --- | --- |
-| macOS 14.2 以降 · Apple Silicon | 0.3.0 テスト版 | [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0) を開き「アプリケーション」にドラッグ |
-| Windows 11 · x64 | 0.3.0 テスト版、実機で音声ループバックを確認 | 同じリリースページから x64 EXE を取得 |
+| macOS 14.2 以降 · Apple Silicon | 0.4.0 テスト版 | [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0) を開き「アプリケーション」にドラッグ |
+| Windows 11 · x64 | 0.4.0 テスト版、今回の Windows 実機回帰は未検証 | 同じリリースページから x64 EXE を取得 |
 | Windows · ARM64 | 実験版、CI とビルドのみ確認 | 同じページから `arm64-setup.exe` を取得 |
 
 開発ツールは不要です。Windows インストーラはアプリと共通の画面を使用し、更新時の設定を保持します。VB-CABLE は任意で導入できます。WebView2 がない環境では互換ウィザードが先に動作します。[Windows ガイド（中国語）](docs/windows-installation.md)を参照してください。Windows 10 は未検証です。
 
-0.3.0 は更新確認、署名付き更新、マイク権限案内と Windows DPAPI による認証情報保護を含みます。更新署名と OS 向けの署名は別です。Windows は Authenticode 未署名、Mac は Developer ID 署名・公証未実施です。[リリースノート（中国語）](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0)を確認してください。旧 Mac 0.2.1 には更新機能がなく、手動ダウンロードが必要です。
+0.4.0 は更新確認、署名付き更新、マイク権限案内と Windows DPAPI による認証情報保護を含みます。更新署名と OS 向けの署名は別です。Windows は Authenticode 未署名、Mac は Developer ID 署名・公証未実施です。[リリースノート（中国語）](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0)を確認してください。旧 Mac 0.2.1 には更新機能がなく、手動ダウンロードが必要です。
 
 ## 使い始める
 
