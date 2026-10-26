@@ -29,12 +29,7 @@ fn status() -> Result<VirtualMicStatus, String> {
             .input_devices()
             .map_err(|_| "无法枚举虚拟麦克风输入。")?
             .filter_map(|d| d.description().ok())
-            .map(|d| {
-                d.extended()
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| d.name().to_owned())
-            })
+            .map(|d| super::device_name(&d))
             .filter(|name| is_cable_endpoint(name, "output"))
             .collect();
         if outputs.len() > 1 || inputs.len() > 1 {

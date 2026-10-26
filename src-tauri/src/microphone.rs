@@ -95,8 +95,7 @@ fn device_id(device: &cpal::Device) -> Result<String, String> {
 fn physical(device: &cpal::Device) -> bool {
     #[cfg(target_os = "windows")]
     if device.description().is_ok_and(|d| {
-        let name = d.extended().first().map(String::as_str).unwrap_or(d.name());
-        crate::platform::is_cable_endpoint(name, "output")
+        crate::platform::is_cable_endpoint(&crate::platform::device_name(&d), "output")
     }) {
         return false;
     }
@@ -132,7 +131,7 @@ pub fn list_inputs() -> Result<Vec<InputDevice>, String> {
                 if let (Ok(id), Ok(description)) = (device_id(&device), device.description()) {
                     devices.push(InputDevice {
                         id,
-                        name: description.name().to_owned(),
+                        name: crate::platform::device_name(&description),
                     });
                 }
             }
@@ -563,6 +562,39 @@ pub async fn start_voice_input(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    #[ignore = "manual read-only Windows input inventory; no recording or cloud calls"]
+    fn windows_microphone_inventory_keeps_stable_ids_and_full_hardware_names() {
+        let first = super::list_inputs().unwrap();
+        let host = cpal::default_host();
+        for input in &first {
+            let device = host
+                .input_devices()
+                .unwrap()
+                .find(|device| super::device_id(device).is_ok_and(|id| id == input.id))
+                .unwrap();
+            assert!(super::physical(&device));
+            assert_eq!(
+                input.name,
+                crate::platform::device_name(&device.description().unwrap())
+            );
+            assert!(input.id.starts_with("mic:"));
+        }
+        let mut first_ids: Vec<_> = first.iter().map(|input| input.id.clone()).collect();
+        let mut second_ids: Vec<_> = super::list_inputs()
+            .unwrap()
+            .into_iter()
+            .map(|input| input.id)
+            .collect();
+        first_ids.sort();
+        second_ids.sort();
+        assert_eq!(first_ids, second_ids);
+        println!(
+            "Validated {} physical input endpoints without opening audio streams.",
+            first.len()
+        );
+    }
     #[test]
     fn microphone_errors_classify_access_and_exclusive_use_without_echoing_backend_text() {
         let error = |description: &str| {

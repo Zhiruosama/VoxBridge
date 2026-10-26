@@ -6,6 +6,8 @@
 
 ## 监听、识别与字幕
 
+- [Windows 与 Mac 后端对齐](2026-10-26-windows-backend-parity.md) — 2026-10-26
+
 - [Application selection for listening](2026-10-23-application-capture.md) — 2026-10-23
 - [2026-10-23 Mac 受控音频闭环](2026-10-23-capture-loop.md) — 2026-10-23
 - [More frequent realtime subtitle translation](2026-10-23-faster-realtime-translation.md) — 2026-10-23
@@ -36,6 +38,8 @@
 - [Voice input controls and one-minute recordings](2026-10-24-voice-input-controls.md) — 2026-10-24
 
 ## 界面与悬浮窗口
+
+- [Mac 主题切换中断与备用动画](2026-10-26-theme-transition.md) — 2026-10-26
 
 - [Chrome discovery and stable picker scrolling](2026-10-23-chrome-picker-scroll.md) — 2026-10-23
 - [Content-only text selection](2026-10-23-text-selection.md) — 2026-10-23

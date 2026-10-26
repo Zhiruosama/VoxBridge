@@ -17,6 +17,20 @@ pub struct OutputDevice {
 
 pub(crate) const SYSTEM_DEFAULT_OUTPUT: &str = "__system_default__";
 
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn device_name(description: &cpal::DeviceDescription) -> String {
+    // WASAPI's short name omits the hardware/vendor and can collide across devices.
+    #[cfg(target_os = "windows")]
+    if let Some(name) = description
+        .extended()
+        .iter()
+        .find(|name| !name.trim().is_empty())
+    {
+        return name.clone();
+    }
+    description.name().to_owned()
+}
+
 pub(crate) fn output_id(device: &cpal::Device) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
@@ -40,28 +54,18 @@ pub(crate) fn output_id(device: &cpal::Device) -> Result<String, String> {
 
 #[cfg(not(target_os = "macos"))]
 fn output_entries() -> Result<Vec<(cpal::Device, OutputDevice)>, String> {
-    cpal::default_host()
+    Ok(cpal::default_host()
         .output_devices()
         .map_err(|_| "无法枚举输出设备。".to_string())?
-        .map(|device| {
-            let description = device
-                .description()
-                .map_err(|_| "无法读取设备名称。".to_string())?;
-            // CPAL 0.17's short name is often just "Speakers". WASAPI puts the
-            // full friendly name used by older versions in the first extended line.
-            #[cfg(target_os = "windows")]
-            let name = description
-                .extended()
-                .first()
-                .map(String::as_str)
-                .unwrap_or(description.name())
-                .to_owned();
-            #[cfg(not(target_os = "windows"))]
-            let name = description.name().to_owned();
-            let id = output_id(&device)?;
-            Ok((device, OutputDevice { id, name }))
+        // A device may disappear after enumeration. As on macOS, skip only that
+        // stale entry, retaining all healthy endpoints and their stable IDs.
+        .filter_map(|device| {
+            let description = device.description().ok()?;
+            let name = device_name(&description);
+            let id = output_id(&device).ok()?;
+            Some((device, OutputDevice { id, name }))
         })
-        .collect()
+        .collect())
 }
 
 pub fn list_outputs() -> Result<Vec<OutputDevice>, String> {

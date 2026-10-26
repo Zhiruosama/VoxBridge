@@ -2,13 +2,13 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { recordDiagnostic } from '../diagnostics';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { Settings } from '../core/types';
+import { fadeThemeSnapshot } from '../core/theme-snapshot';
 
 export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
   const frameUpdates = useRef(Promise.resolve());
   const frameRevision = useRef(0);
   const transition = useRef<ViewTransition | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const snapshot = useRef<HTMLElement | null>(null);
+  const clearSnapshot = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
     const media = matchMedia('(prefers-color-scheme: light)');
     function apply() {
@@ -18,10 +18,8 @@ export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
       // Revision checks prevent skipped callbacks from restoring an older theme.
       transition.current?.skipTransition();
       transition.current = null;
-      if (timer.current !== null) clearTimeout(timer.current);
-      timer.current = null;
-      snapshot.current?.remove();
-      snapshot.current = null;
+      clearSnapshot.current?.();
+      clearSnapshot.current = null;
       const revision = ++frameRevision.current;
       const update = () => {
         if (revision !== frameRevision.current) return;
@@ -34,6 +32,7 @@ export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
               if (revision !== frameRevision.current) return;
               const window = getCurrentWindow();
               await window.setTheme(theme === 'system' ? null : next);
+              if (revision !== frameRevision.current) return;
               await window.setBackgroundColor(next === 'light' ? '#f0f0ee' : '#181818');
             })
             .catch(() => console.warn('Unable to synchronize the native window theme.'));
@@ -56,41 +55,9 @@ export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
             if (transition.current === current) transition.current = null;
           });
       } else {
-        if (animate) {
-          // Older WKWebView has no View Transition API. Freeze the old DOM in
-          // a non-interactive, accessibility-hidden layer; only its opacity
-          // animates, so foreground and background always retain their contrast.
-          const source = document.getElementById('root');
-          if (source) {
-            const layer = source.cloneNode(true) as HTMLElement;
-            const style = getComputedStyle(root);
-            for (const property of Array.from(style)) {
-              if (property.startsWith('--'))
-                layer.style.setProperty(property, style.getPropertyValue(property));
-            }
-            layer.style.color = style.color;
-            layer.style.colorScheme = next === 'light' ? 'dark' : 'light';
-            layer.removeAttribute('id');
-            layer.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
-            layer.inert = true;
-            layer.setAttribute('aria-hidden', 'true');
-            layer.className = 'theme-snapshot';
-            const originals = source.querySelectorAll('*');
-            const copies = layer.querySelectorAll('*');
-            document.body.append(layer);
-            originals.forEach((element, index) => {
-              copies[index].scrollTop = element.scrollTop;
-              copies[index].scrollLeft = element.scrollLeft;
-            });
-            snapshot.current = layer;
-            timer.current = setTimeout(() => {
-              layer.remove();
-              if (snapshot.current === layer) snapshot.current = null;
-              timer.current = null;
-            }, 440);
-          }
-        }
-        update();
+        const source = animate ? document.getElementById('root') : null;
+        if (source) clearSnapshot.current = fadeThemeSnapshot(source, update);
+        else update();
       }
       recordDiagnostic({
         operation: 'frontend',
@@ -99,15 +66,21 @@ export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
       });
     }
     apply();
-    media.addEventListener('change', apply);
-    return () => media.removeEventListener('change', apply);
+    // macOS setTheme() can also change the WebView's media query. Explicit
+    // light/dark choices must not treat that notification as a new toggle and
+    // cancel their own in-progress animation. Ignore redundant system events too.
+    function systemChanged() {
+      const next = media.matches ? 'light' : 'dark';
+      if (document.documentElement.dataset.theme !== next) apply();
+    }
+    if (theme === 'system') media.addEventListener('change', systemChanged);
+    return () => media.removeEventListener('change', systemChanged);
   }, [theme, nativeMacFrame]);
   useEffect(
     () => () => {
       ++frameRevision.current;
       transition.current?.skipTransition();
-      if (timer.current !== null) clearTimeout(timer.current);
-      snapshot.current?.remove();
+      clearSnapshot.current?.();
     },
     [],
   );

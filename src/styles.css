@@ -2822,6 +2822,9 @@ input[type='range']:focus-visible::-moz-range-thumb {
   background: var(--bg);
   pointer-events: none;
   user-select: none;
+  opacity: 1;
+}
+.theme-snapshot[data-playing='true'] {
   animation: theme-surface-out 400ms ease-in-out both;
 }
 .theme-snapshot *,
