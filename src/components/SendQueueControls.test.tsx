@@ -18,18 +18,32 @@ function render(statuses: string[], paused = false) {
   return renderToStaticMarkup(<SendQueueControls view={view} onAction={() => {}} />);
 }
 describe('queue entry', () => {
-  it('shows progress and pending count without opening the queue', () => {
-    expect(render(['queued', 'ready'])).toContain('待处理 · 2');
-    expect(render(['translating', 'ready'])).toContain('翻译中 · 2');
-    expect(render(['synthesizing'])).toContain('合成中 · 1');
-    expect(render(['playing'])).toContain('播放中 · 1');
-    expect(render(['queued', 'ready'], true)).toContain('已暂停 · 2');
+  it('keeps the entry label short for every phase, count and pause state', () => {
+    for (const status of [
+      'queued',
+      'translating',
+      'synthesizing',
+      'ready',
+      'playing',
+      'waitingDevice',
+      'decoding',
+      'stopping',
+    ]) {
+      for (const paused of [false, true]) {
+        const html = render([status, 'queued'], paused);
+        expect(html).toContain('>队列</button>');
+        expect(html).not.toContain(' · 2');
+        expect(html).not.toContain('播放中');
+        expect(html).not.toContain('已暂停');
+      }
+    }
   });
   it('marks failed items and clears the error indicator once retry is queued', () => {
     const failed = render(['failed', 'queued'], true);
     expect(failed).toContain('has-failure');
     expect(failed).toContain('查看发送队列，有失败项');
-    expect(failed).toContain('有失败项 · 2');
+    expect(failed).toContain('>队列</button>');
+    expect(failed).not.toContain(' · 2');
     expect(render(['queued', 'ready'], true)).not.toContain('has-failure');
     expect(render([])).toBe('');
   });

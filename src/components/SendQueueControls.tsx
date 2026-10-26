@@ -75,19 +75,7 @@ export default function SendQueueControls({
         }}
       >
         {hasFailure && <AlertCircle size={13} aria-hidden="true" />}
-        {t(
-          hasFailure
-            ? '有失败项'
-            : view.paused
-              ? '已暂停'
-              : labels[
-                  (
-                    view.items.find((item) => item.active) ??
-                    view.items.find((item) => item.status !== 'failed')
-                  )?.status ?? 'queued'
-                ] || '准备中',
-        )}{' '}
-        · {view.items.length}
+        {t('队列')}
       </button>
       {open &&
         createPortal(
