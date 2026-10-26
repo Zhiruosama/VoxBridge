@@ -2,17 +2,17 @@
 
 [返回首页](../README.md) · [内部流程与状态](internal-flows.md) · [开发与打包](development.md)
 
-本文对应 **0.2.0** 的代码，更新于 2026-10-25。描述已经实现的结构；早期专项文档中的提案不代表当前行为。运行范围以 [0.2.0 发布说明](releases/v0.2.0.md)为准。
+本文说明主分支的模块分工。面向使用者的操作见[文档中心](README.md)，各平台实机验证范围见[发布说明](https://github.com/Zhiruosama/VoxBridge/releases)。
 
 ## 整体结构
 
-VoxBridge 是本机桌面应用，没有自建账号或模型代理服务。React 显示界面并协调交互，Rust 负责设备、音频、凭据及供应商请求；macOS 音频驱动把合成声音提供给聊天软件。
+VoxBridge 是本机桌面应用，没有自建账号或模型代理服务。React 显示界面并协调交互，Rust 负责设备、音频、凭据及供应商请求；macOS 原生虚拟麦克风或 Windows VB-CABLE 把合成声音提供给聊天软件。
 
 ```mermaid
 flowchart TB
   subgraph UI[React / TypeScript · WebView]
     Main[主窗口 App]
-    Core[字幕状态 / 发送队列 / 设置]
+    Core[字幕状态 / 文本翻译 / 发送队列 / 设置]
     Float[悬浮字幕与输入窗]
     Main <--> Core
   end
@@ -32,16 +32,17 @@ flowchart TB
   end
   Core <-->|文本 / 配置 / 进度| IPC
   Float <-->|快照 / 操作请求| Snapshots
-  Capture <-->|设备与音频帧| OS[macOS Core Audio]
+  Capture <-->|设备与音频帧| OS[macOS Core Audio / Windows WASAPI]
   Services <-->|HTTPS / WebSocket| Cloud[用户选择的云模型服务]
   Playback --> Preview[耳机 / 扬声器试听]
-  Playback --> Driver[VoxBridge 虚拟音频输出]
-  Driver --> Input[VoxBridge 虚拟麦克风输入]
+  Playback --> Driver[Mac VoxBridge / Windows CABLE Input]
+  Driver --> Input[Mac VoxBridge / Windows CABLE Output]
   Input --> Chat[Discord 等聊天软件]
 ```
 
-**两条业务链相互独立：**
+**三条业务链分别处理：**
 
+- 纯文本：用户文字 → 文字翻译 → 译文，不调用音频功能。
 - 接收：目标应用声音 → ASR → 翻译 → 双语字幕。
 - 发送：文字或麦克风录音 → 可选翻译 → TTS → 虚拟麦克风，可同时本地试听。
 
@@ -54,14 +55,14 @@ flowchart TB
 | 界面协调     | [`src/App.tsx`](../src/App.tsx)                                                                                                 | 监听与录音操作、主窗口状态、队列和悬浮窗协作           |
 | 前端领域逻辑 | [`src/core/`](../src/core/)                                                                                                     | 字幕修订、发送队列、配置解析、语言和输出路由           |
 | 桌面桥接     | [`src/bridge.ts`](../src/bridge.ts)、[`lib.rs`](../src-tauri/src/lib.rs)                                                        | Tauri 命令、长任务 Channel、后端状态注册               |
-| 应用声音采集 | [`capture.rs`](../src-tauri/src/capture.rs)、[`platform/macos_capture.rs`](../src-tauri/src/platform/macos_capture.rs)          | 按应用选择声音源、Core Audio process tap、采集生命周期 |
+| 应用声音采集 | [`capture.rs`](../src-tauri/src/capture.rs)、[`platform/macos_capture.rs`](../src-tauri/src/platform/macos_capture.rs)          | 按应用选择声音源、Core Audio / WASAPI、采集生命周期 |
 | 监听流水线   | [`capture/listening/`](../src-tauri/src/capture/listening/)                                                                     | 音频处理、实时或 HTTP ASR、字幕提交、翻译调度与恢复    |
 | 主动录音     | [`microphone.rs`](../src-tauri/src/microphone.rs)                                                                               | CPAL 麦克风输入、60 秒上限、录音状态、识别结果         |
 | 模型适配     | [`asr.rs`](../src-tauri/src/asr.rs)、[`providers.rs`](../src-tauri/src/providers.rs)、[`speech.rs`](../src-tauri/src/speech.rs) | ASR、翻译、TTS 的协议与结果校验                        |
 | 播放与预取   | [`speech/`](../src-tauri/src/speech/)                                                                                           | 流式 PCM、完整音频解码、内存预取、本地试听与取消       |
 | 悬浮窗       | [`overlay.rs`](../src-tauri/src/overlay.rs)、[`overlay/`](../src-tauri/src/overlay/)                                            | 快照校验与广播、动作转发、macOS 浮窗行为               |
 | 凭据         | [`credentials.rs`](../src-tauri/src/credentials.rs)、[`credentials/`](../src-tauri/src/credentials/)                            | 私有文件存储、加密、内存读取与旧数据迁移               |
-| 虚拟麦克风   | [`native/macos/virtual-mic/`](../native/macos/virtual-mic/)                                                                     | 独立的 AudioServerPlugIn、构建检查与安装器             |
+| 虚拟麦克风   | [`native/macos/virtual-mic/`](../native/macos/virtual-mic/)                                                                     | macOS AudioServerPlugIn；Windows 使用随包 VB-CABLE             |
 | 界面语言     | [`src/i18n/`](../src/i18n/)                                                                                                     | 中英文 UI 文案；不改写字幕内容、模型参数和用户预设名   |
 
 `App.tsx` 仍承担较多协调逻辑。表中的职责是现有文件的分工，不表示已经实现一套独立的 SessionController 服务或通用插件框架。
@@ -87,33 +88,41 @@ flowchart LR
   KeyInput[用户保存 API Key] --> Save[Tauri 凭据命令]
   Save --> Vault[本机私有凭据目录]
   Vault --> Encrypted[keys.v1.enc · AES-256-GCM]
-  Vault --> Master[master.v1.key · 随机本机加密钥]
+  Vault --> Master[随机主密钥 · Mac 私有文件 / Windows DPAPI]
   Vault --> Memory[Rust 内存凭据]
   Memory --> Request[供应商请求认证]
   Session[字幕 / 草稿 / 队列 / 预取音频] --> RAM[会话运行时内存]
 ```
 
 - [`settings.ts`](../src/core/settings.ts) 使用 `voxbridge.settings.v1` 保存非敏感设置，并在读取时补齐新增字段、过滤和约束输入。
-- [`credentials/store.rs`](../src-tauri/src/credentials/store.rs) 与 [`crypto.rs`](../src-tauri/src/credentials/crypto.rs) 管理凭据文件。macOS / Linux 使用目录 `0700`、文件 `0600`；正常保存和重启读取不依赖 Keychain。旧版迁移路径另见[凭据记录](validation/2026-10-24-private-credentials.md)。
+- [`credentials/store.rs`](../src-tauri/src/credentials/store.rs) 与 [`crypto.rs`](../src-tauri/src/credentials/crypto.rs) 管理凭据文件。macOS / Linux 使用目录 `0700`、文件 `0600`；正常保存和重启读取不依赖 Keychain；Windows 主密钥使用当前用户 DPAPI 保护。旧版迁移路径另见[凭据记录](validation/2026-10-24-private-credentials.md)。
 - 加密文件和解密钥都在同一用户的本机目录。此设计保护文件权限与误提交场景，**不能隔离有权读取这两个文件的同用户程序**，也不是硬件密钥库。
 - 字幕历史最多保留 500 条；正常使用不把录音、字幕历史或预取语音写入聊天历史文件。手动运行的诊断录音工具另当别论。
 - 界面语言、识别语言、字幕目标语言、主动输入目标语言分别控制不同环节。改变英文界面不等于把翻译目标改成英语。
 
 ## 设备、权限和发行边界
 
-应用采集使用 macOS Core Audio process tap；主动录音使用麦克风输入。两种权限不同，不能通过同一个开关互相替代。设置页设备枚举只读 Core Audio 属性，不初始化麦克风输入流。
+macOS 应用采集使用 Core Audio process tap，Windows 使用 WASAPI Application Loopback；主动录音使用麦克风输入。系统音频与麦克风权限分别处理。设置页仅枚举设备，不主动打开麦克风输入流。
 
 试听选择“系统默认”时保留的是跟随模式，实际输出设备在播放时解析；虚拟麦克风发送设备独立选择，不修改系统默认麦克风。
 
-发行包由 Tauri 将前端资源与 Rust 可执行程序打成 `.app`，内嵌虚拟麦克风安装器，再生成 DMG。用户不需要 Node.js、Rust 或 Homebrew。安装驱动是额外的系统安装步骤，需要管理员授权。
+发行包内含前端资源与 Rust 可执行程序。macOS 生成 `.app` 和 DMG，内嵌虚拟麦克风安装器；Windows 生成 NSIS 安装程序，提供 WebView2 引导及官方 VB-CABLE 驱动包。用户不需要 Node.js、Rust 或 Homebrew。安装驱动是额外的系统安装步骤，需要管理员授权。
 
-0.2.0 提供 Apple Silicon / macOS 14.2+ 测试包，尚未 Developer ID 签名或公证。Windows 有部分条件编译与界面代码，但当前没有完成应用声音采集和虚拟麦克风接入。QQ、微信的设备枚举兼容性也不能从 Discord 测试结果直接推断。
+Mac 提供 Apple Silicon / macOS 14.2+ 安装包，尚未 Developer ID 签名或公证。Windows 已接入应用声音采集、稳定输出端点、VB-CABLE、安装器与签名更新；ARM64 音频硬件及客户端实机回归仍有未完成项。QQ、微信兼容性不能从 Discord 或本机回环结果直接推断。
 
 ## 继续阅读
 
-- [本机诊断日志](diagnostics.md)：0.2.1 之后主分支新增的日志范围、导出与排查方式。
+- [本机诊断日志](diagnostics.md)：日志范围、导出与排查方式。
 
 - [内部流程与状态](internal-flows.md)：分句、翻译、队列、取消、自动恢复和浮窗协作。
 - [开发与打包](development.md)：运行命令、测试与发布工作流。
 - [虚拟麦克风实现](../native/macos/virtual-mic/README.md)：驱动的格式、路由和安装。
 - [实时字幕优化记录](12-streamvox-optimization-progress.md)、[语音输出记录](13-virtual-microphone-and-monitoring.md)：具体改动和验证边界。
+
+## 独立文本翻译与服务检查
+
+[`TextTranslationController`](../src/core/text-translation.ts) 只依赖翻译与取消接口，草稿、目标和结果保存在 App 持有的会话状态中；切页保留，退出释放。重试保存失败请求快照，并读取当前服务配置，不覆盖新的草稿。
+
+[`RequestTask`](../src/core/request-task.ts) 为独立文本翻译和服务测试提供本地截止与取消，不等待服务确认后才解锁界面。翻译为 45 秒，服务测试为 30 秒；此截止不用于正在播放的语音。迟到结果通过请求标识隔离。
+
+[`ServiceCheck`](../src/components/ServiceCheck.tsx) 与 [`probeService`](../src/core/service-probe.ts) 只由用户主动启动。翻译发送短文本；合成只准备临时音频并丢弃，不调用播放；ASR 仅检查配置和密钥并引导音频诊断。取消或切换配置时清理请求，检查密钥期间取消不能再发起后续付费调用。

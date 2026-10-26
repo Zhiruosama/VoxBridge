@@ -1,5 +1,9 @@
 # Speech presets and switching voices while listening
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 - A compact voice-name control in the composer opens provider/profile, synthesis model and voice selectors. Changes persist immediately, retain the profile ID used by credential storage, and apply to subsequent synthesis. ComposerController already clones settings at operation start, so current synthesis/translation keeps its original configuration.
 - Existing ASR capture is independent and is neither stopped nor restarted. The quick menu's More settings opens the TTS page without stopping capture. Other settings continue using their existing stop-before-edit behavior. This change does not introduce live ASR model switching or additional ASR protocols.
 - Settings model presets follow the implemented protocol: Qwen task WebSocket uses qwen-audio-3.0-asr-flash-streaming; Qwen HTTP uses qwen3-asr-flash. Unsupported Realtime API variants are deliberately absent. Existing manual model IDs are preserved.

@@ -1,5 +1,9 @@
 # 2026-10-23 MiniMax 流式输出
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 本轮实现 MiniMax WebSocket → PCM16（32 kHz mono）→ 指定设备增量播放。OpenAI 兼容 HTTP / MP3 路径继续完整接收后解码，不自动切换接口或服务区域。任务协议参考 [MiniMax 官方 WebSocket 文档](https://platform.minimax.io/docs/api-reference/speech-t2a-websocket)。PCM 格式已使用本机凭据真实验证。
 
 每个网络块最多 6,400 字节（100 ms），接收队列最多 8 块，播放器最多排队 3 块；网络消息上限 512 KiB、整体 8 MiB / 120 秒。分块边界允许落在单个 PCM16 样本中间；持续背压由有界队列传回 WebSocket。停止取消接收任务，丢弃排队内容并释放输出设备。设备失败会取消在途合成，最终保留真实设备错误。

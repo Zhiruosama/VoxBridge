@@ -1,5 +1,9 @@
 # Microphone voice input
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 ## Behavior
 
 - Composer microphone entry has two persisted modes. Default: **语音转文字**. Click to start, click **完成录音**, then edit/send the recognized draft. **语音消息** automatically passes the recognized text through the existing target-language detection, translation, TTS, output routing and monitoring pipeline after capture stops.

@@ -2,7 +2,7 @@
 
 [返回首页](../README.md) · [使用指南](user-guide.md) · [架构设计](02-architecture.md)
 
-本页介绍当前开发代码；Windows 实现位于 `codex/windows-support`，尚未合并发布。历史设计文档和联调记录可能描述已被替代的方案，例如 Keychain、密钥模板和旧音频路由；实际行为以当前代码、使用指南及对应版本说明为准。
+本页面向开发者。普通使用者从[文档中心](README.md)的安装与使用部分开始。macOS 与 Windows 已在主分支共用界面和业务代码，平台音频与窗口行为分别实现。历史方案不作为当前凭据、路由或验证状态的依据。
 
 ## 环境
 
@@ -34,6 +34,7 @@ Windows 开发启动前先运行 `node scripts/build-desktop-resources.mjs`，�
 ## 检查
 
 ```sh
+npm run docs:check
 npm run format:check
 npm test
 npm run build
@@ -44,6 +45,8 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked -- --test-threads=1
 ```
 
 真实服务、计费调用、录音和设备播放测试默认忽略，应在明确测试范围后单独执行。自动化通过不等于所有聊天软件或音质场景验收通过。
+
+文档改动运行 `npm run docs:check`：检查已跟踪 Markdown 的本地链接、章节锚点和用户介绍中的固定应用版本号。新增文档需先加入 Git 暂存区；历史发布记录允许保留版本号。
 
 ## 打包与发布
 
@@ -59,7 +62,7 @@ npm run desktop:build:mac
 
 当前使用 ad-hoc 签名，尚未 Developer ID 签名或公证。临时签名的程序更新后，macOS 隐私授权可能需要重新确认。发布前还需要单独验证目标架构、安装权限和干净机器行为；不要将本机调试设备作为发行依赖。
 
-GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*` 标签时构建 Apple Silicon DMG 和 Windows x64 NSIS，生成更新签名与分平台 SHA-256 校验清单，两个平台都成功后统一发布 prerelease 并推进更新源；手动运行只构建验证，不发布。标签必须与 `package.json` 和 Tauri 配置中的版本一致，并提供 `docs/releases/<标签>.md`。先完成测试、打包和附件上传，再公开 Release。
+GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*` 标签时构建 Apple Silicon DMG、Windows x64 和 ARM64 安装包，生成更新签名与分平台 SHA-256 校验清单，三个目标都成功后统一发布 prerelease 并推进更新源；手动运行只构建验证，不发布。标签必须与 `package.json` 和 Tauri 配置中的版本一致，并提供 `docs/releases/<标签>.md`。先完成测试、打包和附件上传，再公开 Release。
 
 ## 实现入口
 
@@ -85,14 +88,12 @@ GitHub Actions 的 [release.yml](../.github/workflows/release.yml) 在推送 `v*
 ## 进一步阅读
 
 - [本机诊断日志、导出和字段说明](diagnostics.md)
-
 - [服务配置与协议边界](08-provider-configuration.md)
 - [实时字幕优化记录](12-streamvox-optimization-progress.md)
 - [虚拟麦克风、安装和卸载](../native/macos/virtual-mic/README.md)
 - [Discord 实测与音质边界](13-virtual-microphone-and-monitoring.md)
 - [微信虚拟麦克风调查](wechat-virtual-microphone-investigation.md)
-- [设计文档目录](README.md)（含早期方案）
-
+- [设计与历史资料](archive/README.md)
 
 ## 签名更新与发布
 

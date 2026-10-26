@@ -42,6 +42,7 @@ jobs:
       - run: npm ci
       - name: Validate release metadata
         run: node scripts/prepare-release.mjs validate
+      - run: npm run docs:check
       - run: npm run format:check
       - run: npm test
       - run: npm run test:release

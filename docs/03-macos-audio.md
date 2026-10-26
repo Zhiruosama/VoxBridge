@@ -1,5 +1,9 @@
 # macOS 音频、权限与设备路由
 
+[文档中心](README.md) · [设计与历史资料](archive/README.md) · [当前开发指南](development.md)
+
+> 设计或阶段记录：保留写作当时的方案与验证范围，可能包含已被替代的实现。当前操作请看[使用指南](user-guide.md)，当前结构请看[架构总览](02-architecture.md)。
+
 ## 1. 系统基线与验证范围
 
 建议最低 macOS 14.2、首测 Apple Silicon。Apple 官方 Core Audio taps 示例要求 macOS 14.2+，支持采集进程或进程组的输出，并要求配置 `NSAudioCaptureUsageDescription`。这支持本设计的方向，但不代表当前仓库已具备采集能力。[Apple 官方示例](https://developer.apple.com/documentation/coreaudio/capturing-system-audio-with-core-audio-taps)

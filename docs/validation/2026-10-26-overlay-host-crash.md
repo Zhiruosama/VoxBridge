@@ -1,5 +1,9 @@
 # 悬浮窗隐藏宿主在显示器变化时崩溃
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 ## 用户报告与定位
 
 用户提供的 2026-10-26 13:18 崩溃报告中，进程为已安装的 VoxBridge，主线程在 `tao::window_did_change_backing_properties` 内 panic，越过 Objective-C 回调边界后触发 SIGABRT。上游调用来自 AppKit 的显示器配置更新。

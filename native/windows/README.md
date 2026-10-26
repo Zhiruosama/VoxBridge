@@ -1,5 +1,9 @@
 # Windows 虚拟麦克风（VB-CABLE）
 
+[开发与打包](../../docs/development.md) · [用户安装指南](../../docs/guides/getting-started.md)
+
+本文面向开发和驱动维护。普通安装与使用请从用户指南开始。
+
 Windows 首版使用 VB-Audio 官方已签名的基础版 VB-CABLE Pack45，由 VoxBridge 提供安装引导、两端检测与发送设备快捷设置。默认使用厂商名称，也支持通过 Windows 设置把端点显示名改为 VoxBridge；驱动和签名仍属于 VB-Audio，不作为自有驱动。
 
 ## 使用

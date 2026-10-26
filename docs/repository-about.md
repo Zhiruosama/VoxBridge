@@ -1,5 +1,9 @@
 # GitHub About
 
+[文档中心](README.md) · [开发指南](development.md)
+
+此页供仓库维护者使用，普通用户无需操作。
+
 仓库描述：
 
 > macOS / Windows 实时语音翻译工具，支持双语字幕、文字与语音输入、语音合成和虚拟麦克风。Windows / Mac 测试版。Real-time speech translation for macOS and Windows with bilingual captions and virtual microphone output.

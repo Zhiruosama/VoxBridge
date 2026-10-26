@@ -1,5 +1,9 @@
 # 2026-10-23 千问实时识别
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 > 以下记录首批实时识别实现。后续已增加有界自动恢复和同时收发，见[新验证记录](2026-10-23-duplex-recovery.md)。
 
 本轮增加 `qwen_dashscope_asr`，保留原 HTTP 短 WAV 适配器。实时预设使用用户提供的同一网关 `wss://maas.qianwenaiapi.com/api-ws/v1/inference` 和已真实验证的 `qwen-audio-3.0-asr-flash-streaming`。配置不保存密钥；本机授权联调后，为实时预设建立独立 Keychain 项 `provider-qwen-realtime`，沿用同一网关现有凭据，不改动其他服务。

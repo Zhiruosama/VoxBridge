@@ -1,5 +1,9 @@
 # Chrome discovery and stable picker scrolling
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 Chrome was running but missing from the earlier list. LaunchServices reported the main application at `/Applications/Google Chrome.app`, while `proc_pidpath` returned a macOS signing clone ending in `Google Chrome.app.bundle`. The old `.app`-only ancestor check rejected that executable. Discovery now uses LaunchServices bundle identity and localized name directly; audio-process ownership also recognizes the exact `.app.bundle` clone suffix, including nested helpers. This keeps the picker and capture identity consistent.
 
 The dropdown's dynamically mounted Radix scroll buttons changed viewport height at scroll boundaries. They were removed in favor of a fixed, bounded native scrolling viewport. Refreshing application options no longer disables the trigger while the menu is open.

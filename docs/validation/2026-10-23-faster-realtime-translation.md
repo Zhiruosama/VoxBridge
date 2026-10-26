@@ -1,5 +1,9 @@
 # More frequent realtime subtitle translation
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 This interim implementation was superseded by [stable short caption chunks](2026-10-23-stable-short-captions.md) after interactive testing exposed provisional translation resets and whole-sentence resubmission.
 
 The realtime listening path previously translated only final ASR sentences. Continuous narration could therefore show source text for 10–20 seconds before any translation appeared.

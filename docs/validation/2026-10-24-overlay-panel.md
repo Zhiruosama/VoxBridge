@@ -1,5 +1,9 @@
 # Cross-application fullscreen: real native subtitle panel
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 ## Why the earlier fix was insufficient
 
 The user confirmed that ordinary NSWindow/TaoWindow collection flags did not keep captions above another application's fullscreen Space. Capturing the window independently showed its contents, not whether the desktop compositor displayed it. The earlier validation record is marked superseded.

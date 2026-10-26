@@ -1,5 +1,9 @@
 # Natural captions, independent direction and validated translations
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 The screenshot exposed three independent defects: the 1.2-second stable-prefix cutter finalized grammatically unfinished phrases; the listener reused the text composer's language pair (Chinese → English while hearing English); and any nonempty model response was rendered as a translation, including an English explanation about translation being unnecessary.
 
 ## Behavior

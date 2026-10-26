@@ -1,6 +1,6 @@
 # Windows 当前进度与开发待办
 
-更新：2026-10-25（Asia/Hong_Kong）。0.3.0 测试版整合 Windows 支持与共享前端修复；下载和具体构建状态以 [Release](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.3.0) 及对应 CI 为准。原始计划见 [Windows 交接](windows-handoff.md)，早期硬件证据见 [实机验证记录](validation/2026-10-25-windows-native.md)，新安装器见 [验证说明](validation/2026-10-25-windows-installer.md)。
+Windows 实现已合并到主分支。下载与验证范围见 [Releases](https://github.com/Zhiruosama/VoxBridge/releases)；当前新增界面的 Windows 实机回归仍待补充。原始交接计划见[历史资料](archive/README.md)，证据见[Windows 原生验证](validation/2026-10-25-windows-native.md)与[安装器验证](validation/2026-10-25-windows-installer.md)。
 
 CI 不能替代完整的 Mac、ARM64 或聊天软件实机验收。未完成项以下方清单为准；本次按测试版发布，不宣称正式稳定版。
 

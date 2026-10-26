@@ -1,5 +1,9 @@
 # 开发阶段与验证计划
 
+[文档中心](README.md) · [设计与历史资料](archive/README.md) · [当前开发指南](development.md)
+
+> 设计或阶段记录：保留写作当时的方案与验证范围，可能包含已被替代的实现。当前操作请看[使用指南](user-guide.md)，当前结构请看[架构总览](02-architecture.md)。
+
 ## 1. 当前交付与环境边界
 
 2026-10-22：完成首轮设计 review，随后用户授权开始开发并自行阶段性提交 / 推送。工作台已初始化，Windows 验证结果见[记录](validation/2026-10-22-windows.md)；macOS 验证仍未执行。

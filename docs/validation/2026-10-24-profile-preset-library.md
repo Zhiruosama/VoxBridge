@@ -1,5 +1,9 @@
 # User-managed model and voice presets
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 - Each service configuration owns optional model/voice preset lists. Entries contain only a name, value and adapter. Libraries are scoped by profile and protocol; model lists work for ASR, translation and synthesis, while voice lists belong to synthesis only.
 - Settings → corresponding model service → Custom presets supports adding, editing and deleting entries. Complete the editor, then use the existing Save changes action. Saving does not create another credential profile, read/copy a key or switch providers.
 - Choices appear before builtin options under My presets in settings and the speech quick menu. Matching builtin IDs get one named alias, not duplicate menu choices. User-defined IDs remain callable through the selected protocol; adding a preset does not implement a new backend protocol.

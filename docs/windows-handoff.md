@@ -1,5 +1,9 @@
 # Windows 开发交接
 
+[文档中心](README.md) · [设计与历史资料](archive/README.md) · [当前开发指南](development.md)
+
+> 设计或阶段记录：保留写作当时的方案与验证范围，可能包含已被替代的实现。当前操作请看[使用指南](user-guide.md)，当前结构请看[架构总览](02-architecture.md)。
+
 > 此文保留 `4d5efa7` 前的交接基线。后续 Windows 实现与验收已推进，当前状态见 [2026-10-25 实机记录](validation/2026-10-25-windows-native.md) 与 [开发待办](windows-development-todo.md)；不要将下方的“尚未实现”表格视为最新状态。
 
 [开发与打包](development.md) · [整体架构](02-architecture.md) · [内部流程](internal-flows.md)

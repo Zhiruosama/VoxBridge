@@ -1,5 +1,9 @@
 # VoxBridge 虚拟麦克风（macOS）
 
+[开发与打包](../../../docs/development.md) · [用户安装指南](../../../docs/guides/getting-started.md)
+
+本文面向开发和驱动维护。普通安装与使用请从用户指南开始。
+
 此 AudioServerPlugIn 在系统中提供同名 `VoxBridge` 输入、输出设备。应用将合成音频播放到输出，Discord / Chrome 从输入接收。驱动不采集实体麦克风、不联网、不保存音频。不将该设备设为系统默认扬声器，避免意外把其他声音发送给通话。
 
 ## 构建、安装与使用

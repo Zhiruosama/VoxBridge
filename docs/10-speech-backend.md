@@ -1,5 +1,9 @@
 > 2026-10-23 最新：MiniMax WebSocket 已采用 PCM16 流式播放；OpenAI 兼容路径仍完整接收并解码 MP3。下文较早的完整接收描述仅适用于旧实现及兼容 HTTP 路径。详见[流式播放验证](validation/2026-10-23-streaming-tts.md)。
 
+[文档中心](README.md) · [设计与历史资料](archive/README.md) · [当前开发指南](development.md)
+
+> 设计或阶段记录：保留写作当时的方案与验证范围，可能包含已被替代的实现。当前操作请看[使用指南](user-guide.md)，当前结构请看[架构总览](02-architecture.md)。
+
 # TTS 后端：当前实现与联调
 
 更新：2026-10-23。本文描述已写入代码的缓冲播放原型；目标设计中的流式低延迟播放仍待实现。

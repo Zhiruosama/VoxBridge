@@ -1,5 +1,9 @@
 # Tencent microphone enumeration investigation (in progress)
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 ## Confirmed observations
 
 - Installed targets inspected: QQ 7.0.2 and personal WeChat 4.1.15. No app binaries or app configurations were modified.

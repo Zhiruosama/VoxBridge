@@ -1,28 +1,51 @@
 # Windows 安装、更新与卸载
 
-## 安装
+[文档中心](README.md) · [开始使用](guides/getting-started.md) · [语音输出设置](guides/voice-output.md)
 
-运行 `VoxBridge_<版本>_x64-setup.exe`（ARM64 使用对应的 `arm64-setup.exe`）。安装器复用应用的前端风格，在一页中确认安装位置、桌面快捷方式和虚拟麦克风选项。缺少 WebView2 的机器会使用兼容原生向导安装所需运行环境。安装包携带完整、未修改的 VB-CABLE 基础版官方驱动包，校验 SHA-256 和安装程序数字签名。未检测到驱动时，可在安装选项页勾选虚拟麦克风；选择安装后，在 Windows 权限提示中允许管理员操作，再在 VB-Audio 官方安装器点击 **Install Driver**，最后按提示重启电脑。取消驱动安装不影响 VoxBridge 本身的安装。
+## 安装应用
 
-VB-CABLE 来源：www.vb-cable.com；这是 VB-Audio 提供的捐赠软件，欢迎支持作者。分发依据：[VB-CABLE Distribution with other product](https://vb-audio.com/Services/licensing.htm)。完整原始 readme 和许可文本保留在驱动目录。仅使用基础版，不分发 A+B/C+D。面向企业等用户不能自行支付许可的场景，应按官方说明办理相应许可。
+1. 从 [Releases](https://github.com/Zhiruosama/VoxBridge/releases) 下载 Windows 安装包。普通 Intel / AMD 电脑选 `x64-setup.exe`；ARM 电脑选 `arm64-setup.exe`。
+2. 打开安装包，确认安装位置与快捷方式。缺少 WebView2 时，安装器会引导安装运行环境。
+3. 如果只使用文字翻译或字幕，可以先跳过虚拟麦克风。需要向聊天软件发送生成的语音，再安装驱动。
+4. 启动应用，按[服务配置](guides/services.md)保存自己的服务与密钥。
 
-静默安装、被动安装、软件更新或驱动已存在时不会自动启动驱动安装器。需要时可从开始菜单 **VoxBridge → VB-CABLE - Install or Uninstall**，或软件的 **设置 → 常规 → 虚拟麦克风 → 安装或卸载驱动** 打开。
+## 安装并选择虚拟麦克风
 
-在 VoxBridge 选择 **CABLE Input** 为发送设备并保存，在 Oopz、KOOK、Discord 等软件中选择 **CABLE Output** 为麦克风。也可在 Windows 声音设置中把对应端点显示名改为 **VoxBridge**，此时选择 VoxBridge；程序仍检查 VB-Audio 厂商信息，并使用稳定端点 ID 进行路由。改名不会把 VB-CABLE 变成自有驱动。试听使用真实耳机或扬声器。
+安装器附带完整、未修改的 VB-CABLE 基础版官方驱动包，并校验 SHA-256 和安装程序数字签名。
 
-## 更新
+1. 安装选项页勾选虚拟麦克风；也可之后在「设置 → 常规 → 虚拟麦克风 → 安装或卸载驱动」打开管理器。
+2. 在 Windows 权限提示中允许管理员操作，在 VB-Audio 官方管理器点击 **Install Driver**。
+3. 按提示重启电脑，再打开 VoxBridge 和聊天软件。
+4. 按下表选择设备，保存后先使用自己的麦克风测试功能验证。
 
-直接运行新版本安装包，不需要先卸载旧版。交互安装器检测到已有的 VoxBridge 后，自动启用数据保留更新模式；程序使用之前的安装位置，并保留配置、字幕设置、模型服务配置和凭据。更新不会卸载或再次安装 VB-CABLE。
+| 位置 | 应选择的设备 |
+| --- | --- |
+| VoxBridge 发送设备 | **CABLE Input** |
+| Discord、KOOK 等软件的麦克风 | **CABLE Output** |
+| VoxBridge 试听设备 | **系统默认**，或实际耳机 / 扬声器 |
 
-安装器供自动更新调用时使用 `/S /UPDATE`；手动更新直接双击即可。应用标识 `com.voxbridge.desktop` 及原有配置/凭据存放位置保持稳定。换 Windows 用户、迁移到另一台电脑或主动清除应用数据不属于原机覆盖更新。
+也可在 Windows 声音设置中把对应端点显示名改为 **VoxBridge**，之后按新名称选择。程序使用稳定端点 ID 路由；改名不会把 VB-CABLE 变成自有驱动。无需改变系统默认麦克风。
 
-启动时会检查签名更新源，也可在 **设置 → 常规 → 关于 → 检查更新** 手动检查；有新版本时点击 **更新并重启**。监听、录音、未处理队列、输入草稿或未保存设置存在时不安装。下载后会再次检查任务状态，并验证包签名与签名版本，再交给安装器覆盖更新。更新源仅在全部平台产物验证并发布后推进。
+管理器也可从开始菜单「VoxBridge → VB-CABLE - Install or Uninstall」打开。静默安装、软件更新或驱动已存在时，不会自动启动驱动安装器。取消驱动安装不影响应用本身。
 
-## 卸载
+## 更新应用
 
-- **VoxBridge**：Windows“已安装的应用”、开始菜单 **VoxBridge → Uninstall VoxBridge**，或安装目录下的 `uninstall.exe`。
-- **虚拟麦克风**：开始菜单的 **VB-CABLE - Install or Uninstall** 打开官方管理器，点击 **Remove Driver**，最后按提示重启电脑。官方驱动使用同一份 `VBCABLE_Setup_x64.exe` 安装和卸载，没有另一个官方 `uninstall.exe`。
-- 交互卸载 VoxBridge 时也会询问是否打开驱动卸载程序，默认保留驱动，防止影响其他共用它的软件。更新及无人值守卸载不打开这个提示。若需要一起卸载，在移除 VoxBridge 文件之前完成驱动卸载。
-- 普通卸载的清除应用数据选项默认不选；主动勾选才会删除应用配置及凭据目录。覆盖更新模式禁止执行这一步。
+直接双击新安装包即可，不必先卸载。安装器使用原安装位置，保留配置、字幕设置、服务与凭据，也不会重新安装 VB-CABLE。
 
-驱动与管理器位于安装目录的 `virtual-microphone` 子目录，软件自身的 `uninstall.exe` 位于安装目录根目录。若已卸载 VoxBridge 并保留驱动，之后可重新下载 VB-CABLE 官方原包，用相同的官方管理器卸载。
+也可打开「设置 → 常规 → 关于 → 检查更新」，有可用更新时选择「更新并重启」。监听、录音、未处理队列、输入草稿或未保存设置存在时不会安装，请先完成或清理这些任务。下载后程序会再次检查任务状态并验证更新包签名。
+
+覆盖更新的保留规则适用于同一台电脑、同一个 Windows 用户。换电脑、换用户或主动清除应用数据后，需要重新配置。
+
+## 卸载应用与驱动
+
+- **只卸载应用**：在 Windows「已安装的应用」中卸载，或从开始菜单选择「VoxBridge → Uninstall VoxBridge」。默认保留配置和驱动。
+- **同时删除个人配置**：交互卸载时主动勾选清除应用数据；这会删除配置和凭据。
+- **卸载虚拟麦克风**：打开官方驱动管理器，点击 **Remove Driver**，按提示重启电脑。移除前确认其他软件不再使用它。
+
+交互卸载会询问是否打开驱动管理器，默认保留驱动。若要一起卸载，请在删除 VoxBridge 文件之前完成驱动卸载。已卸载应用但保留驱动时，可重新下载 [VB-CABLE 官方包](https://vb-audio.com/Cable/)卸载驱动。
+
+## 驱动来源与许可
+
+VB-CABLE 来自 [VB-Audio](https://vb-audio.com/Cable/)，属于捐赠软件。分发依据见 [Distribution with other product](https://vb-audio.com/Services/licensing.htm)。安装目录 `virtual-microphone` 中保留原始 readme 和许可文本，仅分发基础版，不包含 A+B / C+D。企业等用户不能自行支付许可的场景，应按官方说明办理相应许可。
+
+安装器与更新实现细节见[开发与打包](development.md)。设备未出现或没有声音，先查[排错指南](guides/troubleshooting.md)。

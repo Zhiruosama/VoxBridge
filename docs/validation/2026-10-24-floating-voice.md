@@ -1,5 +1,9 @@
 # Voice input from floating captions
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 ## Behavior
 
 - A microphone button sits at the subtitle panel's bottom-right. Click to start recording; click the square to finish. Volume animation, recognition/output status, cancellation and output stopping are available in the panel.

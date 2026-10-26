@@ -1,5 +1,9 @@
 # AI 流水线、延迟与成本
 
+[文档中心](README.md) · [设计与历史资料](archive/README.md) · [当前开发指南](development.md)
+
+> 设计或阶段记录：保留写作当时的方案与验证范围，可能包含已被替代的实现。当前操作请看[使用指南](user-guide.md)，当前结构请看[架构总览](02-architecture.md)。
+
 ## 1. 服务选择状态
 
 用户已要求模型可灵活更换。统一配置入口支持独立更换 ASR、翻译、TTS；翻译以 OpenAI-compatible Chat Completions 为首个兼容协议，音频按实际端点和流式能力适配。兼容文本接口不代表兼容所有音频接口，详见[配置与兼容边界](08-provider-configuration.md)。

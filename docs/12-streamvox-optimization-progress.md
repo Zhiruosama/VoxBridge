@@ -1,5 +1,9 @@
 # StreamVox 调研对应的实施进度
 
+[文档中心](README.md) · [设计与历史资料](archive/README.md) · [当前开发指南](development.md)
+
+> 设计或阶段记录：保留写作当时的方案与验证范围，可能包含已被替代的实现。当前操作请看[使用指南](user-guide.md)，当前结构请看[架构总览](02-architecture.md)。
+
 2026-10-23。以工作区 `11-streamvox-reverse-engineering.md` 为输入，对照业务代码独立实现。本批未重新分析 StreamVox 安装包、未复制其代码或资源。
 
 ## 对照结果

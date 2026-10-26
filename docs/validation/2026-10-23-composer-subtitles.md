@@ -1,5 +1,9 @@
 # Composer subtitles and stable input layout
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 - Removed the translation result panel and its duplicate playback/send buttons below the composer.
 - Expression translations now append an immutable original/translation pair to the shared subtitle feed. The active listening session ID and audio revision guards remain intact; expression IDs use a separate namespace and share the 500-entry history limit.
 - Kept the composer at the bottom with a fixed-height, internally scrolling text input. Composer errors use the existing toast instead of adding layout height.

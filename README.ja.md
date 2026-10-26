@@ -2,64 +2,51 @@
 
 [简体中文](README.md) · [English](README.en.md) · **日本語**
 
-[ダウンロード](https://github.com/Zhiruosama/VoxBridge/releases) · [使い方（中国語）](docs/user-guide.md) · [不具合の報告](https://github.com/Zhiruosama/VoxBridge/issues)
+[ダウンロード](https://github.com/Zhiruosama/VoxBridge/releases) · [はじめに（中国語）](docs/guides/getting-started.md) · [ドキュメント（中国語）](docs/README.md) · [不具合の報告](https://github.com/Zhiruosama/VoxBridge/issues)
 
-VoxBridge は **macOS と Windows** 向けのリアルタイム音声翻訳アプリです。アプリの音声を原文・訳文の字幕で表示できます。入力したテキストや録音した音声を翻訳・音声合成し、仮想マイクを通じて Discord などのチャットアプリに送ることもできます。
+VoxBridge は macOS と Windows 向けの翻訳アプリです。他のアプリの音声を原文・訳文の字幕で表示し、入力したテキストや録音した音声を翻訳・音声合成して、仮想マイクから Discord などの音声チャットへ送ることができます。
 
-0.4.0 は独立したテキスト翻訳、再試行、サービスのテストを追加し、Mac のウィンドウと音声設定を改善しました。Windows 11 x64、Windows ARM64、Apple Silicon Mac 向けのインストーラを提供します。今回の Windows 実機回帰は未検証で、ARM64 の音声デバイスも未検証です。
-
-![VoxBridge：原文・訳文の字幕とテキスト入力画面](docs/assets/workspace-overview.png)
+![VoxBridge ワークスペース](docs/assets/workspace-overview.png)
 
 _字幕はサンプルを使用した画面イメージです。_
 
 ## できること
 
-- **テキスト翻訳**：録音や音声合成を使わず、入力した文章を選んだ言語に翻訳。
-- **聞いて読む**：対象アプリを選び、原文と翻訳字幕をリアルタイムで確認。
-- **話す・入力する**：録音やテキスト入力に対応。内容を確認してから送信するほか、音声の直接送信も選択可能。
-- **字幕を持ち歩く**：デスクトップや全画面表示を切り替えても字幕を表示。フローティングウィンドウから入力・録音も可能。
-- **声を選ぶ**：モデル・音声・話す速度を変更し、自分で聞くモニター音声を個別にオン・オフ。
+- **テキスト翻訳**：文章と翻訳先の言語を選び、訳文をコピー。録音や音声合成は不要です。
+- **翻訳字幕**：対象アプリを選び、原文と翻訳をリアルタイムで確認できます。
+- **音声での発言**：入力や録音を確認してから音声を生成。自分で聞くモニター音声も個別に切り替えられます。
+- **フローティングウィンドウ**：他のウィンドウの上で字幕を読み、その場で入力・録音できます。
+- **音声と外観の設定**：サービス、モデル、声、速度を選び、字幕の色や大きさ、パネルの外観を調整できます。
 
-## ダウンロードとインストール
+## インストール
 
-| プラットフォーム | 状態 | インストール |
+[Releases](https://github.com/Zhiruosama/VoxBridge/releases) から、お使いのパソコンに合うインストーラを選んでください。開発ツールは不要です。
+
+| パソコン | ファイル | インストール方法 |
 | --- | --- | --- |
-| macOS 14.2 以降 · Apple Silicon | 0.4.0 テスト版 | [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0) を開き「アプリケーション」にドラッグ |
-| Windows 11 · x64 | 0.4.0 テスト版、今回の Windows 実機回帰は未検証 | 同じリリースページから x64 EXE を取得 |
-| Windows · ARM64 | 実験版、CI とビルドのみ確認 | 同じページから `arm64-setup.exe` を取得 |
+| Apple Silicon Mac、macOS 14.2 以降 | `aarch64.dmg` | 開いて「アプリケーション」にドラッグ |
+| Windows 11、Intel / AMD | `x64-setup.exe` | インストーラを実行 |
+| Windows ARM64 | `arm64-setup.exe` | 実験的な対応。音声ハードウェアの検証は未完了 |
 
-開発ツールは不要です。Windows インストーラはアプリと共通の画面を使用し、更新時の設定を保持します。VB-CABLE は任意で導入できます。WebView2 がない環境では互換ウィザードが先に動作します。[Windows ガイド（中国語）](docs/windows-installation.md)を参照してください。Windows 10 は未検証です。
+Mac アプリは Developer ID 署名・公証未実施、Windows アプリは Authenticode 未署名です。[インストールガイド（中国語）](docs/guides/getting-started.md) と、各配布物のリリースノートを確認してください。
 
-0.4.0 は更新確認、署名付き更新、マイク権限案内と Windows DPAPI による認証情報保護を含みます。更新署名と OS 向けの署名は別です。Windows は Authenticode 未署名、Mac は Developer ID 署名・公証未実施です。[リリースノート（中国語）](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0)を確認してください。旧 Mac 0.2.1 には更新機能がなく、手動ダウンロードが必要です。
+## 使い始めるには
 
-## 使い始める
+1. 使用するモデルサービスと自分の API Key を設定して保存します。**文章の翻訳だけなら、文字翻訳サービスのみで利用できます。**
+2. 左側の「文本翻译」で文章を入力するか、「字幕」でアプリを選んで音声を読み取ります。
+3. チャットアプリに合成音声を送る場合は、音声合成と仮想マイクを設定します。自分で聞く音声は別のスイッチで調整できます。
 
-### 1. サービスを設定する
+保存したキーは再起動後も利用できます。クラウドサービスは従量課金の場合があり、入力した文章や音声が選択したプロバイダーへ送信されます。API Key、利用枠、個人のクローン音声は付属しません。
 
-設定画面で**音声認識・翻訳・音声合成**サービスを選び、ご自身の API キーを入力して保存します。字幕だけを使う場合は、音声認識と翻訳の設定だけで利用できます。保存したキーは再起動後も引き継がれます。
+## 目的別ガイド
 
-Qwen・DeepSeek・MiniMax などのプリセットと、対応する互換 API を利用できます。サービスの利用料金が発生する場合があり、音声やテキストは選択したサービスに送信されます。詳しくは[サービス設定（中国語）](docs/user-guide.md#服务配置)をご覧ください。
+| 目的 | ガイド（中国語） |
+| --- | --- |
+| 初めてのインストールと設定 | [はじめに](docs/guides/getting-started.md) |
+| モデル・キー・声の設定 | [サービス設定](docs/guides/services.md) |
+| 文章を翻訳する | [テキスト翻訳](docs/guides/text-translation.md) |
+| 翻訳字幕を読む | [音声の読み取りと字幕](docs/guides/listening.md) |
+| Discord に音声を送る | [音声入力と仮想マイク](docs/guides/voice-output.md) |
+| 音声・権限・サービスの不具合 | [トラブルシューティング](docs/guides/troubleshooting.md) |
 
-### 2. 翻訳字幕を見る
-
-対象アプリで音声を再生し、VoxBridge でそのアプリを選んでリスニングを開始します。システム音声の録音許可を求められたら許可してください。**フローティング字幕**を開くと、ほかのウィンドウの上に字幕を表示できます。字幕の翻訳先言語は設定画面で変更できます。
-
-### 3. Discord で音声を送る
-
-1. Mac は「設定 → 一般 → オーディオ」から VoxBridge 仮想マイクをインストールします。Windows は VoxBridge インストーラまたは設定から同梱の **VB-CABLE** を導入し、案内に従って PC を再起動します。ドライバ導入は管理者承認が必要です。通話を終了してから行ってください。
-2. VoxBridge の**送信デバイス**を下表の端点に、**モニターデバイス**をシステムデフォルトまたはヘッドホンに設定します。
-3. チャットアプリの**入力デバイス**を対応する端点にします。出力デバイスはヘッドホンやスピーカーのままにします。
-4. VoxBridge で出力言語を選び、テキストを入力するかマイクボタンで録音して送信します。ヘッドホンボタンで自分へのモニター音声を切り替えられます。
-
-| プラットフォーム | VoxBridge の送信デバイス | チャットアプリの入力デバイス |
-| --- | --- | --- |
-| macOS | VoxBridge | VoxBridge |
-| Windows | CABLE Input (VB-Audio Virtual Cable) | CABLE Output (VB-Audio Virtual Cable) |
-
-Windows は VB-Audio の署名済み基本版 VB-CABLE を使用し、公式のデバイス名を保持します。提供元：[www.vb-cable.com](https://vb-audio.com/Cable/)。VB-CABLE はドネーションウェアです。作者への支援を歓迎します。
-
-Mac は主に Discord で確認しています。Windows は仮想マイクのローカル音声ループバックを確認済みですが、Discord・Oopz・KOOK の実通話は未検証です。すべてのチャットアプリの互換性を保証するものではありません。[よくある質問（中国語）](docs/user-guide.md#常见问题)もご確認ください。
-
-## 詳しく知る
-
-[使い方の詳細（中国語）](docs/user-guide.md) · [開発とビルド（中国語）](docs/development.md) · [アーキテクチャ（中国語）](docs/02-architecture.md) · [不具合・機能の提案](https://github.com/Zhiruosama/VoxBridge/issues)
+開発、アーキテクチャ、過去の記録は[ドキュメント一覧（中国語）](docs/README.md)にまとめています。

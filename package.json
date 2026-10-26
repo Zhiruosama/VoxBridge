@@ -21,7 +21,8 @@
     "desktop:build:windows": "node scripts/build-windows-installer.mjs",
     "postdesktop:build": "node scripts/verify-macos-app.mjs",
     "postdesktop:build:mac": "node scripts/verify-macos-app.mjs",
-    "test:release": "node --test scripts/prepare-release.checks.mjs"
+    "test:release": "node --test scripts/prepare-release.checks.mjs",
+    "docs:check": "node scripts/check-docs.mjs"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "^5.3.1",

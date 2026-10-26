@@ -2,14 +2,14 @@
 
 [架构总览](02-architecture.md) · [开发与打包](development.md) · [使用指南](user-guide.md)
 
-本文以 **0.2.0** 实现为基准。图中的节点是处理步骤，不一定各自对应一个进程或线程。数值来自当前代码，是资源限制或策略参数，不是对所有模型和网络环境的延迟保证。
+本文说明当前实现的状态与边界。图中的节点是处理步骤，不一定各自对应一个进程或线程。数值来自当前代码，是资源限制或策略参数，不是对所有模型和网络环境的延迟保证。
 
 ## 1. 监听应用声音，生成字幕
 
 ```mermaid
 flowchart TD
   Start[主窗口开始监听] --> Request[固定本次来源 / ASR / 翻译配置与语言]
-  Request --> Tap[Core Audio process tap]
+  Request --> Tap[Core Audio process tap / WASAPI]
   Tap --> PCM[声道处理 / 重采样 / PCM 帧]
   PCM --> Adapter{ASR 协议}
   Adapter -->|实时 WebSocket| Partial[识别假设与供应商定稿]
@@ -182,3 +182,19 @@ sequenceDiagram
 前端回归重点在 [`send-queue.test.ts`](../src/core/send-queue.test.ts)、[`session.test.ts`](../src/core/session.test.ts)、[`listening.test.ts`](../src/core/listening.test.ts)、[`overlay.test.ts`](../src/core/overlay.test.ts) 与 [`settings.test.ts`](../src/core/settings.test.ts)。原生侧在对应模块中覆盖取消、协议、缓冲、恢复与凭据持久化。
 
 真实录音、供应商计费调用、聊天软件枚举和最终音质仍需要单独实机验证；单元测试通过不代表这些场景已经全部验收。执行命令见[开发指南](development.md#检查)。
+
+## 独立文本翻译与恢复
+
+```mermaid
+flowchart TD
+  Edit[编辑原文与语言] --> Submit[Enter 提交配置与文字快照]
+  Submit --> Pending[等待翻译 / 继续编辑下一段]
+  Pending -->|成功且标识匹配| Result[更新译文，不覆盖新草稿]
+  Pending -->|取消| Cancel[本地解锁并取消后台请求]
+  Pending -->|失败或截止| Failed[保留内容与失败快照]
+  Failed --> Retry[手动重试，使用当前服务配置]
+  Retry --> Pending
+  Cancel --> Late[忽略迟到结果]
+```
+
+文字翻译截止与服务测试截止均不依赖后台确认才能恢复操作。超时和失败不自动重试，避免重复计费。错误分类提供处理建议，原始错误仅按需展开；草稿和结果不写入日志或持久化历史。

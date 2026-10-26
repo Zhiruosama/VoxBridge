@@ -1,5 +1,9 @@
 # Application selection for listening
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 The main workspace and audio diagnostics now list open applications by their localized names instead of audio PIDs. The list loads automatically and refreshes when opened; an empty list explains that an application must be opened first. Selecting an application does not launch it or start capture.
 
 On macOS, application identity is the outer `.app` bundle's identifier. Audio helpers nested inside Chrome or WeChat resolve to their owning application. A selected application's registered Core Audio process objects are mixed into one inclusive tap; other applications are excluded. A process target without app scope retains exact PID/bundle matching for existing diagnostics and controlled fixtures.

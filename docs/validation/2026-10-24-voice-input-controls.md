@@ -1,5 +1,9 @@
 # Voice input controls and one-minute recordings
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 - Replaced the microphone mode dropdown with a persisted **直接发送** switch. Off by default: finish recording, review/edit transcription in the composer, then send. On: finish recording, recognize, translate if needed and synthesize to the configured route. Existing `voiceInputMode` settings migrate without losing the choice.
 - Replaced the elapsed/limit counter with seven animated bars and a recording/processing label. Native capture emits RMS-derived volume at 20 Hz; bar heights follow volume and have staggered animation. System reduced-motion preferences disable animation/transitions.
 - Raised both capture duration and bounded PCM storage to 60 seconds (960,000 mono PCM16 samples). Capture automatically finishes at the limit. Cancellation, draft revision protection and independent incoming listening remain intact.

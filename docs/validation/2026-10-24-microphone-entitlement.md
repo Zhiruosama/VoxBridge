@@ -1,5 +1,9 @@
 # Packaged microphone authorization fix
 
+[验证索引](README.md) · [当前使用指南](../user-guide.md)
+
+> 历史验证记录：仅说明记录日期的测试范围，不代表所有平台、客户端或后续构建均通过。
+
 ## Confirmed cause
 
 macOS TCC logs for the production process (`com.voxbridge.desktop`) explicitly reported:

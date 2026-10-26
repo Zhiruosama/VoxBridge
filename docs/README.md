@@ -1,58 +1,36 @@
-# VoxBridge 设计文档
+# 文档中心
 
-文档版本：v0.1（评审稿）
+[项目首页](../README.md) · [下载安装](https://github.com/Zhiruosama/VoxBridge/releases) · [反馈问题](https://github.com/Zhiruosama/VoxBridge/issues)
 
-更新日期：2026-10-23（Asia/Shanghai）
+第一次使用，从[开始使用](guides/getting-started.md)读起。已安装的用户可以直接按下面的任务查找，不必从头读完所有文档。
 
-实现状态：已开始工作台开发；进度以 [TODO](../TODO.md) 和[开发指南](09-development.md) 为准，其余专项文档描述目标设计。
+## 安装和使用
 
-最新联调：[Mac 受控音频 → 双语字幕闭环](validation/2026-10-23-capture-loop.md)；[DeepSeek / MiniMax 真实服务记录](validation/2026-10-23-live-providers.md)。
-
-## 文档地图
-
-| 文档 | 主要内容 | 评审重点 |
+| 你想了解 | 文档 | 主要内容 |
 | --- | --- | --- |
-| [01 需求与验收](01-requirements.md) | 使用场景、范围、阶段验收 | 是否符合真实使用目标 |
-| [02 总体架构](02-architecture.md) | 模块、事件、并发、配置与安全 | 模块能否独立实现与验证 |
-| [03 macOS 音频](03-macos-audio.md) | 采集 API、路由、设备和权限 | 是否能在 Mac 上形成可靠闭环 |
-| [04 AI 流水线](04-ai-pipeline.md) | ASR、翻译、TTS、延迟和费用 | 服务策略与质量取舍 |
-| [05 产品交互](05-product-interaction.md) | 主界面、字幕窗、状态与错误 | 用户是否能顺利配置和恢复 |
-| [06 开发与验证](06-development-validation.md) | 阶段、验证矩阵、实机记录 | 可验证性与推进顺序 |
-| [07 决策记录](07-decisions.md) | 已确认约束、提案与未决项 | 哪些可以定案，哪些要改 |
-| [08 服务配置与兼容](08-provider-configuration.md) | 可替换服务、协议边界、能力检测 | 哪些可以只改配置，哪些需要适配器 |
-| [09 开发指南](09-development.md) | 当前可运行功能、启动和验证 | 真实实现边界与 Mac 接手步骤 |
-| [10 TTS 后端](10-speech-backend.md) | 协议、路由、取消、资源上限及联调 | 已实现部分与流式播放的后续工作 |
+| 如何开始 | [开始使用](guides/getting-started.md) | 下载、安装、选择功能、首次配置 |
+| 密钥和模型怎么填 | [服务配置](guides/services.md) | 三类服务、保存密钥、测试连接、模型与音色预设 |
+| 只需要文字翻译 | [文本翻译](guides/text-translation.md) | 输入、语言、复制、重试、分栏 |
+| 想看翻译字幕 | [监听与悬浮字幕](guides/listening.md) | 选择应用、权限、字幕语言、浮窗 |
+| 想让对方听到生成的语音 | [语音输入与虚拟麦克风](guides/voice-output.md) | 录音、发送、试听、Discord 路由与队列 |
+| 想调整界面 | [外观与操作偏好](guides/appearance.md) | 主题、语言、颜色、字号、宽度、不透明度 |
+| 功能没有正常工作 | [常见问题与排错](guides/troubleshooting.md) | 无声、权限、设备、翻译失败和兼容性 |
 
-## 阅读约定
+平台和辅助说明：[Windows 安装、更新与卸载](windows-installation.md) · [诊断日志](diagnostics.md) · [使用指南总览](user-guide.md)
 
-- **已确认**：来自用户明确要求，仅限文档列明的约束。
-- **建议 / 默认**：为形成可评审方案而提出，可在 review 后调整。
-- **待验证**：依赖 Mac、供应商或具体硬件，尚无测试结论。
-- **验收目标**：未来要达到的行为或指标，不表示已实现。
+## 开发和贡献
 
-需求与验收以 01 为准；模块契约以 02 为准；macOS 接入细节以 03 为准；模型和费用策略以 04 为准。调整范围时同步更新 README、01 和 07；调整接口时同步相关专项文档。
+普通使用者无需阅读这一部分。
 
-## 首轮评审结果与后续重点
+- [开发与打包](development.md)：环境搭建、启动、测试、构建与发布。
+- [架构总览](02-architecture.md)：模块边界、音频路由、配置和凭据。
+- [内部流程](internal-flows.md)：字幕修订、发送队列、文本翻译、取消与恢复。
+- [Windows 开发入口](windows-development-todo.md)：实现状态和待验证项目。
 
-2026-10-22：用户认为首轮方案可行，并补充“模型可灵活更换”及“参考 Cursor Agent / Codex 前端风格”。据此继续完善设计；不将方案认可等同于 Mac 实机验证通过。
+## 发布与历史资料
 
-后续仍需在配置和联调中收敛：
+- [发布记录](releases/README.md)：每次发行的功能、下载与已知限制。
+- [验证记录](validation/README.md)：按专题查找实机测试和自动验证的范围。
+- [设计与调研资料](archive/README.md)：早期方案、阶段记录和兼容性调查。
 
-1. 是否接受“字幕 + 文字转语音”先行、麦克风翻译随后加入。
-2. 是否接受 macOS 14.2+、Apple Silicon 先验证。
-3. 是否接受初期手动安装 BlackHole，以及按应用选择采集源。
-4. 是否接受先云端 ASR、本地 ASR 后评测的路径。
-5. 首测语言、API 可用区域、预算和可接受等待时间。
-
-以上未决项不阻塞本轮文档编写；进入依赖这些选择的实现前需收敛。无需把每个实现细节都提升为产品决策。
-
-## 最新实机记录
-
-- [显式模板授权与本次密钥](validation/2026-10-23-session-templates.md)
-
-- [设置页重复钥匙串提示修复](validation/2026-10-23-keychain-status.md)
-
-- [同时收发与自动恢复](validation/2026-10-23-duplex-recovery.md)
-
-- [千问实时 ASR 与定稿翻译](validation/2026-10-23-realtime-asr.md)
-- [MiniMax PCM 流式播放](validation/2026-10-23-streaming-tts.md)
+历史记录只说明当时验证过什么；其中的旧方案、命令和未决项不等于当前使用方式。日常操作以本目录上方的使用指南为准，特定安装包的差异以对应发布说明为准。

@@ -2,63 +2,51 @@
 
 [简体中文](README.md) · **English** · [日本語](README.ja.md)
 
-[Download](https://github.com/Zhiruosama/VoxBridge/releases) · [User guide (中文)](docs/user-guide.md) · [Report an issue](https://github.com/Zhiruosama/VoxBridge/issues)
+[Download](https://github.com/Zhiruosama/VoxBridge/releases) · [Get started (中文)](docs/guides/getting-started.md) · [Documentation (中文)](docs/README.md) · [Report an issue](https://github.com/Zhiruosama/VoxBridge/issues)
 
-VoxBridge is a real-time voice translation app for **macOS and Windows**. Turn an app’s audio into bilingual captions, or translate typed text and recorded speech into a synthesized voice that you can send to Discord and other chat apps through a virtual microphone.
+VoxBridge is a translation app for macOS and Windows. Read bilingual captions from another app's audio, translate typed text, or turn your text and recordings into speech for Discord and other voice chat apps through a virtual microphone.
 
-Version 0.4.0 adds standalone text translation, request recovery and service checks, plus Mac window and voice-setting improvements. Installers are available for Windows 11 x64, Windows ARM64 and Apple Silicon Mac. Windows hardware regression for this release is pending; ARM64 audio hardware remains unverified.
+![VoxBridge workspace](docs/assets/workspace-overview.png)
 
-![VoxBridge workspace with bilingual captions and text input](docs/assets/workspace-overview.png)
-
-_Interface demo with example captions._
+_Interface example with sample captions._
 
 ## What you can do
 
-- **Listen and read:** choose an app and see live original and translated captions.
-- **Speak or type:** record your voice or type a message, review it before sending, or enable direct voice sending.
-- **Keep captions nearby:** read across desktops and full-screen spaces, and type or record from the floating window.
-- **Choose your voice:** switch models, voices and speech speed, with a separate local monitoring toggle.
+- **Text translation:** type, choose a target language and copy the result without recording or generating speech.
+- **Live captions:** choose an app and read its original and translated speech.
+- **Speak through text or recording:** review your input, generate speech and independently control local monitoring.
+- **Floating window:** read captions above other windows, type or record without returning to the main window.
+- **Voice and appearance settings:** choose services, models, voices and speed; adjust caption colors, size and panel appearance.
 
-## Download and install
+## Install
 
-| Platform | Status | Installation |
+Choose an installer from [Releases](https://github.com/Zhiruosama/VoxBridge/releases). No development tools are required.
+
+| Computer | File | Installation |
 | --- | --- | --- |
-| macOS 14.2+ · Apple Silicon | 0.4.0 test release | Download the [DMG](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0) and drag VoxBridge into Applications |
-| Windows 11 · x64 | 0.4.0 test release; Windows hardware regression pending | Download the x64 EXE from the same release page |
-| Windows · ARM64 | Experimental; native CI and builds checked, real audio hardware untested | Download `arm64-setup.exe` from the same release page |
+| Apple Silicon Mac, macOS 14.2+ | `aarch64.dmg` | Open and drag VoxBridge into Applications |
+| Windows 11, Intel / AMD | `x64-setup.exe` | Run the installer |
+| Windows ARM64 | `arm64-setup.exe` | Experimental; audio hardware validation is pending |
 
-No developer tools are required. Windows setup reuses the app interface and preserves settings during upgrades. It offers optional VB-CABLE installation; systems without WebView2 use a native compatibility wizard first. See the [Windows installation guide (中文)](docs/windows-installation.md). Windows 10 remains unvalidated.
+The Mac app is not Developer ID-signed or notarized, and Windows installers are not Authenticode-signed. Follow the [installation guide (中文)](docs/guides/getting-started.md) and consult the release notes for each build's validation scope.
 
-Version 0.4.0 includes startup checks, signed in-app updates, microphone permission guidance and Windows DPAPI credential protection. Update signatures are separate from vendor signing: Windows installers are not Authenticode-signed, and the Mac app is not Developer ID-signed or notarized. Read the [release notes (中文)](https://github.com/Zhiruosama/VoxBridge/releases/tag/v0.4.0). Older Mac 0.2.1 installations require a manual download because they have no updater.
+## Start using it
 
-## Get started
+1. Configure your model services and save your own API keys. **Text-only translation needs only a translation service.**
+2. Choose **Text translation** to type, or **Captions** to select an app and start listening.
+3. To send generated speech into a chat app, configure speech synthesis and a virtual microphone. Local monitoring is a separate control.
 
-### 1. Set up your services
+Saved keys persist across restarts. Cloud providers may charge for requests and receive the text or audio you submit. Installers do not include API keys, service credit or private cloned voices.
 
-In Settings, configure **speech recognition, translation and speech synthesis**, then enter and save your own API keys. For captions only, you just need recognition and translation. Saved keys are restored when you reopen the app.
+## Find the right guide
 
-Presets include Qwen, DeepSeek and MiniMax, with support for matching compatible APIs. Providers may charge for usage. Audio and text are sent to the providers you select. See [service setup (中文)](docs/user-guide.md#服务配置).
+| Task | Guide (中文) |
+| --- | --- |
+| First installation and setup | [Get started](docs/guides/getting-started.md) |
+| Configure models, keys and voices | [Services](docs/guides/services.md) |
+| Translate text | [Text translation](docs/guides/text-translation.md) |
+| Read live captions | [Listening and floating captions](docs/guides/listening.md) |
+| Send speech into Discord | [Voice input and virtual microphone](docs/guides/voice-output.md) |
+| Fix audio, permissions or service errors | [Troubleshooting](docs/guides/troubleshooting.md) |
 
-### 2. Read translated captions
-
-Play audio in the app you want to follow, select it in VoxBridge, and start listening. Allow system audio recording when prompted. Open **Floating captions** to read above other windows. Change the caption language in Settings.
-
-### 3. Speak in Discord
-
-1. On Mac, install the VoxBridge virtual microphone from Settings → General → Audio. On Windows, install the bundled **VB-CABLE** during VoxBridge setup or from Settings, then restart Windows as instructed. Driver installation requires administrator approval; end active calls first.
-2. Choose the **send device** in the table below, and use the system default or headphones for **local monitoring**.
-3. Select the corresponding **input device** in your chat app. Keep headphones or speakers as its output device.
-4. In VoxBridge, choose the output language, type a message or record with the microphone button, then send. The headphone button controls local monitoring.
-
-| Platform | VoxBridge send device | Chat app input device |
-| --- | --- | --- |
-| macOS | VoxBridge | VoxBridge |
-| Windows | CABLE Input (VB-Audio Virtual Cable) | CABLE Output (VB-Audio Virtual Cable) |
-
-Windows uses the original, signed base VB-CABLE driver from VB-Audio. Source: [www.vb-cable.com](https://vb-audio.com/Cable/). VB-CABLE is donationware; contributions are welcome.
-
-Discord is the main tested chat app on Mac. Windows virtual microphone audio loopback has passed local testing; actual calls in Discord, Oopz and KOOK still need validation. Other chat apps are not guaranteed compatible. See [troubleshooting (中文)](docs/user-guide.md#常见问题).
-
-## More
-
-[Detailed user guide (中文)](docs/user-guide.md) · [Development and packaging (中文)](docs/development.md) · [Architecture (中文)](docs/02-architecture.md) · [Issues and suggestions](https://github.com/Zhiruosama/VoxBridge/issues)
+Development, architecture and historical records are organized in the [documentation center (中文)](docs/README.md).

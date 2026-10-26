@@ -2,14 +2,14 @@
 
 [使用指南](user-guide.md) · [内部流程](internal-flows.md) · [开发指南](development.md)
 
-此功能为当前主分支新增，已发布的 0.2.1 安装包尚未包含。用于定位操作失败、重连、发送队列暂停和阶段耗时，不是云端统计服务。
+用于定位操作失败、重连、发送队列暂停和阶段耗时，不是云端统计服务。
 
 ## 出问题后怎么提供日志
 
 1. 保留报错截图，并记下大致发生时间与操作步骤。
 2. 打开「设置 → 音频与诊断 → 本机诊断日志」，点击「导出日志」。
 3. 程序生成 `VoxBridge-diagnostics.jsonl` 并打开所在文件夹。可自行查看后，随问题反馈发送此文件。
-4. 一并提供应用版本、macOS 版本、芯片型号及是否使用虚拟麦克风。不要发送 API Key 或整个应用数据目录。
+4. 一并提供应用版本、操作系统版本、CPU 架构及是否使用虚拟麦克风。不要发送 API Key 或整个应用数据目录。
 
 导出只读取本功能的三份运行日志，不包含服务配置、凭据目录、录音或历史聊天。导出文件保存在日志目录的 `export/` 下，每次导出替换上一次文件；若需要保留多个快照，先将上一份复制到其他位置。
 
@@ -42,13 +42,16 @@
 
 配置保存日志只说明命令是否完成，不保存配置对象；随机请求标识也不使用用户输入、模型名或设备 UID。
 
+<details>
+<summary>开发者参考：日志字段、资源限制与实现</summary>
+
 ## 如何阅读
 
 文件使用 JSON Lines 格式，每行一个 JSON 对象。下面是示意数据：
 
 ```json
-{"schemaVersion":1,"timeUnixMs":1792915200000,"uptimeMs":1240,"runId":"example-run","version":"0.2.1","platform":"macos","architecture":"aarch64","source":"main","operation":"translate","kind":"start","traceId":"11111111-2222-4333-8444-555555555555","correlationId":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee:0"}
-{"schemaVersion":1,"timeUnixMs":1792915200600,"uptimeMs":1840,"runId":"example-run","version":"0.2.1","platform":"macos","architecture":"aarch64","source":"main","operation":"translate","kind":"error","traceId":"11111111-2222-4333-8444-555555555555","correlationId":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee:0","durationMs":600,"reason":"invalid_response"}
+{"schemaVersion":1,"timeUnixMs":1792915200000,"uptimeMs":1240,"runId":"example-run","version":"<应用版本>","platform":"macos","architecture":"aarch64","source":"main","operation":"translate","kind":"start","traceId":"11111111-2222-4333-8444-555555555555","correlationId":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee:0"}
+{"schemaVersion":1,"timeUnixMs":1792915200600,"uptimeMs":1840,"runId":"example-run","version":"<应用版本>","platform":"macos","architecture":"aarch64","source":"main","operation":"translate","kind":"error","traceId":"11111111-2222-4333-8444-555555555555","correlationId":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee:0","durationMs":600,"reason":"invalid_response"}
 ```
 
 - `runId` 区分应用进程的本次运行；不是账号或设备标识。
@@ -80,3 +83,5 @@
 - [`前端测试`](../src/diagnostics.test.ts)、[`原生测试`](../src-tauri/src/diagnostics/tests.rs)：内容过滤、原始错误不落盘、日志失效不影响请求、轮转上限、导出范围与文件权限。
 
 Rust panic 时会尝试在最多 800 ms 内刷新已入队的诊断元数据（日志写线程自身异常时不等待自身），以减少原生回调随后 abort 导致事件丢失的情况。这不保证记录所有系统级崩溃，也不记录 panic 消息或调用栈。
+
+</details>
