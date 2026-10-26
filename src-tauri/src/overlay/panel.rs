@@ -2,7 +2,7 @@
 //! superclass: its allocation layout and event implementation belong to Tao.
 use objc2::{define_class, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSBackingStoreType, NSColor, NSPanel, NSStatusWindowLevel, NSWindow, NSWindowDelegate,
+    NSBackingStoreType, NSColor, NSEvent, NSPanel, NSStatusWindowLevel, NSWindow, NSWindowDelegate,
     NSWindowOcclusionState, NSWindowStyleMask, NSWorkspace,
     NSWorkspaceActiveSpaceDidChangeNotification,
 };
@@ -58,7 +58,23 @@ define_class!(
 struct FloatingPanel {
     panel: Retained<SubtitlePanel>,
     _delegate: Retained<PanelDelegate>,
-    drag: Option<(String, NSPoint)>,
+    drag: Option<PanelDrag>,
+}
+// Browser screen coordinates can change their scale/origin when WKWebView
+// crosses displays. Both the anchor and subsequent samples must use AppKit's
+// global logical points, including screens above/left of the primary display.
+struct PanelDrag {
+    id: String,
+    origin: NSPoint,
+    cursor: NSPoint,
+}
+impl PanelDrag {
+    fn origin_at(&self, cursor: NSPoint) -> NSPoint {
+        NSPoint::new(
+            self.origin.x + (cursor.x - self.cursor.x),
+            self.origin.y + (cursor.y - self.cursor.y),
+        )
+    }
 }
 thread_local! { static PANEL: RefCell<Option<FloatingPanel>> = const { RefCell::new(None) }; }
 
@@ -153,17 +169,23 @@ pub(super) fn drag(id: String, phase: &str, x: f64, y: f64) -> Result<(), String
         let mut current = state.borrow_mut();
         let item = current.as_mut().ok_or("字幕窗尚未打开。")?;
         match phase {
-            "begin" => item.drag = Some((id, item.panel.frame().origin)),
+            "begin" => {
+                item.drag = Some(PanelDrag {
+                    id,
+                    origin: item.panel.frame().origin,
+                    cursor: NSEvent::mouseLocation(),
+                });
+            }
             "move" => {
-                if let Some((active, origin)) = &item.drag {
-                    if active == &id {
+                if let Some(drag) = &item.drag {
+                    if drag.id == id {
                         item.panel
-                            .setFrameOrigin(NSPoint::new(origin.x + x, origin.y - y));
+                            .setFrameOrigin(drag.origin_at(NSEvent::mouseLocation()));
                     }
                 }
             }
             "end" => {
-                if item.drag.as_ref().is_some_and(|(active, _)| active == &id) {
+                if item.drag.as_ref().is_some_and(|drag| drag.id == id) {
                     item.drag = None;
                     record_visibility(&item.panel, &item._delegate.ivars().log);
                 }
@@ -172,4 +194,32 @@ pub(super) fn drag(id: String, phase: &str, x: f64, y: f64) -> Result<(), String
         }
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drag_keeps_cursor_offset_across_display_origins_and_backtracking() {
+        let drag = PanelDrag {
+            id: "drag".into(),
+            origin: NSPoint::new(1100.0, 200.0),
+            cursor: NSPoint::new(1150.0, 450.0),
+        };
+        // AppKit logical points are independent of backing scale. Preserve the
+        // grabbed offset on a display right of, left of, or above the primary.
+        for cursor in [
+            NSPoint::new(1700.0, 480.0),
+            NSPoint::new(-600.0, 300.0),
+            NSPoint::new(300.0, 1500.0),
+            NSPoint::new(400.0, -500.0),
+            drag.cursor,
+        ] {
+            let origin = drag.origin_at(cursor);
+            assert_eq!(cursor.x - origin.x, 50.0);
+            assert_eq!(cursor.y - origin.y, 250.0);
+        }
+        assert_eq!(drag.origin_at(drag.cursor), drag.origin);
+    }
 }

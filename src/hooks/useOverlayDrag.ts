@@ -4,10 +4,8 @@ import { dragOverlay } from '../bridge';
 type Drag = {
   id: string;
   pointer: number;
-  x: number;
-  y: number;
   ready: Promise<void>;
-  latest: [number, number] | null;
+  latest: boolean;
   running: boolean;
   ended: boolean;
 };
@@ -20,9 +18,10 @@ export function useOverlayDrag(onError: () => void) {
     try {
       await drag.ready;
       while (drag.latest) {
-        const [x, y] = drag.latest;
-        drag.latest = null;
-        await dragOverlay(drag.id, 'move', x, y);
+        drag.latest = false;
+        // Native macOS samples the cursor in global AppKit points. Sending
+        // browser screen deltas creates jumps across displays with different DPI.
+        await dragOverlay(drag.id, 'move');
       }
       if (drag.ended) {
         await dragOverlay(drag.id, 'end');
@@ -63,10 +62,8 @@ export function useOverlayDrag(onError: () => void) {
       const drag: Drag = {
         id,
         pointer: event.pointerId,
-        x: event.screenX,
-        y: event.screenY,
         ready: dragOverlay(id, 'begin'),
-        latest: null,
+        latest: false,
         running: false,
         ended: false,
       };
@@ -76,7 +73,7 @@ export function useOverlayDrag(onError: () => void) {
     onPointerMove(event: PointerEvent<HTMLElement>) {
       const drag = active.current;
       if (!drag || drag.ended || event.pointerId !== drag.pointer) return;
-      drag.latest = [event.screenX - drag.x, event.screenY - drag.y];
+      drag.latest = true;
       void flush(drag);
     },
     onPointerUp: end,
