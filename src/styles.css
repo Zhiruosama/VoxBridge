@@ -1,100 +1,3 @@
-/* Interpolate inherited theme tokens once at the root, never on each text ancestor. */
-@property --menu {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #2b2b2b;
-}
-@property --menu-hover {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #3a3a3a;
-}
-@property --bg {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #1e1e1e;
-}
-@property --side {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #181818;
-}
-@property --raised {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #252525;
-}
-@property --hover {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #2a2a2e;
-}
-@property --border {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #303034;
-}
-@property --text {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #ececee;
-}
-@property --muted {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #a4a4ae;
-}
-@property --faint {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #93939e;
-}
-@property --accent {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #dedede;
-}
-@property --accent-text {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #202020;
-}
-@property --good {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #98c5a8;
-}
-@property --danger {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #f3a6a6;
-}
-@property --focus {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #88888d;
-}
-@property --composer-border {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: rgb(255 255 255 / 9%);
-}
-@property --composer-focus-border {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: rgb(255 255 255 / 20%);
-}
-@property --composer-shadow-near {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: rgb(0 0 0 / 12%);
-}
-@property --composer-shadow-far {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: rgb(0 0 0 / 14%);
-}
-
 :root {
   font-family:
     'Noto Sans SC Variable',
@@ -2607,37 +2510,6 @@ input[type='range']:focus-visible::-moz-range-thumb {
   }
 }
 
-/* Descendants resolve the same animated tokens immediately; nested transitions would lag. */
-@media (prefers-reduced-motion: no-preference) {
-  :root[data-theme-changing] {
-    transition:
-      --menu 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --menu-hover 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --bg 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --side 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --raised 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --hover 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --border 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --text 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --muted 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --faint 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --accent 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --accent-text 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --good 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --danger 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --focus 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --composer-border 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --composer-focus-border 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --composer-shadow-near 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      --composer-shadow-far 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  :root[data-theme-changing] *,
-  :root[data-theme-changing] *::before,
-  :root[data-theme-changing] *::after {
-    transition: none !important;
-  }
-}
-
 .diagnostic-log-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -2910,4 +2782,60 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 .service-check details p {
   overflow-wrap: anywhere;
+}
+
+/* Keep the old frame fully opaque while the new theme fades over it. Fading
+   both snapshots reveals the window background and causes a bright flash. */
+::view-transition-group(root) {
+  animation-duration: 400ms;
+  animation-timing-function: ease-in-out;
+}
+::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: theme-surface-in 400ms ease-in-out both;
+  mix-blend-mode: normal;
+}
+@keyframes theme-surface-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
+.theme-snapshot {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  overflow: hidden;
+  background: var(--bg);
+  pointer-events: none;
+  user-select: none;
+  animation: theme-surface-out 400ms ease-in-out both;
+}
+.theme-snapshot *,
+.theme-snapshot *::before,
+.theme-snapshot *::after {
+  animation: none !important;
+  transition: none !important;
+  caret-color: transparent !important;
+}
+@keyframes theme-surface-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
