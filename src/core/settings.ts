@@ -1,3 +1,4 @@
+import { parseSpeechOptions } from './speech-options';
 import { parseUiLanguage } from '../i18n';
 import { systemDefaultOutputId } from './audio-routing';
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
@@ -199,6 +200,9 @@ export function parseSettings(value: unknown): Settings {
       modelId: p.modelId as string,
       voice: p.voice as string,
       ...(stage === 'tts' ? { speed: (p.speed as number | undefined) ?? 1 } : {}),
+      ...(stage === 'tts' && p.speechOptions !== undefined
+        ? { speechOptions: parseSpeechOptions(p.speechOptions) }
+        : {}),
       ...(p.modelPresets !== undefined
         ? { modelPresets: parseProfilePresets(p.modelPresets) }
         : {}),

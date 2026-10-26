@@ -17,6 +17,8 @@ use tokio_tungstenite::tungstenite::{
 };
 use tokio_util::sync::CancellationToken;
 
+mod options;
+
 const MAX_AUDIO: usize = 8 * 1024 * 1024;
 const STOPPED: &str = "语音已停止。";
 
@@ -165,6 +167,8 @@ pub struct SpeechProfile {
     #[serde(default = "default_speed")]
     speed: f64,
     #[serde(default)]
+    speech_options: options::SpeechOptions,
+    #[serde(default)]
     language: Option<String>,
 }
 #[derive(Deserialize)]
@@ -220,6 +224,9 @@ pub(crate) fn endpoint(profile: &SpeechProfile) -> Result<url::Url, String> {
         )
     {
         return Err("不支持的语音合成协议。".into());
+    }
+    if profile.adapter == "minimax_tts_ws" {
+        profile.speech_options.validate(&profile.model_id)?;
     }
     if !profile.speed.is_finite() || !(0.5..=2.0).contains(&profile.speed) {
         return Err("语速应在 0.5–2.0 倍之间。".into());
@@ -416,7 +423,14 @@ async fn synthesize_response(
     if receive(&mut socket).await?["event"] != "connected_success" {
         return Err("语音连接握手顺序异常。".into());
     }
-    socket.send(Message::Text(json!({ "event":"task_start", "model":profile.model_id, "language_boost":crate::language::speech_language(profile.language.as_deref())?, "voice_setting":{"voice_id":profile.voice,"speed":profile.speed}, "audio_setting":{"sample_rate":32000,"bitrate":128000,"format":if stream.is_some() { "pcm" } else { "mp3" },"channel":1} }).to_string().into())).await.map_err(|_| "无法开始语音任务。")?;
+    socket
+        .send(Message::Text(
+            options::task_start(profile, stream.is_some())?
+                .to_string()
+                .into(),
+        ))
+        .await
+        .map_err(|_| "无法开始语音任务。")?;
     if receive(&mut socket).await?["event"] != "task_started" {
         return Err("语音任务未就绪。".into());
     }

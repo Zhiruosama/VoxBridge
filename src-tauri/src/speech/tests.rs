@@ -41,6 +41,7 @@ pub(super) fn profile(adapter: &str, base_url: String) -> SpeechProfile {
     SpeechProfile {
         language: None,
         speed: 1.0,
+        speech_options: options::SpeechOptions::default(),
         id: "test-profile".into(),
         stage: "tts".into(),
         adapter: adapter.into(),

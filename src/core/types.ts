@@ -33,6 +33,7 @@ export interface ProviderProfile {
   modelId: string;
   voice: string;
   speed?: number;
+  speechOptions?: import('./speech-options').SpeechOptions;
   modelPresets?: ProfilePreset[];
   voicePresets?: ProfilePreset[];
   thinking?: 'enabled' | 'disabled';

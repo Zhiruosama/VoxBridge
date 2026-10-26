@@ -1,3 +1,4 @@
+import SpeechOptionsControls from './SpeechOptionsControls';
 import { t, useUiLanguage } from '../i18n';
 import SpeechSpeed from './SpeechSpeed';
 import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react';
@@ -1019,6 +1020,7 @@ export default function SettingsPanel({
               )}
             </div>
           </section>
+          {stage === 'tts' && <SpeechOptionsControls profile={profile} onChange={update} />}
           <section className="preference-section" aria-labelledby="personal-presets-heading">
             <h2 id="personal-presets-heading">{t('自定义预设')}</h2>
             <div className="preference-card">

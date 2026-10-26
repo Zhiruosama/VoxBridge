@@ -1,3 +1,4 @@
+import { SpeechEmotion } from './SpeechOptionsControls';
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Volume2 } from 'lucide-react';
@@ -106,6 +107,17 @@ export default function SpeechPicker({
           <p role="alert" className="error-text">
             {t(voiceError)}
           </p>
+        )}
+        {profile.adapter === 'minimax_tts_ws' && (
+          <>
+            <label>{t('情绪')}</label>
+            <SpeechEmotion
+              profile={profile}
+              onChange={(speechOptions) =>
+                onChange(updateSpeechProfile(settings, { speechOptions }))
+              }
+            />
+          </>
         )}
         <label>{t('语速')}</label>
         <SpeechSpeed

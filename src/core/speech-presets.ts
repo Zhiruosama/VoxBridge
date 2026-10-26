@@ -1,3 +1,4 @@
+import { supportsEmotion } from './speech-options';
 import type { ProviderProfile, Settings } from './types';
 import { profileFor } from './settings';
 import { editProfilePreset } from './profile-presets';
@@ -140,7 +141,7 @@ export function selectSpeechVoice(profile: ProviderProfile, voice: string): Prov
 /** Updating a voice/model must retain the credential identity and all unrelated settings. */
 export function updateSpeechProfile(
   settings: Settings,
-  change: Partial<Pick<ProviderProfile, 'voice' | 'modelId' | 'speed'>>,
+  change: Partial<Pick<ProviderProfile, 'voice' | 'modelId' | 'speed' | 'speechOptions'>>,
 ): Settings {
   const profile = profileFor(settings, 'tts');
   const modelChange = change.modelId ? speechModelChange(profile, change.modelId) : {};
@@ -167,6 +168,9 @@ export function speechModelChange(
 ): Partial<ProviderProfile> {
   return {
     modelId,
+    ...(profile.speechOptions && !supportsEmotion(modelId, profile.speechOptions.emotion)
+      ? { speechOptions: { ...profile.speechOptions, emotion: 'auto' as const } }
+      : {}),
     ...(speechProvider(profile) === 'OpenAI' &&
     ['tts-1', 'tts-1-hd'].includes(modelId) &&
     ['ballad', 'verse', 'marin', 'cedar'].includes(profile.voice)

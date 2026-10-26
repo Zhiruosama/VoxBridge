@@ -705,6 +705,9 @@ nav button[aria-current='page'] {
   color: var(--text);
 }
 .speech-picker-panel {
+  max-height: min(480px, calc(100dvh - 200px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   grid-template-columns: minmax(0, 1fr);
   position: absolute;
   bottom: calc(100% + 12px);
@@ -2643,4 +2646,47 @@ input[type='range']:focus-visible::-moz-range-thumb {
   .diagnostic-log-actions {
     justify-content: flex-start;
   }
+}
+
+/* Advanced synthesis controls share settings rows and remain collapsed by default. */
+.speech-advanced {
+  margin-top: 18px;
+}
+.speech-advanced > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  padding-block: 8px;
+}
+.speech-advanced > .preference-card {
+  margin-top: 12px;
+}
+.speech-pronunciation {
+  padding-block: 18px;
+  display: grid;
+  gap: 10px;
+}
+.speech-pronunciation label {
+  font-weight: 550;
+}
+.speech-pronunciation textarea {
+  min-height: 100px;
+  width: 100%;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+.speech-pronunciation p,
+.speech-markup-help {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+}
+.speech-markup-help {
+  margin-top: 12px;
 }
