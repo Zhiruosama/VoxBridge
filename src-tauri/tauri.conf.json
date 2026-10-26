@@ -17,8 +17,8 @@
         "title": "VoxBridge",
         "create": false,
         "backgroundColor": "#1e1e1e",
-        "width": 1062,
-        "height": 738,
+        "width": 1180,
+        "height": 820,
         "minWidth": 680,
         "minHeight": 560
       },

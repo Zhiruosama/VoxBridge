@@ -457,7 +457,7 @@ export default function App() {
       .then(setRuntime)
       .catch((e) => notify(String(e)));
   }, [notify]);
-  useTheme(settings.theme);
+  useTheme(settings.theme, desktop && runtime?.platform === 'macos');
   useEffect(() => {
     if (!desktop || runtime?.platform !== 'windows') return;
     let active = true;

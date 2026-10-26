@@ -64,6 +64,14 @@ pub fn run() {
             let builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
             #[cfg(target_os = "windows")]
             let builder = builder.decorations(false);
+            // Keep the webview below the native title bar on macOS. The default
+            // Visible style uses a full-size content view, which can leave the
+            // traffic lights floating over an otherwise empty header.
+            #[cfg(target_os = "macos")]
+            let builder = builder
+                .decorations(true)
+                .title_bar_style(tauri::TitleBarStyle::Transparent)
+                .hidden_title(false);
             builder.build()?;
             if let Some(config) = app
                 .config()

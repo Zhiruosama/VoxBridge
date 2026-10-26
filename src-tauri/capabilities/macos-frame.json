@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "macos-frame",
+  "description": "Synchronize the macOS main window title bar with the application theme",
+  "platforms": ["macOS"],
+  "windows": ["main"],
+  "permissions": [
+    "core:window:allow-set-theme",
+    "core:window:allow-set-background-color"
+  ]
+}
