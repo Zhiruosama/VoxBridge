@@ -2690,3 +2690,118 @@ input[type='range']:focus-visible::-moz-range-thumb {
 .speech-markup-help {
   margin-top: 12px;
 }
+
+/* Independent, audio-free translation workspace. */
+.text-translation {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 24px 28px 36px;
+}
+.text-translation-toolbar,
+.text-translation-direction,
+.text-translation-footer,
+.text-translation-footer > div,
+.text-translation-result-heading,
+.text-translation-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.text-translation-toolbar,
+.text-translation-footer,
+.text-translation-result-heading {
+  justify-content: space-between;
+}
+.text-translation-toolbar {
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.text-translation-direction {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.text-translation-direction .select-trigger {
+  width: 160px;
+}
+.text-translation-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 18px;
+}
+.text-translation-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--raised);
+}
+.text-translation-panel > label,
+.text-translation-result-heading {
+  min-height: 32px;
+  font-weight: 500;
+}
+.text-translation-panel textarea,
+.text-translation-result {
+  flex: 1;
+  min-height: 270px;
+  margin: 12px 0 20px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.text-translation-panel textarea {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  resize: vertical;
+  outline: none;
+  box-shadow: none;
+}
+.text-translation-panel:focus-within {
+  border-color: var(--muted);
+}
+.text-translation-result {
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.text-translation-placeholder,
+.text-translation-language,
+.text-translation-footer {
+  color: var(--muted);
+}
+.text-translation-footer {
+  min-height: 36px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.text-translation-footer > span {
+  overflow-wrap: anywhere;
+}
+.text-translation-error {
+  margin-top: 16px;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 850px) {
+  .text-translation {
+    padding: 18px;
+  }
+  .text-translation-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .text-translation-panel textarea,
+  .text-translation-result {
+    min-height: 160px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .text-translation-progress .status-spinner {
+    animation: none;
+  }
+}

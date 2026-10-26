@@ -844,5 +844,16 @@
   "不支持的语音情绪或音效。": "Unsupported voice emotion or effect.",
   "发音替换最多 50 行，每行使用“原词/读法”，且不超过 300 字节。": "Use up to 50 word/pronunciation entries, each no longer than 300 bytes.",
   "当前模型不支持所选语音情绪，请选择自动。": "This model does not support the selected emotion. Choose Auto.",
-  "自动": "Auto"
+  "自动": "Auto",
+  "文本翻译": "Text translation",
+  "原文语言": "Source language",
+  "翻译设置": "Translation settings",
+  "输入要翻译的文字…": "Enter text to translate…",
+  "译文将显示在这里": "Your translation will appear here",
+  "复制译文": "Copy translation",
+  "复制失败，请手动选择译文复制。": "Could not copy. Select the translation and copy it manually.",
+  "请输入要翻译的文字。": "Enter text to translate.",
+  "每次最多翻译 2000 个字符。": "Translate up to 2,000 characters at a time.",
+  "请选择文字翻译服务。": "Select a text translation service.",
+  "目标语言": "Target language"
 }

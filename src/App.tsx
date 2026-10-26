@@ -1,3 +1,5 @@
+import TextTranslation from './components/TextTranslation';
+import { TextTranslationController } from './core/text-translation';
 import { watchFrontendErrors, recordDiagnostic } from './diagnostics';
 import { useTheme } from './hooks/useTheme';
 import SidebarResizeHandle from './components/SidebarResizeHandle';
@@ -106,7 +108,7 @@ const languages = [
   '俄语',
   '德语',
 ];
-type Page = 'workspace' | 'settings' | 'diagnostics';
+type Page = 'workspace' | 'text' | 'settings' | 'diagnostics';
 
 export default function App() {
   useUiLanguage();
@@ -126,6 +128,14 @@ export default function App() {
   useEffect(() => setUiLanguage(settings.uiLanguage), [settings.uiLanguage]);
   const [savedSettings, setSavedSettings] = useState<Settings>(initial.settings);
   const [page, setPage] = useState<Page>('workspace');
+  const [textTranslation] = useState(
+    () =>
+      new TextTranslationController(
+        { translate, cancelTranslation },
+        initial.settings.targetLanguage,
+      ),
+  );
+  useEffect(() => () => textTranslation.cancel(), [textTranslation]);
   useEffect(() => {
     recordDiagnostic({ operation: 'frontend', kind: 'state', phase: `page_${page}` });
   }, [page]);
@@ -922,8 +932,16 @@ export default function App() {
             <MessageSquare size={15} />
             {t('字幕')}
           </button>
+          <button
+            aria-current={page === 'text' ? 'page' : undefined}
+            onClick={() => setPage('text')}
+            disabled={settingsBusy}
+          >
+            <Languages size={15} />
+            {t('文本翻译')}
+          </button>
         </nav>
-        {page === 'workspace' ? (
+        {page === 'workspace' || page === 'text' ? (
           <div className="sidebar-bottom">
             <nav aria-label={t('设置导航')}>
               <button onClick={() => openSettings()}>
@@ -993,7 +1011,15 @@ export default function App() {
               <PanelLeftClose size={16} />
             </button>
             <strong>
-              {t(page === 'workspace' ? '字幕' : page === 'settings' ? '设置' : '音频与诊断')}
+              {t(
+                page === 'workspace'
+                  ? '字幕'
+                  : page === 'text'
+                    ? '文本翻译'
+                    : page === 'settings'
+                      ? '设置'
+                      : '音频与诊断',
+              )}
             </strong>
           </div>
           {page === 'workspace' && (
@@ -1054,6 +1080,13 @@ export default function App() {
           id="main-content"
           className={page === 'workspace' ? 'workspace' : 'page-scroll'}
         >
+          {page === 'text' && (
+            <TextTranslation
+              controller={textTranslation}
+              settings={settings}
+              onSettings={() => openSettings('translation')}
+            />
+          )}
           {page === 'settings' && (
             <SettingsPanel
               section={settingsSection}

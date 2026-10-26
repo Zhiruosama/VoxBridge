@@ -71,6 +71,7 @@ const PHASES: &[&str] = &[
     "unhandled_error",
     "unhandled_rejection",
     "page_workspace",
+    "page_text",
     "page_settings",
     "page_diagnostics",
     "settings_saved",
