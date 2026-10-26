@@ -8,6 +8,8 @@ import {
 } from './sidebar-layout';
 import commonConfig from '../../src-tauri/tauri.conf.json';
 import windowsConfig from '../../src-tauri/tauri.windows.conf.json';
+import { readFileSync } from 'node:fs';
+const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
 describe('sidebar layout bounds', () => {
   it('rejects corrupt preferences and clamps stored widths', () => {
@@ -33,6 +35,19 @@ describe('sidebar layout bounds', () => {
         expect(available).toBeGreaterThanOrEqual(workspaceMinimum);
         expect(available - 48 - 4).toBeGreaterThan(700);
       }
+    }
+  });
+  it('keeps text translation side by side even before a stale wide sidebar preference is clamped', () => {
+    const breakpoint = Number(
+      /@container text-translation \(max-width:\s*(\d+)px\)/.exec(styles)?.[1],
+    );
+    expect(breakpoint).toBeGreaterThanOrEqual(2 * 240 + 18);
+    for (const config of [commonConfig, windowsConfig]) {
+      const main = config.app.windows.find((window) => window.label === 'main')!;
+      // Deliberately model the old 360px preference before ResizeObserver fires.
+      // Include the main border, text workspace padding and Windows scrollbar.
+      const textContent = main.minWidth! - 360 - 22 - 2 - 56 - 16;
+      expect(textContent).toBeGreaterThan(breakpoint);
     }
   });
 });

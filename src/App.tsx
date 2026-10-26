@@ -6,6 +6,7 @@ import SidebarResizeHandle from './components/SidebarResizeHandle';
 import WindowChrome from './components/WindowChrome';
 import { configurationSection, type ConfigurationSection } from './core/configuration-guidance';
 import { useSidebarLayout } from './hooks/useSidebarLayout';
+import { workspaceMinimum } from './core/sidebar-layout';
 import { t, setUiLanguage, useUiLanguage } from './i18n';
 import SendQueueControls from './components/SendQueueControls';
 import type { QueueAction } from './core/send-queue';
@@ -906,7 +907,12 @@ export default function App() {
     <div
       ref={sidebarLayout.shellRef}
       className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'} ${runtime?.platform === 'windows' ? 'has-window-chrome' : ''}`}
-      style={{ '--sidebar-width': `${sidebarLayout.width}px` } as CSSProperties}
+      style={
+        {
+          '--sidebar-width': `${sidebarLayout.width}px`,
+          '--workspace-min-width': `${workspaceMinimum}px`,
+        } as CSSProperties
+      }
     >
       <a className="skip-link" href="#main-content">
         {t('跳到主内容')}
