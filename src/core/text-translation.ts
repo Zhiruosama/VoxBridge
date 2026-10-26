@@ -1,3 +1,6 @@
+import { recordDiagnostic } from '../diagnostics';
+import { errorKind } from './diagnostics';
+import { RequestTask } from './request-task';
 import type { ProviderProfile } from './types';
 import { validateProfile } from './settings';
 
@@ -10,6 +13,8 @@ export interface TextTranslationState {
   resultTarget: string;
   busy: boolean;
   error: string;
+  canRetry: boolean;
+  startedAt: number;
 }
 
 /** Session-only text tool; deliberately has no audio or speech dependencies. */
@@ -17,6 +22,8 @@ export class TextTranslationController {
   private state: TextTranslationState;
   private listeners = new Set<() => void>();
   private request: string | null = null;
+  private task: RequestTask | null = null;
+  private failed: Pick<TextTranslationState, 'input' | 'source' | 'target'> | null = null;
   constructor(
     private dependencies: Dependencies,
     target: string,
@@ -29,6 +36,8 @@ export class TextTranslationController {
       resultTarget: '',
       busy: false,
       error: '',
+      canRetry: false,
+      startedAt: 0,
     };
   }
   getSnapshot = () => this.state;
@@ -39,26 +48,34 @@ export class TextTranslationController {
     };
   };
   update(patch: Partial<Pick<TextTranslationState, 'input' | 'source' | 'target'>>) {
-    this.set({ ...patch, error: '' });
+    this.set(patch);
   }
   private set(patch: Partial<TextTranslationState>) {
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((listener) => listener());
   }
   cancel = () => {
-    const request = this.request;
     this.request = null;
-    this.set({ busy: false });
-    if (request) void this.dependencies.cancelTranslation(request).catch(() => {});
+    this.task?.cancel();
+    this.task = null;
+    this.set({ busy: false, startedAt: 0 });
   };
   clear = () => {
     this.cancel();
-    this.set({ input: '', result: '', resultTarget: '', error: '' });
+    this.failed = null;
+    this.set({ input: '', result: '', resultTarget: '', error: '', canRetry: false });
   };
-  async submit(profile: ProviderProfile) {
+  retry(profile: ProviderProfile) {
+    if (this.failed) return this.submit(profile, this.failed);
+  }
+  async submit(
+    profile: ProviderProfile,
+    previous?: Pick<TextTranslationState, 'input' | 'source' | 'target'>,
+  ) {
     if (this.state.busy) return;
-    const { source, target } = this.state;
-    const text = this.state.input.trim();
+    const snapshot = previous ?? this.state;
+    const { source, target } = snapshot;
+    const text = snapshot.input.trim();
     const invalid = !text
       ? '请输入要翻译的文字。'
       : [...text].length > 2000
@@ -72,28 +89,31 @@ export class TextTranslationController {
     }
     const request = crypto.randomUUID();
     this.request = request;
-    this.set({ busy: true, error: '' });
+    const task = new RequestTask(() => this.dependencies.cancelTranslation(request));
+    this.task = task;
+    this.set({ busy: true, error: '', canRetry: false, startedAt: Date.now() });
     try {
       const result =
         source === target
           ? text
-          : await this.dependencies.translate(
-              structuredClone(profile),
-              text,
-              source,
-              target,
-              request,
+          : await task.run(() =>
+              this.dependencies.translate(structuredClone(profile), text, source, target, request),
             );
       if (this.request !== request) return;
       if (!result.trim()) throw new Error('翻译服务未返回有效译文，请重试或更换模型。');
-      this.set({ result, resultTarget: target });
+      this.failed = null;
+      this.set({ result, resultTarget: target, canRetry: false });
     } catch (error) {
-      if (this.request === request)
-        this.set({ error: error instanceof Error ? error.message : String(error) });
+      if (this.request === request) {
+        recordDiagnostic({ operation: 'frontend', kind: 'error', reason: errorKind(error) });
+        this.failed = { input: text, source, target };
+        this.set({ error: error instanceof Error ? error.message : String(error), canRetry: true });
+      }
     } finally {
       if (this.request === request) {
         this.request = null;
-        this.set({ busy: false });
+        this.task = null;
+        this.set({ busy: false, startedAt: 0 });
       }
     }
   }

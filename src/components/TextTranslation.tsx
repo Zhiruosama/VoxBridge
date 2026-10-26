@@ -1,4 +1,5 @@
-import { useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { recoveryHint } from '../core/operation-feedback';
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { textSplitRatio, textSplitStorageKey } from '../core/text-translation-layout';
 import { ArrowRight, Check, Copy, LoaderCircle, Settings2, X } from 'lucide-react';
 import { textTranslationSubmitKey, type TextTranslationController } from '../core/text-translation';
@@ -62,6 +63,17 @@ export default function TextTranslation({
     setDragging(false);
   }
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!state.busy) {
+      setElapsed(0);
+      return;
+    }
+    const tick = () => setElapsed(Math.floor((Date.now() - state.startedAt) / 1000));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [state.busy, state.startedAt]);
   const [copied, setCopied] = useState('');
   const [copyError, setCopyError] = useState(false);
   const profile = profileFor(settings, 'translation');
@@ -229,11 +241,28 @@ export default function TextTranslation({
           >
             {state.result || t('译文将显示在这里')}
           </div>
+          {state.error && (
+            <div className="text-translation-error" role="alert">
+              <p>{t(recoveryHint(state.error))}</p>
+              <div className="recovery-actions">
+                {state.canRetry && (
+                  <button disabled={state.busy} onClick={() => void controller.retry(profile)}>
+                    {t('重试上一条')}
+                  </button>
+                )}
+                <button onClick={onSettings}>{t('翻译设置')}</button>
+              </div>
+              <details>
+                <summary>{t('错误详情')}</summary>
+                <p>{t(state.error)}</p>
+              </details>
+            </div>
+          )}
           <div className="text-translation-footer" role="status">
             {state.busy ? (
               <span className="text-translation-progress">
                 <LoaderCircle size={14} className="status-spinner" />
-                {t('翻译中…')}
+                {t(elapsed >= 10 ? '服务响应较慢，可取消后重试。' : '翻译中…')} · {elapsed}s
               </span>
             ) : (
               <span>{profile.name}</span>
@@ -242,11 +271,6 @@ export default function TextTranslation({
           </div>
         </div>
       </div>
-      {state.error && (
-        <div className="text-translation-error" role="alert">
-          {t(state.error)}
-        </div>
-      )}
     </section>
   );
 }

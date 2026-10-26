@@ -1,3 +1,4 @@
+import ServiceCheck from './ServiceCheck';
 import SpeechOptionsControls from './SpeechOptionsControls';
 import { t, useUiLanguage } from '../i18n';
 import SpeechSpeed from './SpeechSpeed';
@@ -992,23 +993,30 @@ export default function SettingsPanel({
                 )}
               </SettingRow>
               {stage === 'translation' && (
-                <SettingRow title={t('思考模式')}>
-                  <Select
-                    label={t('翻译思考模式')}
-                    value={profile.thinking ?? 'default'}
-                    options={[
-                      { value: 'default', label: '服务默认' },
-                      { value: 'disabled', label: '关闭' },
-                      { value: 'enabled', label: '开启' },
-                    ]}
-                    onChange={(value) =>
-                      update({
-                        thinking:
-                          value === 'default' ? undefined : (value as 'enabled' | 'disabled'),
-                      })
-                    }
-                  />
-                </SettingRow>
+                <details
+                  className="service-extensions"
+                  open={/^deepseek/i.test(profile.modelId) || undefined}
+                >
+                  <summary>{t('服务扩展参数')}</summary>
+                  <p>{t('仅在服务明确支持时设置；不确定时保留服务默认。')}</p>
+                  <SettingRow title={t('思考模式')}>
+                    <Select
+                      label={t('翻译思考模式')}
+                      value={profile.thinking ?? 'default'}
+                      options={[
+                        { value: 'default', label: '服务默认' },
+                        { value: 'disabled', label: '关闭' },
+                        { value: 'enabled', label: '开启' },
+                      ]}
+                      onChange={(value) =>
+                        update({
+                          thinking:
+                            value === 'default' ? undefined : (value as 'enabled' | 'disabled'),
+                        })
+                      }
+                    />
+                  </SettingRow>
+                </details>
               )}
               {stage === 'tts' && (
                 <SettingRow title={t('语速')}>
@@ -1034,6 +1042,12 @@ export default function SettingsPanel({
               )}
             </div>
           </section>
+          <ServiceCheck
+            key={JSON.stringify([profile, hasKey !== false, Boolean(secret.trim())])}
+            profile={profile}
+            hasUnsavedKey={Boolean(secret.trim())}
+            onDiagnostics={onDiagnostics}
+          />
           {stage === 'tts' && <SpeechOptionsControls profile={profile} onChange={update} />}
           <section className="preference-section" aria-labelledby="personal-presets-heading">
             <h2 id="personal-presets-heading">{t('自定义预设')}</h2>

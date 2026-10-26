@@ -2875,3 +2875,39 @@ input[type='range']:focus-visible::-moz-range-thumb {
     display: none;
   }
 }
+.service-check > p,
+.service-extensions > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.service-check [role='status'] {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.service-check .service-check-success {
+  color: var(--good);
+}
+.service-extensions {
+  padding: 16px 0;
+}
+.service-extensions summary,
+.text-translation-error summary,
+.service-check summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+}
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.text-translation-error p {
+  margin: 8px 0;
+}
+.service-check details p {
+  overflow-wrap: anywhere;
+}

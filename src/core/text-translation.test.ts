@@ -154,3 +154,48 @@ describe('text translation Enter behavior', () => {
     expect(textTranslationSubmitKey({ ...enter, keyCode: 229 })).toBe(false);
   });
 });
+
+describe('text translation recovery', () => {
+  it('retries the failed snapshot with current credentials without overwriting a newer draft', async () => {
+    const { controller, dependencies, profile } = fixture();
+    dependencies.translate.mockRejectedValueOnce(new Error('network offline'));
+    controller.update({ input: '第一条', target: '日语' });
+    await controller.submit(profile);
+    expect(controller.getSnapshot().canRetry).toBe(true);
+    controller.update({ input: '下一条', target: '德语' });
+    await controller.retry({ ...profile, modelId: 'replacement' });
+    expect(dependencies.translate.mock.calls[1].slice(1, 4)).toEqual([
+      '第一条',
+      '自动识别',
+      '日语',
+    ]);
+    expect(dependencies.translate.mock.calls[1][0].modelId).toBe('replacement');
+    expect(controller.getSnapshot()).toMatchObject({
+      input: '下一条',
+      target: '德语',
+      resultTarget: '日语',
+      canRetry: false,
+    });
+  });
+  it('releases a stalled request after the deadline, retains text and permits retry', async () => {
+    vi.useFakeTimers();
+    try {
+      const { controller, dependencies, profile } = fixture();
+      dependencies.translate.mockReturnValueOnce(new Promise(() => {}));
+      controller.update({ input: '保留这段内容' });
+      const request = controller.submit(profile);
+      await vi.advanceTimersByTimeAsync(45000);
+      await request;
+      expect(controller.getSnapshot()).toMatchObject({
+        input: '保留这段内容',
+        busy: false,
+        canRetry: true,
+      });
+      expect(dependencies.cancelTranslation).toHaveBeenCalledTimes(1);
+      await controller.retry(profile);
+      expect(controller.getSnapshot().result).toBe('Hello');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

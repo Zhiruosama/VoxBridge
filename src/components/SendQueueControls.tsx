@@ -1,3 +1,4 @@
+import { recoveryHint } from '../core/operation-feedback';
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -74,7 +75,19 @@ export default function SendQueueControls({
         }}
       >
         {hasFailure && <AlertCircle size={13} aria-hidden="true" />}
-        {t('队列')}
+        {t(
+          hasFailure
+            ? '有失败项'
+            : view.paused
+              ? '已暂停'
+              : labels[
+                  (
+                    view.items.find((item) => item.active) ??
+                    view.items.find((item) => item.status !== 'failed')
+                  )?.status ?? 'queued'
+                ] || '准备中',
+        )}{' '}
+        · {view.items.length}
       </button>
       {open &&
         createPortal(
@@ -136,7 +149,15 @@ export default function SendQueueControls({
                   ) : (
                     <>
                       <p>{item.text}</p>
-                      {item.error && <p className="queue-error">{t(item.error)}</p>}
+                      {item.error && (
+                        <>
+                          <p className="queue-error">{t(recoveryHint(item.error))}</p>
+                          <details>
+                            <summary>{t('错误详情')}</summary>
+                            <p className="queue-error">{t(item.error)}</p>
+                          </details>
+                        </>
+                      )}
                       <div className="queue-item-actions">
                         {!item.active && (
                           <button
