@@ -39,6 +39,8 @@
 
 ## 界面与悬浮窗口
 
+- [侧栏拖动与主窗宽度限制](2026-10-26-sidebar-layout-limits.md) — 2026-10-26
+
 - [Mac 主题切换中断与备用动画](2026-10-26-theme-transition.md) — 2026-10-26
 
 - [Chrome discovery and stable picker scrolling](2026-10-23-chrome-picker-scroll.md) — 2026-10-23
