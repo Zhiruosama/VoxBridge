@@ -241,11 +241,15 @@ export default function App() {
   useEffect(() => {
     if (!desktop) return;
     appUpdates.blocked = () => updateBlocked.current;
+    appUpdates.setAutomatic(initial.settings.automaticUpdates);
     void appUpdates.checkAtStartup();
     return () => {
       appUpdates.blocked = () => true;
     };
   }, [notify]);
+  useEffect(() => {
+    appUpdates.setAutomatic(savedSettings.automaticUpdates);
+  }, [savedSettings.automaticUpdates]);
   const [sendQueue] = useState(
     () =>
       new SendQueue({
@@ -721,6 +725,16 @@ export default function App() {
       notify(t('保存失败：{0}', String(e)));
     }
   }
+  function persistAutomaticUpdates(enabled: boolean) {
+    try {
+      const next = { ...savedSettings, automaticUpdates: enabled };
+      saveSettings(next);
+      setSavedSettings(next);
+      setSettings((current) => ({ ...current, automaticUpdates: enabled }));
+    } catch (error) {
+      notify(t('保存失败：{0}', String(error)));
+    }
+  }
   async function runComposer(
     action: 'speak' | 'translate',
     route = settings.composer.route,
@@ -1174,6 +1188,7 @@ export default function App() {
               settings={settings}
               savedSettings={savedSettings}
               onDraftChange={setSettings}
+              onAutomaticUpdatesChange={persistAutomaticUpdates}
               onSave={persist}
               notify={notify}
               onDiagnostics={() => setPage('diagnostics')}

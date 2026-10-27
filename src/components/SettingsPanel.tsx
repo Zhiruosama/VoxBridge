@@ -57,6 +57,7 @@ export default function SettingsPanel({
   settings,
   savedSettings,
   onDraftChange,
+  onAutomaticUpdatesChange,
   onSave,
   notify,
   onDiagnostics,
@@ -72,6 +73,7 @@ export default function SettingsPanel({
   settings: Settings;
   savedSettings: Settings;
   onDraftChange: Dispatch<SetStateAction<Settings>>;
+  onAutomaticUpdatesChange: (enabled: boolean) => void;
   onSave: (settings: Settings) => void;
   notify: (message: string) => void;
   onDiagnostics: () => void;
@@ -932,7 +934,10 @@ export default function SettingsPanel({
               <SettingRow title="VoxBridge">
                 <span className="preference-value">{version}</span>
               </SettingRow>
-              <UpdateControls />
+              <UpdateControls
+                automatic={savedSettings.automaticUpdates}
+                onAutomaticChange={onAutomaticUpdatesChange}
+              />
             </div>
           </section>
         </>

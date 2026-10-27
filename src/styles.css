@@ -3102,3 +3102,71 @@ input[type='range']:focus-visible::-moz-range-thumb {
   color: var(--danger);
   font-size: 12px;
 }
+.update-reminder.is-leaving {
+  animation: update-notice-out 180ms ease both;
+}
+.update-phase-copy {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  animation: update-phase-in 200ms ease both;
+}
+.update-progress {
+  height: 3px;
+  width: 100%;
+  min-width: 170px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+.update-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 350ms ease;
+}
+.update-progress.is-indeterminate > span {
+  animation: update-progress-sweep 1.6s ease-in-out infinite;
+}
+.update-settings-status {
+  max-width: 460px;
+}
+.automatic-update-toggle {
+  padding-inline: 4px;
+}
+@keyframes update-notice-out {
+  to {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+@keyframes update-phase-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes update-progress-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(390%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-reminder.is-leaving,
+  .update-phase-copy,
+  .update-progress.is-indeterminate > span {
+    animation: none;
+  }
+  .update-progress > span {
+    transition: none;
+  }
+}

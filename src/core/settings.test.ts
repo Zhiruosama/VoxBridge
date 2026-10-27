@@ -6,6 +6,16 @@ import { migrateLegacyOutputRouting } from './audio-routing';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('settings recovery', () => {
+  it('requires explicit opt-in for automatic updates and preserves existing settings', () => {
+    const old = structuredClone(defaults) as Partial<typeof defaults>;
+    delete old.automaticUpdates;
+    expect(parseSettings(old).automaticUpdates).toBe(false);
+    expect(parseSettings({ ...old, automaticUpdates: 'true' }).automaticUpdates).toBe(false);
+    const next = parseSettings({ ...old, automaticUpdates: true });
+    expect(next.automaticUpdates).toBe(true);
+    expect(next.profiles).toEqual(defaults.profiles);
+    expect(next.audio).toEqual(defaults.audio);
+  });
   function storage() {
     const values = new Map<string, string>();
     const setItem = vi.fn((key: string, value: string) => values.set(key, value));

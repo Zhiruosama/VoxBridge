@@ -1,37 +1,54 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Download, LoaderCircle } from 'lucide-react';
 import { appUpdates } from '../app-updates';
 import { t, useUiLanguage } from '../i18n';
+import UpdateProgress, { updateMessage } from './UpdateProgress';
 
 export default function UpdatePrompt({ suspended = false }: { suspended?: boolean }) {
   useUiLanguage();
   const view = useSyncExternalStore(appUpdates.subscribe, appUpdates.snapshot);
-  if (!view.startupPrompt || suspended) return null;
-  const working = ['checking', 'downloading', 'installing'].includes(view.status);
-  const message =
-    view.status === 'downloading'
-      ? `${t('正在下载…')}${view.percent !== null ? ` ${view.percent}%` : ''}`
-      : view.status === 'installing'
-        ? t('正在安装…')
-        : t('发现新版本 {0}', view.version);
+  const visible = view.startupPrompt && !suspended;
+  const [present, setPresent] = useState(visible);
+  useEffect(() => {
+    if (visible) {
+      setPresent(true);
+      return;
+    }
+    const timer = setTimeout(() => setPresent(false), 180);
+    return () => clearTimeout(timer);
+  }, [visible]);
+  if (!present && !visible) return null;
+  const working = ['checking', 'downloading', 'waiting', 'countdown', 'installing'].includes(
+    view.status,
+  );
+  const dismissDisabled = ['downloading', 'installing'].includes(view.status);
   return (
     <div className="toast-positioner update-reminder-positioner">
-      <div className="toast update-reminder" role="status">
+      <div
+        className={`toast update-reminder${visible ? '' : ' is-leaving'}`}
+        role="status"
+        inert={!visible}
+      >
         {working ? (
           <LoaderCircle size={15} className="status-spinner" aria-hidden="true" />
         ) : (
           <Download size={15} aria-hidden="true" />
         )}
         <div className="update-reminder-copy">
-          <span>{message}</span>
+          <span key={view.status} className="update-phase-copy">
+            {updateMessage(view)}
+          </span>
+          <UpdateProgress view={view} />
           {view.error && <span className="update-reminder-error">{t(view.error)}</span>}
         </div>
-        <button className="subtle" disabled={working} onClick={() => void appUpdates.install()}>
-          {t('更新')}
-        </button>
+        {!working && (
+          <button className="subtle" onClick={() => void appUpdates.install()}>
+            {t('更新')}
+          </button>
+        )}
         <button
           className="subtle"
-          disabled={working}
+          disabled={dismissDisabled}
           onClick={() => appUpdates.dismissStartupPrompt()}
         >
           {t('稍后')}
