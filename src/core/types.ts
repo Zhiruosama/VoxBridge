@@ -54,12 +54,14 @@ export interface SubtitleAppearance {
   lineHeight: number;
 }
 export interface OverlaySnapshot extends SubtitleAppearance {
+  captionLayout?: import('./caption-layout').CaptionLayout;
   uiLanguage?: 'zh-CN' | 'en';
   version: number;
   sessionId: string | null;
   phase: 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
   lines: {
     segmentId: string;
+    paragraphId?: string;
     color?: string;
     revision: number;
     final: boolean;
@@ -84,6 +86,7 @@ export interface Settings {
   targetLanguage: string;
   theme: 'dark' | 'light' | 'system';
   mainWindowCloseBehavior: 'hide' | 'quit';
+  captionLayout: import('./caption-layout').CaptionLayout;
   captionColors: { recognition: string; expression: string };
   textTranslationOpacity: number;
   captionSpacing: number;
@@ -94,6 +97,10 @@ export interface Settings {
   listening: { sourceLanguage: string; targetLanguage: string };
 }
 export interface Segment {
+  paragraphId?: string;
+  paragraphSize?: number;
+  paragraphCharacters?: number;
+  recognitionGroup?: string;
   id: string;
   revision: number;
   source: string;
@@ -104,6 +111,7 @@ export interface Segment {
   time: string;
 }
 export interface TranscriptEvent {
+  generation?: number;
   sessionId: string;
   segmentId: string;
   revision: number;

@@ -1,3 +1,4 @@
+import { assignParagraph } from './caption-layout';
 import type { Session, TranscriptEvent } from './types';
 
 /** A final revision is immutable; late events cannot resurrect a stopped session. */
@@ -10,7 +11,17 @@ export function applyTranscript(state: Session, event: TranscriptEvent): Session
       ? { ...state, segments: state.segments.filter((segment) => segment.id !== event.segmentId) }
       : state;
   }
+  const index = existing ? state.segments.indexOf(existing) : state.segments.length;
+  const paragraph = event.final
+    ? assignParagraph(
+        state.segments[index - 1],
+        event.segmentId,
+        event.text,
+        `${event.sessionId}:${event.generation ?? 0}`,
+      )
+    : {};
   const segment = {
+    ...paragraph,
     id: event.segmentId,
     revision: event.revision,
     source: event.text,

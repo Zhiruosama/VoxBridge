@@ -2852,3 +2852,27 @@ input[type='range']:focus-visible::-moz-range-thumb {
     opacity: 0;
   }
 }
+
+/* Paragraphs reuse immutable member spans; each translation retains its own slot. */
+.caption-inline-status {
+  display: inline;
+  margin-inline: 0.4em;
+  color: var(--muted, inherit);
+  font-size: 0.75em;
+  font-weight: 400;
+}
+.subtitle-overlay .caption-inline-status {
+  color: inherit;
+  opacity: 0.6;
+}
+.caption-untranslated {
+  font-weight: 400;
+}
+.caption-group p:empty {
+  display: none;
+}
+
+.subtitle-overlay .caption-untranslated {
+  color: var(--overlay-source-color);
+  font-size: 0.85em;
+}

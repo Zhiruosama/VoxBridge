@@ -318,6 +318,19 @@ export default function SettingsPanel({
                 />
                 <span className="preference-value">{draft.textTranslationOpacity}%</span>
               </SettingRow>
+              <SettingRow title={t('字幕显示方式')}>
+                <Select
+                  label={t('字幕显示方式')}
+                  value={draft.captionLayout}
+                  options={[
+                    { value: 'sentence', label: '逐句' },
+                    { value: 'paragraph', label: '自然段' },
+                  ]}
+                  onChange={(value) =>
+                    setDraft({ ...draft, captionLayout: value as Settings['captionLayout'] })
+                  }
+                />
+              </SettingRow>
               <SettingRow title={t('字幕段落间距')}>
                 <input
                   type="range"

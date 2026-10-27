@@ -1,3 +1,4 @@
+import CaptionFeed from './CaptionFeed';
 import { t, setUiLanguage, useUiLanguage } from '../i18n';
 import OverlayVoiceControls from './OverlayVoiceControls';
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -113,38 +114,14 @@ export default function SubtitleOverlay() {
           aria-label={t('字幕内容')}
         >
           {lines.length ? (
-            lines.map((line) => (
-              <article
-                key={line.segmentId}
-                data-caption-id={line.segmentId}
-                style={
-                  {
-                    color: line.color ?? snapshot.textColor,
-                    '--overlay-source-color': `color-mix(in srgb, ${line.color ?? snapshot.textColor} 72%, #16181d)`,
-                  } as CSSProperties
-                }
-              >
-                {(snapshot.content !== 'translation' || !line.translation) && (
-                  <p
-                    className={
-                      snapshot.content === 'bilingual' || snapshot.content === 'translation'
-                        ? 'subtitle-overlay-source'
-                        : 'subtitle-overlay-translation'
-                    }
-                  >
-                    {line.source}
-                  </p>
-                )}
-                {snapshot.content !== 'source' && line.translation && (
-                  <p className="subtitle-overlay-translation">{line.translation}</p>
-                )}
-                {snapshot.content !== 'source' && !line.translation && line.final && (
-                  <span className="subtitle-overlay-pending">
-                    {t(line.translationState === 'failed' ? '暂未译出' : '翻译中…')}
-                  </span>
-                )}
-              </article>
-            ))
+            <CaptionFeed
+              lines={lines}
+              scope="overlay"
+              content={snapshot.content}
+              layout={
+                snapshot.mode === 'continuous' ? (snapshot.captionLayout ?? 'sentence') : 'sentence'
+              }
+            />
           ) : (
             <p className="subtitle-overlay-empty">{t(active ? '等待字幕…' : '暂无字幕')}</p>
           )}

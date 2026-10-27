@@ -39,6 +39,7 @@ describe('subtitle overlay', () => {
     expect(snapshot.lines[0].source).toBe('line 2');
     expect(Object.keys(snapshot).sort()).toEqual([
       'backgroundOpacity',
+      'captionLayout',
       'colorMode',
       'content',
       'fontSize',

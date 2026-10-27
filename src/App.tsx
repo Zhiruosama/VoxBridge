@@ -19,8 +19,10 @@ import {
 } from './bridge';
 import SpeechSpeedPicker from './components/SpeechSpeedPicker';
 import { updateSpeechProfile } from './core/speech-presets';
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import ExpressionReveal from './components/ExpressionReveal';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import CaptionFeed from './components/CaptionFeed';
+import { workspaceCaptions } from './core/caption-layout';
+import { useReadingFollow } from './hooks/useReadingFollow';
 import VoiceActivity from './components/VoiceActivity';
 import SpeechPicker from './components/SpeechPicker';
 import {
@@ -300,10 +302,23 @@ export default function App() {
   const overlayActionsRef = useRef<(request: OverlayVoiceRequest) => void>(() => {});
   const mountedRef = useRef(true);
   const composingRef = useRef(false);
-  const [follow, setFollow] = useState(true);
+  const captionView = useMemo(
+    () => ({
+      lines: workspaceCaptions(session.segments, settings.captionColors),
+      layout: settings.captionLayout,
+    }),
+    [session.segments, settings.captionColors, settings.captionLayout],
+  );
+  const reading = useReadingFollow<HTMLDivElement>(
+    captionView,
+    session.id,
+    'workspace',
+    page === 'workspace',
+  );
+  const follow = reading.follow;
   const [sidebar, setSidebar] = useState(true);
   const sidebarLayout = useSidebarLayout();
-  const scrollRef = useRef<HTMLDivElement>(null);
+
   const translationProfile = profileFor(settings, 'translation');
   const speechSpeed = profileFor(settings, 'tts').speed ?? 1;
   const overlayVersionRef = useRef(0);
@@ -344,6 +359,7 @@ export default function App() {
         version,
         settings.captionColors,
         settings.uiLanguage,
+        settings.captionLayout,
       ),
     ).catch(() => {
       if (!disposed) setOverlayError('悬浮字幕同步失败，请返回主窗口测试。');
@@ -357,6 +373,7 @@ export default function App() {
     settings.subtitle,
     settings.captionColors,
     settings.uiLanguage,
+    settings.captionLayout,
     overlayReady,
   ]);
   useEffect(() => {
@@ -508,10 +525,7 @@ export default function App() {
       active = false;
     };
   }, [runtime?.platform, notify]);
-  useEffect(() => {
-    if (follow)
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'instant' });
-  }, [session.segments, follow]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -1178,14 +1192,7 @@ export default function App() {
                 onRefresh={() => void refreshCaptureSources()}
                 refreshing={refreshingSources}
               />
-              <div
-                className="transcript-scroll"
-                ref={scrollRef}
-                onScroll={(e) => {
-                  const el = e.currentTarget;
-                  setFollow(el.scrollHeight - el.scrollTop - el.clientHeight < 70);
-                }}
-              >
+              <div className="transcript-scroll" ref={reading.ref} onScroll={reading.onScroll}>
                 {!session.segments.length ? (
                   <div className="empty-state">
                     <p>{t('暂无字幕')}</p>
@@ -1202,55 +1209,16 @@ export default function App() {
                       } as CSSProperties
                     }
                   >
-                    {session.segments.map((segment) => {
-                      const expression = segment.id.startsWith('expression:');
-                      const color =
-                        settings.captionColors[expression ? 'expression' : 'recognition'];
-                      const text = (value: string) =>
-                        expression ? <ExpressionReveal text={value} /> : value;
-                      return (
-                        <article
-                          className="segment"
-                          key={segment.id}
-                          style={
-                            {
-                              '--caption-color': color === '#ffffff' ? 'var(--text)' : color,
-                              '--caption-source':
-                                color === '#ffffff'
-                                  ? 'var(--muted)'
-                                  : `color-mix(in srgb, ${color} 72%, var(--bg))`,
-                            } as CSSProperties
-                          }
-                        >
-                          <div className="segment-meta">
-                            <time>{segment.time}</time>
-                            {!segment.final && <span>{t('识别中…')}</span>}
-                          </div>
-                          {segment.source.trim() !== segment.translation?.trim() && (
-                            <p className="source-text">{text(segment.source)}</p>
-                          )}
-                          {segment.translation && (
-                            <p className="translation-text">{text(segment.translation)}</p>
-                          )}
-                          {segment.translationError && (
-                            <p className="caption-feedback" role="status">
-                              {t('这句暂未翻译成功')}
-                            </p>
-                          )}
-                        </article>
-                      );
-                    })}
+                    <CaptionFeed
+                      lines={captionView.lines}
+                      layout={settings.captionLayout}
+                      scope="workspace"
+                    />
                   </div>
                 )}
               </div>
               {!follow && (
-                <button
-                  className="jump-latest"
-                  onClick={() => {
-                    setFollow(true);
-                    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-                  }}
-                >
+                <button className="jump-latest" onClick={reading.jumpLatest}>
                   <ArrowDown size={13} />
                   {t('最新')}
                 </button>

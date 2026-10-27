@@ -10,6 +10,8 @@ use tauri::{Emitter, Manager};
 pub struct OverlayLine {
     segment_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    paragraph_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     color: Option<String>,
     revision: u32,
     r#final: bool,
@@ -24,6 +26,8 @@ pub struct OverlayLine {
 pub struct OverlaySnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ui_language: Option<String>,
+    #[serde(default = "default_caption_layout")]
+    caption_layout: String,
     version: u64,
     session_id: Option<String>,
     phase: String,
@@ -36,6 +40,10 @@ pub struct OverlaySnapshot {
     color_mode: String,
     line_height: f64,
     lines: Vec<OverlayLine>,
+}
+
+fn default_caption_layout() -> String {
+    "sentence".into()
 }
 
 fn default_color_mode() -> String {
@@ -51,6 +59,7 @@ impl Default for OverlaySnapshot {
     fn default() -> Self {
         Self {
             ui_language: None,
+            caption_layout: default_caption_layout(),
             version: 0,
             session_id: None,
             phase: "idle".into(),
@@ -82,6 +91,7 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
         .ui_language
         .as_deref()
         .is_some_and(|value| !matches!(value, "zh-CN" | "en"))
+        || !matches!(snapshot.caption_layout.as_str(), "sentence" | "paragraph")
         || snapshot.version == 0
         || snapshot.version > 9_007_199_254_740_991
         || !matches!(
@@ -123,6 +133,10 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
         }
         || snapshot.lines.iter().any(|line| {
             line.color.as_ref().is_some_and(|color| !valid_color(color))
+                || line
+                    .paragraph_id
+                    .as_ref()
+                    .is_some_and(|id| id.is_empty() || id.len() > 256)
                 || line.segment_id.is_empty()
                 || line.segment_id.len() > 256
                 || line.revision == 0
@@ -387,6 +401,11 @@ mod tests {
         assert_eq!(serialized["uiLanguage"], "en");
         localized.ui_language = Some("unsupported".into());
         assert!(validate(&localized).is_err());
+        let mut paragraph = snapshot(1);
+        paragraph.caption_layout = "paragraph".into();
+        assert!(validate(&paragraph).is_ok());
+        paragraph.caption_layout = "unsafe".into();
+        assert!(validate(&paragraph).is_err());
         let mut invalid = snapshot(1);
         invalid.background_opacity = f64::NAN;
         assert!(validate(&invalid).is_err());
@@ -397,6 +416,7 @@ mod tests {
         invalid.mode = "compact".into();
         invalid.lines = (0..4)
             .map(|id| OverlayLine {
+                paragraph_id: None,
                 segment_id: format!("s-{id}"),
                 color: None,
                 revision: 1,
@@ -415,6 +435,7 @@ mod tests {
         let mut value = snapshot(1);
         value.lines = (0..160)
             .map(|id| OverlayLine {
+                paragraph_id: None,
                 segment_id: format!("caption-{id}"),
                 color: None,
                 revision: 1,
@@ -448,6 +469,7 @@ mod tests {
         value.color_mode = "custom".into();
         value.text_color = "#12Ab34".into();
         value.lines.push(OverlayLine {
+            paragraph_id: None,
             segment_id: "expression:test".into(),
             color: Some("#80deea".into()),
             revision: 1,

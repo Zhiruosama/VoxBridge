@@ -49,6 +49,7 @@ export function overlaySnapshot(
   version: number,
   captionColors = captionColorDefaults,
   uiLanguage: 'zh-CN' | 'en' = 'zh-CN',
+  captionLayout: import('./caption-layout').CaptionLayout = 'sentence',
 ): OverlaySnapshot {
   const parsed = parseSubtitleAppearance(appearance);
   const colors = parseCaptionColors(captionColors);
@@ -68,6 +69,7 @@ export function overlaySnapshot(
     budget -= cost;
     lines.unshift({
       segmentId: segment.id,
+      paragraphId: segment.paragraphId,
       color:
         parsed.colorMode === 'workspace'
           ? colors[segment.id.startsWith('expression:') ? 'expression' : 'recognition']
@@ -80,7 +82,7 @@ export function overlaySnapshot(
       time: segment.time.slice(0, 32),
     });
   }
-  return { uiLanguage, version, sessionId: session.id, phase, ...parsed, lines };
+  return { uiLanguage, version, sessionId: session.id, phase, ...parsed, captionLayout, lines };
 }
 
 export function newerOverlay(current: OverlaySnapshot, next: OverlaySnapshot): OverlaySnapshot {

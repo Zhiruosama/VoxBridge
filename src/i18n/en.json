@@ -896,5 +896,8 @@
   "关闭主窗口时": "When closing the main window",
   "隐藏到后台": "Hide in background",
   "退出应用": "Quit app",
-  "无法应用窗口关闭设置，请重试。": "Could not apply the window close setting. Please try again."
+  "无法应用窗口关闭设置，请重试。": "Could not apply the window close setting. Please try again.",
+  "字幕显示方式": "Caption display",
+  "逐句": "Sentence by sentence",
+  "自然段": "Paragraphs"
 }

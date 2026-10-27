@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /** Follow new text until the reader scrolls away or selects content. Keep a visible ID anchored. */
-export function useReadingFollow(update: unknown, sessionId: string | null, mode: string) {
-  const ref = useRef<HTMLElement>(null);
+export function useReadingFollow<T extends HTMLElement = HTMLElement>(
+  update: unknown,
+  sessionId: string | null,
+  mode: string,
+  active = true,
+) {
+  const ref = useRef<T>(null);
   const following = useRef(true);
   const [follow, setFollow] = useState(true);
   const anchor = useRef<{ id: string; offset: number } | null>(null);
@@ -64,7 +69,7 @@ export function useReadingFollow(update: unknown, sessionId: string | null, mode
       sync();
     }
   }, [sessionId, mode, setFollowing, sync]);
-  useLayoutEffect(sync, [update, sync]);
+  useLayoutEffect(sync, [update, sync, active]);
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
@@ -93,7 +98,7 @@ export function useReadingFollow(update: unknown, sessionId: string | null, mode
       cancelAnimationFrame(frame.current);
       document.removeEventListener('selectionchange', selection);
     };
-  }, [remember, selected, setFollowing, sync]);
+  }, [remember, selected, setFollowing, sync, active]);
   function onScroll() {
     if (adjusting.current) return;
     const node = ref.current;
