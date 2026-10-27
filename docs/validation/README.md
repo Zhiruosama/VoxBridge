@@ -13,6 +13,7 @@
 - [ASR 纠正、短回答与音频诊断](2026-10-27-asr-accuracy.md) — 2026-10-27
 
 - [Windows 与 Mac 后端对齐](2026-10-26-windows-backend-parity.md) — 2026-10-26
+- [Windows 0.5 后端与浮窗对齐](2026-10-27-windows-0.5-parity.md) — 2026-10-27
 
 - [Application selection for listening](2026-10-23-application-capture.md) — 2026-10-23
 - [2026-10-23 Mac 受控音频闭环](2026-10-23-capture-loop.md) — 2026-10-23
