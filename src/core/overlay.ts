@@ -18,10 +18,7 @@ export function parseSubtitleAppearance(value: unknown): SubtitleAppearance {
   const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   return {
     mode: input.mode === 'compact' ? 'compact' : subtitleDefaults.mode,
-    content:
-      input.content === 'bilingual' || input.content === 'source'
-        ? input.content
-        : subtitleDefaults.content,
+    content: input.content === 'bilingual' ? 'bilingual' : subtitleDefaults.content,
     colorMode: input.colorMode === 'custom' ? 'custom' : 'workspace',
     textColor:
       typeof input.textColor === 'string' && /^#[\da-f]{6}$/i.test(input.textColor)

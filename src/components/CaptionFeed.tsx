@@ -35,11 +35,11 @@ export default function CaptionFeed({
           let previous = '';
           return group.members.map((line) => {
             if (kind === 'source' && !hasSource(line)) return null;
-            const value =
-              kind === 'source'
-                ? line.source
-                : (line.translation ?? (content === 'translation' ? line.source : ''));
-            const pending = kind === 'translation' && !line.translation && line.final;
+            const value = kind === 'source' ? line.source : (line.translation ?? '');
+            const pending =
+              kind === 'translation' &&
+              !line.translation &&
+              (line.final || content === 'translation');
             if (!value && !pending) return null;
             const separator = captionSeparator(previous, value);
             if (value) previous = value;
@@ -55,7 +55,13 @@ export default function CaptionFeed({
                 {reveal(value)}
                 {pending && (
                   <span className="caption-inline-status" role="status">
-                    {t(line.translationState === 'failed' ? '暂未译出' : '翻译中…')}
+                    {t(
+                      !line.final
+                        ? '识别中…'
+                        : line.translationState === 'failed'
+                          ? '暂未译出'
+                          : '翻译中…',
+                    )}
                   </span>
                 )}
               </span>

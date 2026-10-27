@@ -2876,3 +2876,65 @@ input[type='range']:focus-visible::-moz-range-thumb {
   color: var(--overlay-source-color);
   font-size: 0.85em;
 }
+
+.bilingual-toggle,
+.subtitle-overlay .bilingual-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bilingual-toggle-track {
+  position: relative;
+  width: 26px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 99px;
+  background: var(--muted);
+}
+.bilingual-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface, #fff);
+  transition: transform 140ms ease;
+}
+.bilingual-toggle[aria-checked='true'] .bilingual-toggle-track::after {
+  transform: translateX(10px);
+}
+.subtitle-overlay .bilingual-toggle-track {
+  background: rgba(255, 255, 255, 0.25);
+}
+.subtitle-overlay .bilingual-toggle[aria-checked='true'] .bilingual-toggle-track {
+  background: rgba(255, 255, 255, 0.6);
+}
+.subtitle-overlay .bilingual-toggle-track::after {
+  background: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bilingual-toggle-track::after {
+    transition: none;
+  }
+}
+.subtitle-overlay-toolbar,
+.subtitle-overlay-toolbar > div {
+  flex-wrap: wrap;
+}
+.subtitle-overlay-toolbar > div {
+  justify-content: flex-end;
+}
+.subtitle-overlay-toolbar > span {
+  flex-shrink: 0;
+}

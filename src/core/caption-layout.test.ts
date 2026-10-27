@@ -157,3 +157,54 @@ describe('caption display projection', () => {
     expect(html).toContain('dir="auto"');
   });
 });
+
+describe('floating bilingual switch', () => {
+  it('shows both languages when on, only translations when off, without mutating captions', () => {
+    let state = add({ id: 'session', segments: [] }, 'a', 'Original sentence.');
+    state = applyTranslation(state, 'session', 'a', 1, '译文内容。');
+    const members = lines(state);
+    const render = (content: 'bilingual' | 'translation') =>
+      renderToStaticMarkup(
+        createElement(CaptionFeed, {
+          lines: members,
+          layout: 'sentence',
+          scope: 'overlay',
+          content,
+        }),
+      );
+    expect(render('bilingual')).toContain('Original sentence.');
+    expect(render('bilingual')).toContain('译文内容。');
+    expect(render('translation')).not.toContain('Original sentence.');
+    expect(render('translation')).toContain('译文内容。');
+    expect(members[0].source).toBe('Original sentence.');
+    expect(render('bilingual')).toContain('Original sentence.');
+  });
+  it('does not leak the source while waiting for translation or after a failure', () => {
+    for (const final of [true, false]) {
+      const state = add(
+        { id: 'session', segments: [] },
+        'a',
+        'Private original sentence.',
+        0,
+        final,
+      );
+      for (const failed of [false, true]) {
+        const members = lines(state).map((line) => ({
+          ...line,
+          translationState: failed ? ('failed' as const) : ('pending' as const),
+        }));
+        const html = renderToStaticMarkup(
+          createElement(CaptionFeed, {
+            lines: members,
+            layout: 'paragraph',
+            scope: 'overlay',
+            content: 'translation',
+          }),
+        );
+        expect(html).not.toContain('Private original sentence.');
+        expect(html).toContain(!final ? '识别中…' : failed ? '暂未译出' : '翻译中…');
+        expect(html).toContain('data-caption-id="a"');
+      }
+    }
+  });
+});

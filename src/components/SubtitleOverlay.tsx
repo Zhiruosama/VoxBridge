@@ -1,9 +1,10 @@
 import CaptionFeed from './CaptionFeed';
+import BilingualToggle from './BilingualToggle';
 import { t, setUiLanguage, useUiLanguage } from '../i18n';
 import OverlayVoiceControls from './OverlayVoiceControls';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { focusMain, readOverlay, stopOverlayListening } from '../bridge';
+import { focusMain, readOverlay, stopOverlayListening, overlayVoiceAction } from '../bridge';
 import { newerOverlay, subtitleDefaults } from '../core/overlay';
 import { useReadingFollow } from '../hooks/useReadingFollow';
 import { useOverlayDrag } from '../hooks/useOverlayDrag';
@@ -24,6 +25,7 @@ export default function SubtitleOverlay() {
     if (snapshot.uiLanguage) setUiLanguage(snapshot.uiLanguage);
   }, [snapshot.uiLanguage]);
   const [error, setError] = useState('');
+  const [changingContent, setChangingContent] = useState(false);
   const [editorContainer, setEditorContainer] = useState<HTMLDivElement | null>(null);
   const reading = useReadingFollow(snapshot, snapshot.sessionId, snapshot.mode);
   const [hiddenThrough, setHiddenThrough] = useState<Set<string>>(new Set());
@@ -81,6 +83,16 @@ export default function SubtitleOverlay() {
             {t(snapshot.phase === 'recovering' ? '正在恢复监听…' : active ? '字幕' : '监听已停止')}
           </span>
           <div>
+            <BilingualToggle
+              checked={snapshot.content === 'bilingual'}
+              disabled={changingContent}
+              onChange={(bilingual) => {
+                setChangingContent(true);
+                void action(() =>
+                  overlayVoiceAction({ action: 'subtitleContent', bilingual }),
+                ).finally(() => setChangingContent(false));
+              }}
+            />
             <button
               onClick={() => {
                 setHiddenThrough(new Set(snapshot.lines.map((line) => line.segmentId)));

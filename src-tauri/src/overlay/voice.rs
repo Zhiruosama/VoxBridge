@@ -65,6 +65,7 @@ pub enum VoiceRequest {
     Discard,
     Send { text: String },
     Speed { speed: f64 },
+    SubtitleContent { bilingual: bool },
     QueuePause,
     QueueResume,
     QueueCancel { id: String },
@@ -187,6 +188,20 @@ pub fn overlay_voice_action(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_subtitle_can_request_a_boolean_content_toggle() {
+        for bilingual in [true, false] {
+            let value = serde_json::json!({"action":"subtitleContent", "bilingual":bilingual});
+            let request: VoiceRequest = serde_json::from_value(value.clone()).unwrap();
+            assert!(validate_request("subtitle", &request).is_ok());
+            assert!(validate_request("main", &request).is_err());
+            assert_eq!(serde_json::to_value(request).unwrap(), value);
+        }
+        assert!(serde_json::from_value::<VoiceRequest>(
+            serde_json::json!({"action":"subtitleContent","bilingual":"yes"})
+        )
+        .is_err());
+    }
     #[test]
     fn only_subtitle_can_request_voice_and_text_is_bounded() {
         assert!(validate_request("main", &VoiceRequest::Start).is_err());

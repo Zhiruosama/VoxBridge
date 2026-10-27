@@ -1,4 +1,5 @@
 import ServiceCheck from './ServiceCheck';
+import BilingualToggle from './BilingualToggle';
 import SpeechOptionsControls from './SpeechOptionsControls';
 import { t, useUiLanguage } from '../i18n';
 import SpeechSpeed from './SpeechSpeed';
@@ -603,23 +604,18 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <SettingRow title={t('显示内容')}>
-                <Select
-                  label={t('悬浮字幕显示内容')}
-                  value={draft.subtitle.content}
-                  options={[
-                    { value: 'translation', label: '译文优先' },
-                    { value: 'bilingual', label: '双语' },
-                    { value: 'source', label: '原文' },
-                  ]}
-                  onChange={(content) =>
-                    setDraft({
-                      ...draft,
+              <SettingRow title={t('双语字幕')}>
+                <BilingualToggle
+                  checked={draft.subtitle.content === 'bilingual'}
+                  label={t(draft.subtitle.content === 'bilingual' ? '开启' : '关闭')}
+                  onChange={(bilingual) =>
+                    setDraft((current) => ({
+                      ...current,
                       subtitle: {
-                        ...draft.subtitle,
-                        content: content as Settings['subtitle']['content'],
+                        ...current.subtitle,
+                        content: bilingual ? 'bilingual' : 'translation',
                       },
-                    })
+                    }))
                   }
                 />
               </SettingRow>

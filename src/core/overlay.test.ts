@@ -10,6 +10,7 @@ import type { Session } from './types';
 describe('subtitle overlay', () => {
   it('migrates missing preferences, clamps values and strips extra fields', () => {
     expect(parseSubtitleAppearance(undefined)).toEqual(subtitleDefaults);
+    expect(parseSubtitleAppearance({ content: 'source' }).content).toBe('translation');
     expect(parseSubtitleAppearance({ fontSize: NaN, backgroundOpacity: Infinity })).toEqual(
       subtitleDefaults,
     );
@@ -191,4 +192,17 @@ it('keeps a custom color available when migrating to workspace sync', () => {
     colorMode: 'custom',
     textColor: '#ffffff',
   });
+});
+
+it('preserves the floating content preference across settings reload and both display modes', () => {
+  for (const mode of ['compact', 'continuous'] as const) {
+    for (const content of ['translation', 'bilingual'] as const) {
+      const parsed = parseSubtitleAppearance(
+        JSON.parse(JSON.stringify({ ...subtitleDefaults, mode, content })),
+      );
+      const snapshot = overlaySnapshot({ id: null, segments: [] }, 'idle', parsed, 1);
+      expect(snapshot.content).toBe(content);
+      expect(snapshot.mode).toBe(mode);
+    }
+  }
 });

@@ -426,6 +426,22 @@ export default function App() {
     };
   }, []);
   overlayActionsRef.current = (request) => {
+    if (request.action === 'subtitleContent') {
+      const content = request.bilingual ? 'bilingual' : 'translation';
+      try {
+        // Persist only this preference; unrelated settings drafts remain unsaved.
+        const saved: Settings = {
+          ...savedSettings,
+          subtitle: { ...savedSettings.subtitle, content },
+        };
+        saveSettings(saved);
+        setSavedSettings(saved);
+        setSettings((current) => ({ ...current, subtitle: { ...current.subtitle, content } }));
+      } catch (error) {
+        notify(t('保存失败：{0}', String(error)));
+      }
+      return;
+    }
     if (request.action.startsWith('queue')) {
       queueAction(request as QueueAction);
       return;

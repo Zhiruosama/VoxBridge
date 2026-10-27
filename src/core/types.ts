@@ -257,5 +257,6 @@ export interface OverlayVoiceState {
 export type OverlayVoiceRequest =
   | { action: 'start' | 'finish' | 'cancel' | 'stop' | 'discard' }
   | { action: 'send'; text: string }
+  | { action: 'subtitleContent'; bilingual: boolean }
   | { action: 'speed'; speed: number }
   | import('./send-queue').QueueAction;
