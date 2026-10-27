@@ -16,6 +16,7 @@ function fixture() {
   };
   const abort = new AbortController();
   const colors: ChromeColor[] = [];
+  const progress = vi.fn();
   const options = {
     theme: 'light' as const,
     resolved: 'light' as const,
@@ -23,6 +24,7 @@ function fixture() {
     animate: true,
     signal: abort.signal,
     onColor: (color: ChromeColor) => colors.push(color),
+    onProgress: progress,
   };
   async function paint(time: number) {
     const pending = [...frames.values()];
@@ -30,7 +32,7 @@ function fixture() {
     pending.forEach((fn) => fn(time));
     for (let i = 0; i < 12; i++) await Promise.resolve();
   }
-  return { frames, window, abort, colors, options, paint };
+  return { frames, window, abort, colors, progress, options, paint };
 }
 afterEach(() => vi.unstubAllGlobals());
 it('blends native chrome through intermediate colors and ends on the exact DOM theme color', async () => {
@@ -40,11 +42,14 @@ it('blends native chrome through intermediate colors and ends on the exact DOM t
   expect(f.colors[0][0]).toBeGreaterThan(24);
   expect(f.colors[0][0]).toBeLessThan(240);
   expect(f.window.setTheme).not.toHaveBeenCalled();
+  expect(f.progress).toHaveBeenLastCalledWith(0.15625);
   await f.paint(200);
+  expect(f.progress).toHaveBeenLastCalledWith(0.5);
   expect(f.window.setTheme).toHaveBeenCalledExactlyOnceWith('light');
   await f.paint(400);
   await task;
   expect(f.window.setBackgroundColor).toHaveBeenLastCalledWith('#f0f0ee');
+  expect(f.progress).toHaveBeenLastCalledWith(1);
   expect(f.frames.size).toBe(0);
 });
 it('cancels an interrupted fade and reverses from the actual intermediate color', async () => {

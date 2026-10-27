@@ -32,6 +32,7 @@ export async function syncNativeTheme(
     animate: boolean;
     signal: AbortSignal;
     onColor: (color: ChromeColor) => void;
+    onProgress?: (progress: number) => void;
   },
 ) {
   const { signal, from, onColor } = options;
@@ -46,7 +47,10 @@ export async function syncNativeTheme(
   if (signal.aborted) return;
   if (!options.animate || !from || target.every((value, index) => value === from[index])) {
     await window.setTheme(appearance);
-    if (!signal.aborted) await color(target);
+    if (!signal.aborted) {
+      await color(target);
+      if (!signal.aborted) options.onProgress?.(1);
+    }
     return;
   }
   const started = performance.now();
@@ -64,6 +68,7 @@ export async function syncNativeTheme(
     const eased = progress * progress * (3 - 2 * progress);
     const mix = (index: number) => Math.round(from[index] + (target[index] - from[index]) * eased);
     await color([mix(0), mix(1), mix(2)]);
+    if (!signal.aborted) options.onProgress?.(eased);
     if (progress === 1) return;
   }
 }

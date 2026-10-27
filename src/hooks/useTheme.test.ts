@@ -18,9 +18,23 @@ vi.mock('react', () => ({
 }));
 vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => state.window }));
 vi.mock('../diagnostics', () => ({ recordDiagnostic: vi.fn() }));
+vi.mock('../core/theme-surface', () => ({
+  ThemeSurface: class {
+    constructor(private root: { dataset: { theme: string } }) {}
+    prepare(next: string) {
+      this.root.dataset.theme = next;
+      return vi.fn();
+    }
+    finish() {}
+  },
+}));
 
 function environment(matches: boolean, initial = 'dark') {
   const listeners = new Set<() => void>();
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+    setTimeout(() => callback(performance.now() + 400), 0),
+  );
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
   const media = {
     matches,
     addEventListener: (_: string, callback: () => void) => listeners.add(callback),
@@ -55,7 +69,7 @@ it('does not let a native Mac theme notification cancel an explicit theme animat
   useTheme('light', true);
   await vi.waitFor(() => expect(state.window.setBackgroundColor).toHaveBeenCalledOnce());
   expect(surface.root.dataset.theme).toBe('light');
-  expect(surface.start).toHaveBeenCalledOnce();
+  expect(surface.start).not.toHaveBeenCalled();
   expect(surface.listeners.size).toBe(0);
   expect(surface.transition.skipTransition).not.toHaveBeenCalled();
   expect(state.window.setTheme).toHaveBeenCalledExactlyOnceWith('light');
@@ -66,10 +80,18 @@ it('follows real system changes and ignores redundant notifications during a tra
   useTheme('system', true);
   await vi.waitFor(() => expect(state.window.setBackgroundColor).toHaveBeenCalledOnce());
   expect(surface.listeners.size).toBe(1);
-  expect(surface.start).toHaveBeenCalledOnce();
+  expect(surface.start).not.toHaveBeenCalled();
   expect(surface.transition.skipTransition).not.toHaveBeenCalled();
   surface.media.matches = false;
   surface.listeners.forEach((callback) => callback());
   expect(surface.root.dataset.theme).toBe('dark');
-  expect(surface.start).toHaveBeenCalledTimes(2);
+  expect(surface.start).not.toHaveBeenCalled();
+});
+
+it('keeps the DOM snapshot transition on Windows without native calls', () => {
+  const surface = environment(true);
+  useTheme('light', false);
+  expect(surface.start).toHaveBeenCalledOnce();
+  expect(state.window.setTheme).not.toHaveBeenCalled();
+  expect(state.window.setBackgroundColor).not.toHaveBeenCalled();
 });
