@@ -97,7 +97,7 @@ fn stable_text_waits_for_a_complete_thought_instead_of_timer_word_slices() {
 }
 
 #[test]
-fn upstream_corrections_do_not_replay_published_prefix() {
+fn upstream_final_corrects_caption_in_place_without_replaying_published_prefix() {
     let mut chunks = Chunks::default();
     chunks.push(
         input(1, "This costs twenty dollars. Now we enter", false),
@@ -111,8 +111,11 @@ fn upstream_corrections_do_not_replay_published_prefix() {
         ),
         1400,
     );
-    assert_eq!(next.len(), 1);
-    assert_eq!(next[0].text, "Now we enter the arcade.");
+    assert_eq!(next.len(), 2);
+    assert_eq!(next[0].id, 1);
+    assert_eq!(next[0].text, "This costs thirty dollars.");
+    assert!(chunks.is_correction(&next[0]));
+    assert_eq!(next[1].text, "Now we enter the arcade.");
     assert_eq!(
         remap_boundary(
             "A bad idea. The next part",
@@ -285,4 +288,61 @@ fn clean_eof_commits_only_provider_final_tail_once() {
         100,
     );
     assert!(unconfirmed.finish().is_empty());
+}
+
+#[test]
+fn provider_final_reconciles_price_even_after_intermediate_revision() {
+    let mut chunks = Chunks::default();
+    let first = chunks.push(input(1, "The price is fifteen dollars.", false), 0);
+    let id = first[0].id;
+    assert!(first[0].final_text);
+    // No churn for partial corrections: wait for the provider to confirm them.
+    assert!(chunks
+        .push(input(2, "The price is fifty dollars.", false), 300)
+        .is_empty());
+    let final_result = chunks.push(input(3, "The price is fifty dollars.", true), 600);
+    assert_eq!(final_result.len(), 1);
+    assert_eq!(final_result[0].id, id);
+    assert_eq!(final_result[0].text, "The price is fifty dollars.");
+    assert!(final_result[0].revision > first[0].revision);
+    assert!(chunks.is_correction(&final_result[0]));
+    assert_eq!(chunks.corrected_captions, 1);
+    assert_eq!(chunks.final_disagreements, 1);
+    assert!(chunks
+        .push(input(4, "The price is fifty dollars.", true), 900)
+        .is_empty());
+}
+
+#[test]
+fn corrections_are_bounded_and_do_not_touch_previous_provider_utterances() {
+    let mut chunks = Chunks::default();
+    let old = "The price is fifteen dollars. ".repeat(12);
+    chunks.push(input(1, &old, false), 0);
+    assert_eq!(chunks.published.len(), 8);
+    let corrected = chunks.push(input(2, &old.replace("fifteen", "fifty"), true), 1000);
+    assert_eq!(corrected.len(), 8);
+    assert!(corrected
+        .iter()
+        .all(|s| s.id > 4 && s.text == "The price is fifty dollars."));
+    let mut next = input(1, "A new sentence.", false);
+    next.id = 2;
+    chunks.push(next, 1200);
+    assert_eq!(chunks.published.len(), 1);
+    assert!(chunks
+        .push(input(3, "The price was wrong.", true), 1400)
+        .is_empty());
+}
+
+#[test]
+fn a_retracted_published_tail_is_explicitly_removed() {
+    let mut chunks = Chunks::default();
+    let first = chunks.push(
+        input(1, "A real sentence. A hallucinated sentence.", false),
+        0,
+    );
+    let corrected = chunks.push(input(2, "A real sentence.", true), 1000);
+    assert_eq!(corrected.len(), 1);
+    assert_eq!(corrected[0].id, first[1].id);
+    assert!(corrected[0].text.is_empty());
+    assert!(chunks.is_correction(&corrected[0]));
 }

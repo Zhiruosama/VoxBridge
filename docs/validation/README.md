@@ -8,6 +8,8 @@
 
 ## 监听、识别与字幕
 
+- [ASR 纠正、短回答与音频诊断](2026-10-27-asr-accuracy.md) — 2026-10-27
+
 - [Windows 与 Mac 后端对齐](2026-10-26-windows-backend-parity.md) — 2026-10-26
 
 - [Application selection for listening](2026-10-23-application-capture.md) — 2026-10-23

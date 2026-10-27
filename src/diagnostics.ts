@@ -143,6 +143,22 @@ export function diagnosticListeningProgress(callback: (event: ListeningEvent) =>
         attempt,
         reason: 'invalid_response',
       });
+    if (
+      event.type === 'progress' &&
+      event.audioQuality &&
+      performance.now() - (reports.get('audio_quality') ?? -Infinity) >= 5000
+    ) {
+      reports.set('audio_quality', performance.now());
+      recordDiagnostic({
+        operation: 'start_listening',
+        kind: 'state',
+        correlationId: correlation,
+        attempt,
+        phase: 'audio_quality',
+        count: Math.min(1_000_000_000, event.audioQuality.nearPeakFrames),
+        failedCount: Math.min(1_000_000_000, event.audioQuality.lowDownmixWindows),
+      });
+    }
     if (event.type === 'sourceChanged')
       recordDiagnostic({
         operation: 'start_listening',
@@ -156,7 +172,7 @@ export function diagnosticListeningProgress(callback: (event: ListeningEvent) =>
       performance.now() - (reports.get(event.type) ?? -Infinity) >= 5000
     ) {
       reports.set(event.type, performance.now());
-      if (event.type === 'recognitionMetrics')
+      if (event.type === 'recognitionMetrics') {
         recordDiagnostic({
           operation: 'start_listening',
           kind: 'state',
@@ -166,7 +182,16 @@ export function diagnosticListeningProgress(callback: (event: ListeningEvent) =>
           count: Math.min(1_000_000_000, event.metrics.committedCaptions),
           durationMs: Math.min(86_400_000, event.metrics.partialToFinalP95Ms),
         });
-      else
+        recordDiagnostic({
+          operation: 'start_listening',
+          kind: 'state',
+          correlationId: correlation,
+          attempt,
+          phase: 'recognition_corrections',
+          count: Math.min(1_000_000_000, event.metrics.correctedCaptions ?? 0),
+          failedCount: Math.min(1_000_000_000, event.metrics.finalDisagreements ?? 0),
+        });
+      } else
         recordDiagnostic({
           operation: 'translate',
           kind: 'state',

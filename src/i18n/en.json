@@ -899,5 +899,9 @@
   "无法应用窗口关闭设置，请重试。": "Could not apply the window close setting. Please try again.",
   "字幕显示方式": "Caption display",
   "逐句": "Sentence by sentence",
-  "自然段": "Paragraphs"
+  "自然段": "Paragraphs",
+  "下混后电平": "Mono signal level",
+  "接近满幅帧": "Near-peak frames",
+  "下混低电平窗口": "Low downmix windows",
+  "纠正字幕 / 句末分歧": "Corrected captions / final discrepancies"
 }

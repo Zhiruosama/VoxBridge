@@ -66,12 +66,22 @@ impl PcmWriter {
     }
 }
 
+#[derive(Clone, Copy, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioQuality {
+    pub mono_rms: f64,
+    pub near_peak_frames: u64,
+    pub low_downmix_windows: u64,
+}
+
 #[derive(Default)]
 pub struct Meter {
     pub frames: u64,
     pub gaps: u64,
     next_index: u64,
     energy: f64,
+    mono_energy: f64,
+    quality: AudioQuality,
     window_frames: u64,
 }
 
@@ -81,11 +91,18 @@ impl Meter {
         self.next_index = frame.index + 1;
         self.frames += 1;
         self.window_frames += 1;
+        let mono = (f64::from(frame.samples[0]) + f64::from(frame.samples[1])) * 0.5;
+        self.mono_energy += mono * mono;
+        self.quality.near_peak_frames += u64::from(frame.samples.iter().any(|s| s.abs() >= 0.999));
         self.energy += frame
             .samples
             .iter()
             .map(|sample| f64::from(*sample).powi(2))
             .sum::<f64>();
+    }
+
+    pub fn quality(&self) -> AudioQuality {
+        self.quality
     }
 
     pub fn rms(&mut self) -> f64 {
@@ -94,6 +111,16 @@ impl Meter {
         } else {
             (self.energy / (self.window_frames * 2) as f64).sqrt()
         };
+        self.quality.mono_rms = if self.window_frames == 0 {
+            0.0
+        } else {
+            (self.mono_energy / self.window_frames as f64).sqrt()
+        };
+        // A diagnostic hint only: do not change channels or apply automatic gain.
+        if self.window_frames >= 320 && rms >= 0.008 && self.quality.mono_rms < rms * 0.1 {
+            self.quality.low_downmix_windows += 1;
+        }
+        self.mono_energy = 0.0;
         self.window_frames = 0;
         self.energy = 0.0;
         rms
@@ -156,5 +183,52 @@ mod tests {
         meter.consume(frame);
         assert_eq!(meter.gaps, 2);
         assert_eq!(meter.frames, 3);
+    }
+}
+
+#[cfg(test)]
+mod quality_tests {
+    use super::*;
+    #[test]
+    fn measures_mono_cancellation_without_changing_audio() {
+        let mut meter = Meter::default();
+        for index in 0..16000 {
+            meter.consume(Frame {
+                index,
+                samples: [0.1, -0.1],
+            });
+        }
+        assert!((meter.rms() - 0.1).abs() < 0.000001);
+        assert_eq!(meter.quality().mono_rms, 0.0);
+        assert_eq!(meter.quality().low_downmix_windows, 1);
+        assert_eq!(meter.quality().near_peak_frames, 0);
+        for index in 16000..32000 {
+            meter.consume(Frame {
+                index,
+                samples: [0.1; 2],
+            });
+        }
+        meter.rms();
+        assert!((meter.quality().mono_rms - 0.1).abs() < 0.000001);
+        assert_eq!(meter.quality().low_downmix_windows, 1);
+        meter.rms();
+        assert_eq!(meter.quality().mono_rms, 0.0);
+        assert_eq!(meter.quality().low_downmix_windows, 1);
+    }
+    #[test]
+    fn counts_near_peak_frames_once_per_frame_not_once_per_channel() {
+        let mut meter = Meter::default();
+        for (index, samples) in [[1.0, 1.0], [0.1, -1.0], [0.1, 0.1]]
+            .into_iter()
+            .enumerate()
+        {
+            meter.consume(Frame {
+                index: index as u64,
+                samples,
+            });
+        }
+        meter.rms();
+        assert_eq!(meter.quality().near_peak_frames, 2);
+        assert_eq!(meter.quality().low_downmix_windows, 0);
     }
 }

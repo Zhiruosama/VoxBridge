@@ -122,8 +122,58 @@ async fn receive(socket: &mut Socket) -> Result<Value, String> {
     }
 }
 
+// Language hints are opt-in via the existing listening-language setting. Unknown
+// models retain their previous payload rather than inheriting unverified features.
+fn start_message(profile: &AsrProfile, task_id: &str, language: &str) -> Value {
+    let mut message = json!({"header":{"action":"run-task","task_id":task_id,"streaming":"duplex"},"payload":{"task_group":"audio","task":"asr","function":"recognition","model":profile.model_id,"parameters":{"format":"pcm","sample_rate":16000,"max_sentence_silence":650,"multi_threshold_mode_enabled":true},"input":{}}});
+    if matches!(
+        profile.model_id.as_str(),
+        "qwen-audio-3.0-asr-flash-streaming" | "qwen-audio-3.1-asr-flash-streaming"
+    ) {
+        let code = match language {
+            "简体中文" | "繁体中文" => Some("zh"),
+            "英语" => Some("en"),
+            "日语" => Some("ja"),
+            "韩语" => Some("ko"),
+            "印尼语" => Some("id"),
+            "芬兰语" => Some("fi"),
+            "俄语" => Some("ru"),
+            "德语" => Some("de"),
+            "法语" => Some("fr"),
+            "西班牙语" => Some("es"),
+            "葡萄牙语" => Some("pt"),
+            "意大利语" => Some("it"),
+            "荷兰语" => Some("nl"),
+            "越南语" => Some("vi"),
+            "泰语" => Some("th"),
+            "阿拉伯语" => Some("ar"),
+            "印地语" => Some("hi"),
+            _ => None,
+        };
+        if let Some(code) = code {
+            message["payload"]["parameters"]["language_hints"] = json!([code]);
+        }
+        if language == "粤语" && profile.model_id == "qwen-audio-3.1-asr-flash-streaming" {
+            message["payload"]["parameters"]["keep_dialect"] = json!(true);
+        }
+    }
+    message
+}
+
 pub(crate) async fn recognize_stream(
     profile: &AsrProfile,
+    key: &str,
+    token: &CancellationToken,
+    audio: mpsc::Receiver<Vec<u8>>,
+    ready: oneshot::Sender<()>,
+    emit: impl FnMut(Sentence) -> Result<(), String>,
+) -> Result<(), String> {
+    recognize_stream_with_language(profile, "自动识别", key, token, audio, ready, emit).await
+}
+
+pub(crate) async fn recognize_stream_with_language(
+    profile: &AsrProfile,
+    language: &str,
     key: &str,
     token: &CancellationToken,
     mut audio: mpsc::Receiver<Vec<u8>>,
@@ -141,7 +191,7 @@ pub(crate) async fn recognize_stream(
             static SEQUENCE:std::sync::atomic::AtomicU64=std::sync::atomic::AtomicU64::new(0);
             let clock=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|_|"系统时间不可用。")?.as_nanos();
             let task_id=format!("{:032x}",clock ^ (u128::from(std::process::id())<<64) ^ u128::from(SEQUENCE.fetch_add(1,std::sync::atomic::Ordering::Relaxed)));
-            write(&mut socket, Message::Text(json!({"header":{"action":"run-task","task_id":task_id,"streaming":"duplex"},"payload":{"task_group":"audio","task":"asr","function":"recognition","model":profile.model_id,"parameters":{"format":"pcm","sample_rate":16000,"max_sentence_silence":650,"multi_threshold_mode_enabled":true},"input":{}}}).to_string().into())).await.map_err(|_|"无法启动实时 ASR。")?;
+            write(&mut socket, Message::Text(start_message(profile, &task_id, language).to_string().into())).await.map_err(|_|"无法启动实时 ASR。")?;
             let started=tokio::time::timeout(Duration::from_secs(15),receive(&mut socket)).await.map_err(|_|"实时 ASR 启动超时。")??;
             if started.pointer("/header/event").and_then(Value::as_str)!=Some("task-started") || started.pointer("/header/task_id").and_then(Value::as_str)!=Some(task_id.as_str()) {
                 return Err("实时 ASR 任务未就绪，请检查模型权限与协议。".into());

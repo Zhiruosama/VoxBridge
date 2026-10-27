@@ -1,4 +1,11 @@
 use super::Sentence;
+use std::collections::VecDeque;
+
+struct Published {
+    sentence: Sentence,
+    start: usize,
+    end: usize,
+}
 
 #[derive(Default)]
 pub(super) struct Chunks {
@@ -12,12 +19,18 @@ pub(super) struct Chunks {
     updated_ms: u64,
     provider_final: bool,
     last_start_ms: u64,
+    published: VecDeque<Published>,
+    corrections: Vec<(u64, u32)>,
+    pub corrected_captions: u64,
+    pub final_disagreements: u64,
 }
 
 impl Chunks {
-    /// Published captions are immutable. Only the uncommitted tail follows ASR revisions.
+    /// Keep fast local cuts, but reconcile the latest eight cuts with the provider final.
+    /// History from earlier provider utterances is never replayed.
     pub fn push(&mut self, source: Sentence, now_ms: u64) -> Vec<Sentence> {
         let mut output = Vec::new();
+        self.corrections.clear();
         if self.remote_id.is_some_and(|id| source.id < id) {
             return output;
         }
@@ -30,6 +43,7 @@ impl Chunks {
             if dangling(&self.carry) {
                 self.carry = self.carry.trim_end_matches('.').into();
             }
+            self.published.clear();
             self.remote_id = Some(source.id);
             self.previous = self.carry.clone();
             self.consumed = 0;
@@ -55,6 +69,26 @@ impl Chunks {
                 source.text
             )
         };
+        for published in &mut self.published {
+            let start = remap_boundary(&self.previous, &combined, published.start);
+            let end = remap_boundary(&self.previous, &combined, published.end).max(start);
+            published.start = start;
+            published.end = end;
+            if source.final_text {
+                let corrected = combined[start..end].trim();
+                if corrected != published.sentence.text {
+                    published.sentence.revision += 1;
+                    published.sentence.text = corrected.into();
+                    self.corrections
+                        .push((published.sentence.id, published.sentence.revision));
+                    output.push(published.sentence.clone());
+                }
+            }
+        }
+        if !self.corrections.is_empty() {
+            self.final_disagreements += 1;
+            self.corrected_captions += self.corrections.len() as u64;
+        }
         let stable = common_prefix(&self.previous, &combined);
         self.consumed = remap_boundary(&self.previous, &combined, self.consumed);
         let stable = stable.saturating_sub(self.consumed);
@@ -104,6 +138,14 @@ impl Chunks {
             live.final_text = cut.is_some();
             output.push(live.clone());
             if let Some(cut) = cut {
+                self.published.push_back(Published {
+                    sentence: live.clone(),
+                    start: self.consumed,
+                    end: self.consumed + cut,
+                });
+                if self.published.len() > 8 {
+                    self.published.pop_front();
+                }
                 self.live = None;
                 self.consumed += cut;
                 stable_remaining = stable_remaining.saturating_sub(cut);
@@ -115,6 +157,10 @@ impl Chunks {
         }
         self.previous = text;
         output
+    }
+
+    pub fn is_correction(&self, sentence: &Sentence) -> bool {
+        self.corrections.contains(&(sentence.id, sentence.revision))
     }
 
     /// Only a provider-final tail may be committed after a clean end-of-stream.

@@ -113,6 +113,22 @@ export default function ListeningStatus({
                 <dt>{t('音频电平')}</dt>
                 <dd>{progress.rms.toFixed(4)}</dd>
               </div>
+              {progress.audioQuality && (
+                <>
+                  <div>
+                    <dt>{t('下混后电平')}</dt>
+                    <dd>{progress.audioQuality.monoRms.toFixed(4)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('接近满幅帧')}</dt>
+                    <dd>{progress.audioQuality.nearPeakFrames.toLocaleString()}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('下混低电平窗口')}</dt>
+                    <dd>{progress.audioQuality.lowDownmixWindows.toLocaleString()}</dd>
+                  </div>
+                </>
+              )}
               <div>
                 <dt>{t('已接收帧')}</dt>
                 <dd>{progress.frames.toLocaleString()}</dd>
@@ -161,6 +177,13 @@ export default function ListeningStatus({
                   <dt>{t('供应商句末 / 本地提交')}</dt>
                   <dd>
                     {recognitionMetrics.providerFinals} / {recognitionMetrics.committedCaptions}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('纠正字幕 / 句末分歧')}</dt>
+                  <dd>
+                    {recognitionMetrics.correctedCaptions ?? 0} /{' '}
+                    {recognitionMetrics.finalDisagreements ?? 0}
                   </dd>
                 </div>
                 <div>

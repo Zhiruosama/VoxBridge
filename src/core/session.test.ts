@@ -209,3 +209,57 @@ it('ending a session keeps finished results and marks cancelled translations wit
   expect(ended.segments[1].translationError).toBe(true);
   expect(applyTranslation(ended, 's', 'pending', 2, 'late')).toBe(ended);
 });
+
+describe('provider-final caption corrections', () => {
+  it('keeps caption position and paragraph identity, rejecting stale translation results and errors', () => {
+    let state = applyTranscript(
+      { id: 'a', segments: [] },
+      { ...event, text: 'Fifteen dollars.', final: true, startMs: 1000 },
+    );
+    state = applyTranslation(state, 'a', 'one', 1, '十五美元。');
+    state = applyTranscript(state, {
+      ...event,
+      segmentId: 'two',
+      text: 'Another sentence.',
+      final: true,
+      startMs: 2000,
+    });
+    const original = state.segments[0];
+    const next = state.segments[1];
+    const correction = {
+      ...event,
+      text: 'Fifty dollars.',
+      final: true,
+      correction: true,
+      revision: 2,
+      startMs: 1000,
+    };
+    state = applyTranscript(state, correction);
+    expect(state.segments[0]).toMatchObject({
+      id: original.id,
+      paragraphId: original.paragraphId,
+      time: original.time,
+      source: 'Fifty dollars.',
+    });
+    expect(state.segments[0].translation).toBeUndefined();
+    expect(state.segments[1]).toBe(next);
+    state = applyTranslation(state, 'a', 'one', 1, '旧译文');
+    state = applyTranslationError(state, 'a', 'one', 1);
+    expect(state.segments[0].translation).toBeUndefined();
+    expect(state.segments[0].translationError).toBeUndefined();
+    state = applyTranslation(state, 'a', 'one', 2, '五十美元。');
+    expect(state.segments[0].translation).toBe('五十美元。');
+    expect(applyTranscript(state, correction)).toBe(state);
+    expect(applyTranscript({ ...state, id: null }, { ...correction, revision: 3 }).segments).toBe(
+      state.segments,
+    );
+  });
+  it('removes a retracted final only with explicit final correction authorization', () => {
+    const state = applyTranscript({ id: 'a', segments: [] }, { ...event, final: true });
+    expect(applyTranscript(state, { ...event, text: '', final: true, revision: 2 })).toBe(state);
+    expect(
+      applyTranscript(state, { ...event, text: '', final: true, correction: true, revision: 2 })
+        .segments,
+    ).toHaveLength(0);
+  });
+});

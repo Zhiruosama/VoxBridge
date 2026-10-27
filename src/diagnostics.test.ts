@@ -49,7 +49,11 @@ describe('local diagnostic boundaries', () => {
     const events = mock.invoke.mock.calls
       .filter((c) => c[0] === 'record_diagnostic')
       .map((c) => c[1].event);
-    expect(events.map((e) => e.phase)).toEqual(['recognition_metrics', 'playing']);
+    expect(events.map((e) => e.phase)).toEqual([
+      'recognition_metrics',
+      'recognition_corrections',
+      'playing',
+    ]);
     expect(JSON.stringify(events)).not.toContain('private spoken sentence');
     expect(callback).toHaveBeenCalledTimes(5);
   });
@@ -116,4 +120,30 @@ describe('local diagnostic boundaries', () => {
     await diagnosticInvoke('publish_overlay', { snapshot: { lines: [{ text: 'private' }] } });
     expect(mock.invoke.mock.calls.map((c) => c[0])).toEqual(['publish_overlay']);
   });
+});
+
+it('samples audio-quality counters without recording audio or arbitrary event fields', () => {
+  mock.invoke.mockResolvedValue(undefined);
+  const callback = vi.fn();
+  const listener = diagnosticListeningProgress(callback);
+  const progress = {
+    type: 'progress' as const,
+    sessionId: '11111111-2222-4333-8444-555555555555',
+    phase: 'running' as const,
+    sampleRate: 48000,
+    frames: 16000,
+    rms: 0.1,
+    droppedFrames: 0,
+    droppedSegments: 0,
+    discontinuities: 0,
+    audioQuality: { monoRms: 0, nearPeakFrames: 4, lowDownmixWindows: 2 },
+    privateSamples: 'never-log-audio',
+  };
+  listener(progress);
+  listener(progress);
+  const quality = mock.invoke.mock.calls.filter((c) => c[1]?.event?.phase === 'audio_quality');
+  expect(quality).toHaveLength(1);
+  expect(quality[0][1].event).toMatchObject({ count: 4, failedCount: 2 });
+  expect(JSON.stringify(quality)).not.toContain('never-log-audio');
+  expect(callback).toHaveBeenCalledTimes(2);
 });

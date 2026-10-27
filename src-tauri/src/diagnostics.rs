@@ -80,6 +80,8 @@ const PHASES: &[&str] = &[
     "theme_light",
     "theme_dark",
     "recognition_metrics",
+    "recognition_corrections",
+    "audio_quality",
     "translation_metrics",
     "source_changed",
     "waitingDevice",

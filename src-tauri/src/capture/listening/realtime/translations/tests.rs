@@ -218,3 +218,79 @@ async fn enqueued_context_is_fixed_before_concurrent_results_complete() {
     assert_eq!(observed.len(), 8);
     assert_ne!(observed[0], 1);
 }
+
+#[tokio::test(start_paused = true)]
+async fn superseded_inflight_errors_do_not_stop_the_corrected_translation() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(32);
+    let version = Arc::new(std::sync::atomic::AtomicU32::new(1));
+    tx.send(QueuedCaption::from(caption(1)).with_version(version.clone()))
+        .await
+        .unwrap();
+    let events = Mutex::new(Vec::new());
+    let worker = translate_chunks(
+        &token,
+        rx,
+        |s, _| async move {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            if s.revision == 1 {
+                Err("stale network failure".into())
+            } else {
+                Ok("五十美元".into())
+            }
+        },
+        |s, result| {
+            events.lock().unwrap().push((s.revision, result.unwrap()));
+            Ok(())
+        },
+        |_| Ok(()),
+    );
+    let correct = async {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        version.store(2, Ordering::Relaxed);
+        let mut updated = caption(1);
+        updated.revision = 2;
+        tx.send(QueuedCaption::from(updated).with_version(version))
+            .await
+            .unwrap();
+        drop(tx);
+    };
+    let (result, ()) = tokio::join!(worker, correct);
+    result.unwrap();
+    assert_eq!(events.into_inner().unwrap(), vec![(2, "五十美元".into())]);
+}
+
+#[tokio::test]
+async fn superseded_queued_work_never_starts_an_unnecessary_request() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(32);
+    let version = Arc::new(std::sync::atomic::AtomicU32::new(2));
+    tx.send(QueuedCaption::from(caption(1)).with_version(version.clone()))
+        .await
+        .unwrap();
+    let mut updated = caption(1);
+    updated.revision = 2;
+    tx.send(QueuedCaption::from(updated).with_version(version))
+        .await
+        .unwrap();
+    drop(tx);
+    let requested = Mutex::new(Vec::new());
+    let observed = Mutex::new(Vec::new());
+    translate_chunks(
+        &token,
+        rx,
+        |sentence, _| {
+            requested.lock().unwrap().push(sentence.revision);
+            async { Ok("corrected".into()) }
+        },
+        |sentence, _| {
+            observed.lock().unwrap().push(sentence.revision);
+            Ok(())
+        },
+        |_| Ok(()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(requested.into_inner().unwrap(), vec![2]);
+    assert_eq!(observed.into_inner().unwrap(), vec![2]);
+}

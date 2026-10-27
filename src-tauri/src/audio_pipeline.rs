@@ -156,7 +156,8 @@ impl Segmenter {
         if self.silent_samples < 9600 && self.active.len() < MAX_SEGMENT {
             return None;
         }
-        let result = if self.voice_samples >= 4800 {
+        // Keep brief spoken answers (120 ms voiced); reject isolated clicks.
+        let result = if self.voice_samples >= 1920 {
             Some((
                 self.start_sample,
                 self.active
@@ -379,6 +380,41 @@ mod tests {
         assert_eq!(segments.len(), 2);
         for segment in segments {
             assert!(crate::asr::validate_wav(&segment.wav).unwrap() <= 8.0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod short_answers {
+    use super::*;
+    #[test]
+    fn short_voiced_answers_survive_but_clicks_and_silence_do_not() {
+        for rate in [16000, 48000] {
+            for (duration_ms, expected) in [(0, 0), (20, 0), (80, 0), (200, 1), (400, 1)] {
+                let mut pipeline = AudioPipeline::new(rate).unwrap();
+                let mut segments = Vec::new();
+                for index in 0..u64::from(rate) * 2 {
+                    let sample = if index < u64::from(rate) * duration_ms / 1000 {
+                        (index as f32 * 200.0 * std::f32::consts::TAU / rate as f32).sin() * 0.1
+                    } else {
+                        0.0
+                    };
+                    if let Some(segment) = pipeline.consume(Frame {
+                        index,
+                        samples: [sample; 2],
+                    }) {
+                        segments.push(segment);
+                    }
+                }
+                assert_eq!(
+                    segments.len(),
+                    expected,
+                    "rate={rate}, voice={duration_ms}ms"
+                );
+                for segment in segments {
+                    assert!(crate::asr::validate_wav(&segment.wav).unwrap() >= 0.1);
+                }
+            }
         }
     }
 }

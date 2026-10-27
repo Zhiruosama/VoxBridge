@@ -1,11 +1,13 @@
 import { assignParagraph } from './caption-layout';
 import type { Session, TranscriptEvent } from './types';
 
-/** A final revision is immutable; late events cannot resurrect a stopped session. */
+/** Only explicit provider-final corrections can revise a published caption. */
 export function applyTranscript(state: Session, event: TranscriptEvent): Session {
   if (!state.id || state.id !== event.sessionId) return state;
   const existing = state.segments.find((segment) => segment.id === event.segmentId);
-  if (existing && (existing.final || event.revision <= existing.revision)) return state;
+  const correction = !!existing?.final && event.correction === true && event.final;
+  if (existing && ((!correction && existing.final) || event.revision <= existing.revision))
+    return state;
   if (!event.text.trim()) {
     return existing && event.final
       ? { ...state, segments: state.segments.filter((segment) => segment.id !== event.segmentId) }
@@ -22,11 +24,19 @@ export function applyTranscript(state: Session, event: TranscriptEvent): Session
     : {};
   const segment = {
     ...paragraph,
+    ...(correction && existing
+      ? {
+          paragraphId: existing.paragraphId,
+          paragraphSize: existing.paragraphSize,
+          paragraphCharacters: existing.paragraphCharacters,
+          recognitionGroup: existing.recognitionGroup,
+        }
+      : {}),
     id: event.segmentId,
     revision: event.revision,
     source: event.text,
     final: event.final,
-    ...(existing && event.text.startsWith(existing.source)
+    ...(!correction && existing && event.text.startsWith(existing.source)
       ? { translation: existing.translation, translationRevision: existing.translationRevision }
       : {}),
     time:

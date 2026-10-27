@@ -19,6 +19,7 @@ pub(super) async fn run(
             sample_rate: 0,
             frames: 0,
             rms: 0.0,
+            audio_quality: None,
             dropped_frames: 0,
             dropped_segments: 0,
             discontinuities: 0,

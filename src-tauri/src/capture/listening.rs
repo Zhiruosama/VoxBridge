@@ -39,6 +39,8 @@ pub struct RecognitionMetrics {
     pub first_final_ms: Option<u64>,
     pub provider_finals: u64,
     pub committed_captions: u64,
+    pub corrected_captions: u64,
+    pub final_disagreements: u64,
     pub finalization_samples: usize,
     pub commit_samples: usize,
     pub partial_to_final_p50_ms: u64,
@@ -98,6 +100,8 @@ pub enum ListeningEvent {
         sample_rate: u32,
         frames: u64,
         rms: f64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        audio_quality: Option<crate::pcm::AudioQuality>,
         dropped_frames: u64,
         dropped_segments: u64,
         discontinuities: u64,
@@ -109,6 +113,7 @@ pub enum ListeningEvent {
         revision: u32,
         text: String,
         r#final: bool,
+        correction: bool,
         start_ms: u64,
     },
     TranslationError {
@@ -183,6 +188,7 @@ impl SegmentProcessor<'_> {
             revision: 1,
             text: recognized.text.clone(),
             r#final: true,
+            correction: false,
             start_ms: self.offset_ms.saturating_add(segment.start_ms),
         })?;
         let text = self
@@ -291,6 +297,7 @@ fn capture_segments(
                 sample_rate: capture.sample_rate,
                 frames: meter.frames,
                 rms: meter.rms(),
+                audio_quality: Some(meter.quality()),
                 dropped_frames: dropped.load(Ordering::Relaxed),
                 dropped_segments: skipped.load(Ordering::Relaxed),
                 discontinuities: pipeline.discontinuities,
@@ -355,6 +362,7 @@ pub async fn start_listening(
                 sample_rate: 0,
                 frames: 0,
                 rms: 0.0,
+                audio_quality: None,
                 dropped_frames: 0,
                 dropped_segments: 0,
                 discontinuities: 0,
@@ -382,6 +390,7 @@ mod tests {
             revision: 1,
             text: "hello".into(),
             r#final: true,
+            correction: false,
             start_ms: 100,
         };
         let value = serde_json::to_value(event).unwrap();
@@ -396,6 +405,7 @@ mod tests {
             sample_rate: 48000,
             frames: 12000,
             rms: 0.1,
+            audio_quality: None,
             dropped_frames: 0,
             dropped_segments: 0,
             discontinuities: 0,

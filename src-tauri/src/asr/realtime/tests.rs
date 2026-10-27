@@ -408,3 +408,47 @@ async fn reconnects_after_dropped_socket_without_replaying_audio() {
     assert_eq!(events[1].0, 1);
     assert!(events[1].1.final_text);
 }
+
+#[test]
+fn language_hints_are_explicit_and_scoped_to_verified_models() {
+    let mut config = profile("ws://127.0.0.1:1");
+    for model in [
+        "qwen-audio-3.0-asr-flash-streaming",
+        "qwen-audio-3.1-asr-flash-streaming",
+    ] {
+        config.model_id = model.into();
+        assert!(
+            start_message(&config, "fixture", "自动识别")["payload"]["parameters"]
+                .get("language_hints")
+                .is_none()
+        );
+        for (language, code) in [("英语", "en"), ("葡萄牙语", "pt"), ("日语", "ja")] {
+            assert_eq!(
+                start_message(&config, "fixture", language)["payload"]["parameters"]
+                    ["language_hints"],
+                json!([code])
+            );
+        }
+        let cantonese = start_message(&config, "fixture", "粤语");
+        assert!(cantonese["payload"]["parameters"]
+            .get("language_hints")
+            .is_none());
+        assert_eq!(
+            cantonese["payload"]["parameters"]
+                .get("keep_dialect")
+                .is_some(),
+            model.contains("3.1")
+        );
+        assert!(
+            start_message(&config, "fixture", "孟加拉语")["payload"]["parameters"]
+                .get("language_hints")
+                .is_none()
+        );
+    }
+    config.model_id = "custom-streaming-model".into();
+    assert!(
+        start_message(&config, "fixture", "英语")["payload"]["parameters"]
+            .get("language_hints")
+            .is_none()
+    );
+}

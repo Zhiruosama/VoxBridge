@@ -63,6 +63,8 @@ impl RecognitionTimings {
             first_final_ms: self.first_final_ms,
             provider_finals: self.provider_finals,
             committed_captions: self.committed,
+            corrected_captions: 0,
+            final_disagreements: 0,
             finalization_samples: self.finalization.len(),
             commit_samples: self.hold.len(),
             partial_to_final_p50_ms: percentile(&self.finalization, 50),

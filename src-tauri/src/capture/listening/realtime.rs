@@ -87,6 +87,7 @@ fn capture_pcm(
                     sample_rate: capture.sample_rate,
                     frames: meter.frames,
                     rms: meter.rms(),
+                    audio_quality: Some(meter.quality()),
                     dropped_frames: dropped.load(Ordering::Relaxed),
                     dropped_segments: skipped.load(Ordering::Relaxed),
                     discontinuities: 0,
@@ -119,6 +120,7 @@ pub(super) async fn run(
             sample_rate: 0,
             frames: 0,
             rms: 0.0,
+            audio_quality: None,
             dropped_frames: 0,
             dropped_segments: 0,
             discontinuities: 0,
@@ -210,8 +212,9 @@ async fn process_stream(
     let (final_tx, final_rx) = mpsc::channel::<translations::QueuedCaption>(32);
     let (source_tx, mut source_rx) = mpsc::channel(64);
     let recognized = async {
-        let result = crate::asr::realtime::recognize_stream(
+        let result = crate::asr::realtime::recognize_stream_with_language(
             &request.asr_profile,
+            &request.source_language,
             key,
             token,
             audio_rx,
@@ -235,6 +238,7 @@ async fn process_stream(
     };
     let segmented = async {
         let mut chunks = chunks::Chunks::default();
+        let mut versions = std::collections::BTreeMap::new();
         let mut context_window = crate::providers::ContextWindow::default();
         let mut timings = metrics::RecognitionTimings::default();
         let started = Instant::now();
@@ -254,6 +258,11 @@ async fn process_stream(
                 };
                 let updated = received_update || !output.is_empty();
                 for sentence in output {
+                    let correction = chunks.is_correction(&sentence);
+                    let version = versions.entry(sentence.id).or_insert_with(||
+                        Arc::new(std::sync::atomic::AtomicU32::new(sentence.revision))).clone();
+                    version.store(sentence.revision, Ordering::Relaxed);
+                    while versions.len() > 16 { versions.pop_first(); }
                     send(
                         channel,
                         ListeningEvent::Transcript {
@@ -267,13 +276,15 @@ async fn process_stream(
                             revision: sentence.revision,
                             text: sentence.text.clone(),
                             r#final: sentence.final_text,
+                            correction,
                             start_ms: request.offset_ms.saturating_add(sentence.start_ms),
                         },
                     )?;
                     if sentence.final_text && !sentence.text.trim().is_empty() {
-                        timings.committed(run_started.elapsed().as_millis() as u64);
-                        let context = context_window.before(&sentence.text);
-                        match final_tx.try_send(translations::QueuedCaption::new(sentence, context))
+                        if !correction { timings.committed(run_started.elapsed().as_millis() as u64); }
+                        let context = if correction { context_window = crate::providers::ContextWindow::default(); crate::providers::TranslationContext::default() }
+                            else { context_window.before(&sentence.text) };
+                        match final_tx.try_send(translations::QueuedCaption::new(sentence, context).with_version(version))
                         {
                             Ok(()) => {}
                             Err(mpsc::error::TrySendError::Full(_)) => {
@@ -287,12 +298,15 @@ async fn process_stream(
                     }
                 }
                 if updated {
+                    let mut report = timings.report();
+                    report.corrected_captions = chunks.corrected_captions;
+                    report.final_disagreements = chunks.final_disagreements;
                     send(
                         channel,
                         ListeningEvent::RecognitionMetrics {
                             session_id: request.session_id.clone(),
                             generation: request.generation,
-                            metrics: timings.report(),
+                            metrics: report,
                         },
                     )?;
                 }

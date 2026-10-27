@@ -111,6 +111,7 @@ export interface Segment {
   time: string;
 }
 export interface TranscriptEvent {
+  correction?: boolean;
   generation?: number;
   sessionId: string;
   segmentId: string;
@@ -153,6 +154,8 @@ export interface RecognitionMetrics {
   firstFinalMs: number | null;
   providerFinals: number;
   committedCaptions: number;
+  correctedCaptions?: number;
+  finalDisagreements?: number;
   finalizationSamples: number;
   commitSamples: number;
   partialToFinalP50Ms: number;
@@ -203,6 +206,7 @@ export type ListeningEvent =
       sampleRate: number;
       frames: number;
       rms: number;
+      audioQuality?: { monoRms: number; nearPeakFrames: number; lowDownmixWindows: number };
       droppedFrames: number;
       droppedSegments: number;
       discontinuities: number;

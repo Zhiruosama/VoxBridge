@@ -7,6 +7,7 @@ pub(super) struct QueuedCaption {
     sentence: Sentence,
     queued: Instant,
     context: crate::providers::TranslationContext,
+    version: Option<Arc<std::sync::atomic::AtomicU32>>,
 }
 impl From<Sentence> for QueuedCaption {
     fn from(sentence: Sentence) -> Self {
@@ -15,11 +16,16 @@ impl From<Sentence> for QueuedCaption {
 }
 
 impl QueuedCaption {
+    pub(super) fn with_version(mut self, version: Arc<std::sync::atomic::AtomicU32>) -> Self {
+        self.version = Some(version);
+        self
+    }
     pub(super) fn new(sentence: Sentence, context: crate::providers::TranslationContext) -> Self {
         Self {
             sentence,
             queued: Instant::now(),
             context,
+            version: None,
         }
     }
 }
@@ -89,9 +95,12 @@ where
         tokio::select! { biased;
             _ = token.cancelled() => return Ok(()),
             result = pending.next(), if !pending.is_empty() => {
-                let (sentence, text, queue_ms, request_ms): (Sentence, Result<String, String>, u64, u64) = result.unwrap();
+                let (sentence, text, queue_ms, request_ms, version): (Sentence, Result<String, String>, u64, u64, Option<Arc<std::sync::atomic::AtomicU32>>) = result.unwrap();
                 measurements.record(queue_ms, request_ms, text.is_ok());
                 if !token.is_cancelled() { metrics(measurements.report(queue.len(), pending.len()))?; }
+                // A provider final can supersede a request already in flight. Even a stale
+                // failure must not stop the corrected caption or the listening session.
+                if version.is_some_and(|v| v.load(Ordering::Relaxed) != sentence.revision) { continue; }
                 if let Err(error) = &text {
                     if !crate::providers::is_invalid_translation(error) { return Err(error.clone()); }
                 }
@@ -101,11 +110,13 @@ where
                 if let Some(queued) = next {
                     let queue_ms = queued.queued.elapsed().as_millis() as u64;
                     let sentence = queued.sentence;
+                    let version = queued.version;
+                    if version.as_ref().is_some_and(|v| v.load(Ordering::Relaxed) != sentence.revision) { continue; }
                     let request = translate(sentence.clone(), queued.context);
                     pending.push(async move {
                         let started = Instant::now();
                         let text = request.await;
-                        (sentence, text, queue_ms, started.elapsed().as_millis() as u64)
+                        (sentence, text, queue_ms, started.elapsed().as_millis() as u64, version)
                     });
                     metrics(measurements.report(queue.len(), pending.len()))?;
                 } else { closed = true; }
