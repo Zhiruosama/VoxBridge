@@ -172,7 +172,7 @@ export default function TextTranslation({
                 })
               ) {
                 event.preventDefault();
-                if (!event.repeat) submit();
+                if (!event.repeat && state.input.trim()) submit();
               }
             }}
           />

@@ -221,3 +221,32 @@ it('clipboard replacement cancels old work, clears stale output and does not tra
   expect(controller.getSnapshot().result).toBe('Hello');
   expect(dependencies.cancelTranslation).toHaveBeenCalledOnce();
 });
+
+it('ignores empty or whitespace-only submissions without showing errors or replacing the last result', async () => {
+  const { controller, dependencies, profile } = fixture();
+  controller.update({ input: '你好' });
+  await controller.submit(profile);
+  dependencies.translate.mockClear();
+  for (const input of ['', '  ', '\t\n', '\u3000\u00a0']) {
+    controller.update({ input });
+    await controller.submit({ ...profile, modelId: '' });
+    expect(controller.getSnapshot()).toMatchObject({
+      result: 'Hello',
+      error: '',
+      busy: false,
+      canRetry: false,
+    });
+  }
+  expect(dependencies.translate).not.toHaveBeenCalled();
+});
+it('clears obsolete failure and retry state when the draft is emptied', async () => {
+  const { controller, dependencies, profile } = fixture();
+  dependencies.translate.mockRejectedValueOnce(new Error('network offline'));
+  controller.update({ input: '你好' });
+  await controller.submit(profile);
+  expect(controller.getSnapshot().canRetry).toBe(true);
+  controller.update({ input: '' });
+  expect(controller.getSnapshot()).toMatchObject({ error: '', canRetry: false });
+  await controller.retry(profile);
+  expect(dependencies.translate).toHaveBeenCalledOnce();
+});

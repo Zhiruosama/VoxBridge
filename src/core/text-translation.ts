@@ -48,7 +48,10 @@ export class TextTranslationController {
     };
   };
   update(patch: Partial<Pick<TextTranslationState, 'input' | 'source' | 'target'>>) {
-    this.set(patch);
+    if (patch.input !== undefined && !patch.input.trim() && !this.state.busy) {
+      this.failed = null;
+      this.set({ ...patch, error: '', canRetry: false });
+    } else this.set(patch);
   }
   acceptClipboard(input: string) {
     this.cancel();
@@ -81,9 +84,13 @@ export class TextTranslationController {
     const snapshot = previous ?? this.state;
     const { source, target } = snapshot;
     const text = snapshot.input.trim();
-    const invalid = !text
-      ? '请输入要翻译的文字。'
-      : [...text].length > 2000
+    if (!text) {
+      this.failed = null;
+      this.set({ error: '', canRetry: false });
+      return;
+    }
+    const invalid =
+      [...text].length > 2000
         ? '每次最多翻译 2000 个字符。'
         : profile.stage !== 'translation'
           ? '请选择文字翻译服务。'
