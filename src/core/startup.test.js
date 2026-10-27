@@ -3,7 +3,12 @@ import { runInNewContext } from 'node:vm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const script = readFileSync(new URL('../../public/startup.js', import.meta.url), 'utf8');
-function boot({ reduced = false, subtitle = false, brokenSettings = false } = {}) {
+function boot({
+  reduced = false,
+  subtitle = false,
+  textOverlay = false,
+  brokenSettings = false,
+} = {}) {
   const frames = [];
   const events = new EventTarget();
   const listeners = new Map();
@@ -25,7 +30,10 @@ function boot({ reduced = false, subtitle = false, brokenSettings = false } = {}
   runInNewContext(script, {
     document: { documentElement: root, getElementById: (id) => elements[id] },
     window: events,
-    location: { search: subtitle ? '?window=subtitle' : '', reload: vi.fn() },
+    location: {
+      search: subtitle ? '?window=subtitle' : textOverlay ? '?window=text-overlay' : '',
+      reload: vi.fn(),
+    },
     localStorage: {
       getItem: () => {
         if (brokenSettings) throw new Error('Unavailable');
@@ -91,6 +99,8 @@ describe('startup handoff', () => {
   it('leaves the subtitle window transparent and tolerates unreadable settings', () => {
     const subtitle = boot({ subtitle: true });
     expect(subtitle.root.dataset.overlay).toBe('true');
+    expect(vi.getTimerCount()).toBe(0);
+    expect(boot({ textOverlay: true }).root.dataset.overlay).toBe('true');
     expect(vi.getTimerCount()).toBe(0);
     const main = boot({ brokenSettings: true });
     expect(main.root.dataset.theme).toBe('dark');

@@ -207,10 +207,11 @@ pub fn read_overlay(state: tauri::State<'_, OverlayState>) -> Result<OverlaySnap
 #[tauri::command]
 pub async fn show_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
     require_main(window.label())?;
-    let overlay = window
-        .app_handle()
-        .get_webview_window("subtitle")
-        .ok_or("悬浮字幕窗不可用。")?;
+    show_named(window.app_handle(), "subtitle").await
+}
+
+pub(crate) async fn show_named(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    let overlay = app.get_webview_window(label).ok_or("悬浮窗口不可用。")?;
     let (tx, rx) = tokio::sync::oneshot::channel();
     let subtitle = overlay.clone();
     overlay
@@ -233,14 +234,14 @@ fn show_subtitle_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
-async fn hide_subtitle_window(window: tauri::WebviewWindow) -> Result<(), String> {
+pub(crate) async fn hide_subtitle_window(window: tauri::WebviewWindow) -> Result<(), String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let subtitle = window.clone();
     window
         .run_on_main_thread(move || {
             #[cfg(target_os = "macos")]
             let result = {
-                panel::hide();
+                panel::hide(subtitle.label());
                 Ok(())
             };
             #[cfg(not(target_os = "macos"))]
@@ -262,15 +263,16 @@ pub async fn drag_overlay(
     x: f64,
     y: f64,
 ) -> Result<(), String> {
-    if window.label() != "subtitle" {
+    if !matches!(window.label(), "subtitle" | "text-overlay") {
         return Err("此操作仅限字幕窗。".into());
     }
     #[cfg(target_os = "macos")]
     {
         let (tx, rx) = tokio::sync::oneshot::channel();
+        let label = window.label().to_owned();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(panel::drag(id, &phase, x, y));
+                let _ = tx.send(panel::drag(&label, id, &phase, x, y));
             })
             .map_err(|_| "无法拖动字幕窗。")?;
         rx.await.map_err(|_| "字幕窗已关闭。")?
@@ -294,7 +296,7 @@ pub async fn resize_overlay(
     phase: String,
     direction: tauri_runtime::ResizeDirection,
 ) -> Result<(), String> {
-    if window.label() != "subtitle"
+    if !matches!(window.label(), "subtitle" | "text-overlay")
         || id.is_empty()
         || id.len() > 128
         || !matches!(phase.as_str(), "begin" | "move" | "end")
@@ -304,9 +306,10 @@ pub async fn resize_overlay(
     #[cfg(target_os = "macos")]
     {
         let (tx, rx) = tokio::sync::oneshot::channel();
+        let label = window.label().to_owned();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(panel::resize(id, &phase, direction));
+                let _ = tx.send(panel::resize(&label, id, &phase, direction));
             })
             .map_err(|_| "无法调整字幕窗大小。")?;
         rx.await.map_err(|_| "字幕窗已关闭。")?
@@ -361,7 +364,7 @@ pub async fn focus_main(window: tauri::WebviewWindow) -> Result<(), String> {
         .and_then(|_| main.unminimize())
         .and_then(|_| main.set_focus())
         .map_err(|_| "无法返回主窗口。".to_string())?;
-    if window.label() == "subtitle" {
+    if matches!(window.label(), "subtitle" | "text-overlay") {
         hide_subtitle_window(window).await?;
     }
     Ok(())

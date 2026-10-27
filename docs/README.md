@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 如何开始 | [开始使用](guides/getting-started.md) | 下载、安装、选择功能、首次配置 |
 | 密钥和模型怎么填 | [服务配置](guides/services.md) | 三类服务、保存密钥、测试连接、模型与音色预设 |
-| 只需要文字翻译 | [文本翻译](guides/text-translation.md) | 输入、语言、复制、重试、分栏 |
+| 只需要文字翻译 | [文本翻译](guides/text-translation.md) | 输入、剪贴板监听、翻译小窗、重试、分栏 |
 | 想看翻译字幕 | [监听与悬浮字幕](guides/listening.md) | 选择应用、权限、字幕语言、浮窗 |
 | 想让对方听到生成的语音 | [语音输入与虚拟麦克风](guides/voice-output.md) | 录音、发送、试听、Discord 路由与队列 |
 | 想调整界面 | [外观与操作偏好](guides/appearance.md) | 主题、语言、颜色、字号、宽度、不透明度 |

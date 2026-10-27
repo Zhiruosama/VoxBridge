@@ -257,3 +257,25 @@ export async function playPreparedSpeech(
 export async function discardPreparedSpeech(requestId: string): Promise<void> {
   return invoke('discard_prepared_speech', { requestId });
 }
+
+export async function publishTextOverlay(
+  snapshot: import('./core/text-overlay').TextOverlaySnapshot,
+): Promise<void> {
+  await invoke('publish_text_overlay', { snapshot });
+}
+export async function readTextOverlay(): Promise<
+  import('./core/text-overlay').TextOverlaySnapshot
+> {
+  return invoke('read_text_overlay');
+}
+export async function showTextOverlay(): Promise<void> {
+  await invoke('show_text_overlay');
+}
+export async function hideTextOverlay(): Promise<void> {
+  await invoke('hide_text_overlay');
+}
+export async function textOverlayAction(
+  request: import('./core/text-overlay').TextOverlayAction,
+): Promise<void> {
+  await invoke('text_overlay_action', { request });
+}

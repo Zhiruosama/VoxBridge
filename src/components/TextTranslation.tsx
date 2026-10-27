@@ -1,3 +1,4 @@
+import type { TextTools } from '../hooks/useTextTools';
 import { recoveryHint } from '../core/operation-feedback';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { textSplitRatio, textSplitStorageKey } from '../core/text-translation-layout';
@@ -22,10 +23,12 @@ const languages = [
 ];
 export default function TextTranslation({
   controller,
+  tools,
   settings,
   onSettings,
 }: {
   controller: TextTranslationController;
+  tools: TextTools;
   settings: Settings;
   onSettings: () => void;
 }) {
@@ -78,7 +81,7 @@ export default function TextTranslation({
   const [copyError, setCopyError] = useState(false);
   const profile = profileFor(settings, 'translation');
   const options = languages.map((label) => ({ label, value: label }));
-  const submit = () => void controller.submit(profile);
+  const submit = tools.translate;
   return (
     <section
       className="text-translation"
@@ -105,6 +108,45 @@ export default function TextTranslation({
           <Settings2 size={14} aria-hidden="true" />
           {t('翻译设置')}
         </button>
+      </div>
+      <div className="clipboard-tools">
+        <div className="clipboard-tools-controls">
+          <button
+            role="switch"
+            aria-checked={tools.watching}
+            disabled={!tools.available}
+            onClick={() => tools.changeWatching(!tools.watching)}
+          >
+            {t('监听剪贴板')}
+            <span className="clipboard-switch-dot" aria-hidden="true" />
+          </button>
+          <button
+            role="switch"
+            aria-checked={tools.automatic}
+            disabled={!tools.watching}
+            onClick={() => tools.setAutomatic(!tools.automatic)}
+          >
+            {t('自动翻译')}
+            <span className="clipboard-switch-dot" aria-hidden="true" />
+          </button>
+          <button
+            className="subtle"
+            disabled={!tools.available}
+            onClick={() => void tools.openOverlay()}
+          >
+            {t('翻译浮窗')}
+          </button>
+        </div>
+        {tools.watching && (
+          <p>
+            {t(
+              tools.automatic
+                ? '新复制的文字会发送至当前翻译服务。'
+                : '新复制的文字会填入原文框，确认后再翻译。',
+            )}
+          </p>
+        )}
+        {tools.message && <p role="status">{t(tools.message)}</p>}
       </div>
       <div
         ref={panels}
@@ -226,8 +268,8 @@ export default function TextTranslation({
               disabled={!state.result}
               onClick={() => {
                 setCopyError(false);
-                void navigator.clipboard
-                  .writeText(state.result)
+                void tools
+                  .copy(state.result)
                   .then(() => setCopied(state.result))
                   .catch(() => setCopyError(true));
               }}

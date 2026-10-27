@@ -2999,3 +2999,70 @@ input[type='range']:focus-visible::-moz-range-thumb {
   left: 0;
   cursor: nesw-resize;
 }
+
+.clipboard-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.clipboard-tools-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.clipboard-tools p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.clipboard-tools button[role='switch'] {
+  font-size: 12px;
+  gap: 8px;
+  background: transparent;
+}
+.clipboard-switch-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.4;
+}
+.clipboard-tools [aria-checked='true'] .clipboard-switch-dot {
+  background: var(--text);
+  opacity: 1;
+}
+.text-result-overlay {
+  font-size: 17px;
+  color: #f5f5f7;
+}
+.text-result-overlay .subtitle-overlay-toolbar {
+  opacity: 1;
+}
+.text-overlay-result {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px 0;
+  user-select: text;
+  line-height: 1.7;
+}
+.text-overlay-placeholder {
+  color: #a8b0bf;
+  font-size: 14px;
+}
+.text-overlay-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.text-overlay-actions > .status-spinner {
+  margin-right: auto;
+}
+.clipboard-tools {
+  margin-bottom: 16px;
+}

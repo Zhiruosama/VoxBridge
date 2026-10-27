@@ -906,5 +906,21 @@
   "纠正字幕 / 句末分歧": "Corrected captions / final discrepancies",
   "双语字幕": "Bilingual captions",
   "关闭后仅显示译文": "Show translations only when off",
-  "无法调整字幕窗大小，请重试。": "Could not resize the caption window. Please try again."
+  "无法调整字幕窗大小，请重试。": "Could not resize the caption window. Please try again.",
+  "监听剪贴板": "Watch clipboard",
+  "自动翻译": "Auto-translate",
+  "翻译浮窗": "Translation window",
+  "新复制的文字会发送至当前翻译服务。": "Newly copied text will be sent to the selected translation service.",
+  "新复制的文字会填入原文框，确认后再翻译。": "Newly copied text fills the source box. Review it before translating.",
+  "剪贴板文字超过 2000 字，请手动精简后翻译。": "Clipboard text exceeds 2,000 characters. Shorten it before translating.",
+  "等待可读取的剪贴板文字…": "Waiting for readable clipboard text…",
+  "文本浮窗同步失败，请重试。": "Could not sync the translation window. Please try again.",
+  "无法打开文本浮窗，请重试。": "Could not open the translation window. Please try again.",
+  "无法返回主窗口。": "Could not return to the main window.",
+  "返回文本翻译": "Return to text translation",
+  "隐藏文本浮窗": "Hide translation window",
+  "复制文字后，译文将在这里显示": "Copy text to see its translation here",
+  "暂停监听": "Pause watching",
+  "已复制": "Copied",
+  "文字已就绪，点击翻译": "Text is ready. Click Translate."
 }

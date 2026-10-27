@@ -1,7 +1,7 @@
 // Runs before the main bundle and fonts, including when loading them fails.
 (() => {
   const root = document.documentElement;
-  if (new URLSearchParams(location.search).get('window') === 'subtitle') {
+  if (['subtitle', 'text-overlay'].includes(new URLSearchParams(location.search).get('window'))) {
     root.dataset.overlay = 'true';
     return;
   }

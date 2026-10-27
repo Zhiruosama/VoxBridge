@@ -50,6 +50,11 @@ export class TextTranslationController {
   update(patch: Partial<Pick<TextTranslationState, 'input' | 'source' | 'target'>>) {
     this.set(patch);
   }
+  acceptClipboard(input: string) {
+    this.cancel();
+    this.failed = null;
+    this.set({ input, result: '', resultTarget: '', error: '', canRetry: false });
+  }
   private set(patch: Partial<TextTranslationState>) {
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((listener) => listener());

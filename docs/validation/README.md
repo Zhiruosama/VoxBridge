@@ -24,6 +24,8 @@
 
 ## 文字输入与翻译
 
+- [剪贴板翻译与独立小窗](2026-10-27-clipboard-translation.md) — 2026-10-27
+
 - [Clear input after successful send](2026-10-23-clear-composer.md) — 2026-10-23
 - [输出期间编辑下一段草稿](2026-10-23-composer-drafts.md) — 2026-10-23
 - [Composer subtitles and stable input layout](2026-10-23-composer-subtitles.md) — 2026-10-23

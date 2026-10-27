@@ -1,4 +1,5 @@
 import TextTranslation from './components/TextTranslation';
+import { useTextTools } from './hooks/useTextTools';
 import { TextTranslationController } from './core/text-translation';
 import { watchFrontendErrors, recordDiagnostic } from './diagnostics';
 import { useTheme } from './hooks/useTheme';
@@ -144,6 +145,7 @@ export default function App() {
       ),
   );
   useEffect(() => () => textTranslation.cancel(), [textTranslation]);
+  const textTools = useTextTools(textTranslation, settings, () => setPage('text'));
   useEffect(() => {
     recordDiagnostic({ operation: 'frontend', kind: 'state', phase: `page_${page}` });
   }, [page]);
@@ -1136,6 +1138,7 @@ export default function App() {
           {page === 'text' && (
             <TextTranslation
               controller={textTranslation}
+              tools={textTools}
               settings={settings}
               onSettings={() => openSettings('translation')}
             />

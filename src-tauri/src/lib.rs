@@ -17,6 +17,7 @@ mod providers;
 mod recovery;
 mod setup;
 mod speech;
+mod text_overlay;
 #[cfg(all(test, target_os = "windows"))]
 mod update_tests;
 mod window_behavior;
@@ -46,6 +47,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             if setup::create_window(app)? {
                 return Ok(());
@@ -77,12 +79,12 @@ pub fn run() {
                 // Hiding/minimizing must not suspend those tasks after a few minutes.
                 .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
             builder.build()?;
-            if let Some(config) = app
+            for config in app
                 .config()
                 .app
                 .windows
                 .iter()
-                .find(|w| w.label == "subtitle")
+                .filter(|w| matches!(w.label.as_str(), "subtitle" | "text-overlay"))
             {
                 tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
             }
@@ -94,6 +96,7 @@ pub fn run() {
         .manage(asr::AsrState::default())
         .manage(microphone::MicrophoneState::default())
         .manage(overlay::OverlayState::default())
+        .manage(text_overlay::TextOverlayState::default())
         .manage(overlay::voice::OverlayVoiceState::default())
         .manage(speech::SpeechState::default())
         .manage(speech::PreparedSpeechState::default())
@@ -117,6 +120,11 @@ pub fn run() {
             microphone::finish_voice_input,
             microphone::cancel_voice_input,
             language::detect_text_language,
+            text_overlay::publish_text_overlay,
+            text_overlay::read_text_overlay,
+            text_overlay::show_text_overlay,
+            text_overlay::hide_text_overlay,
+            text_overlay::text_overlay_action,
             overlay::publish_overlay,
             overlay::read_overlay,
             overlay::voice::read_overlay_voice,
@@ -156,7 +164,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             use tauri::Manager;
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "subtitle" {
+                if matches!(window.label(), "subtitle" | "text-overlay") {
                     api.prevent_close();
                     let _ = window.hide();
                 } else if window.label() == "main" {

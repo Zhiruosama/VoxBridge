@@ -12,7 +12,7 @@ _Interface example with sample captions._
 
 ## What you can do
 
-- **Text translation:** type, choose a target language and copy the result without recording or generating speech.
+- **Text translation:** type or watch copied text, translate manually or automatically, and view results in a small floating window.
 - **Live captions:** choose an app and read its original and translated speech.
 - **Speak through text or recording:** review your input, generate speech and independently control local monitoring.
 - **Floating window:** read captions above other windows, type or record without returning to the main window.

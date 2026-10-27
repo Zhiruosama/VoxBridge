@@ -9,9 +9,10 @@ use objc2_app_kit::{
 use objc2_foundation::{
     NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
 };
-use std::{cell::RefCell, path::PathBuf};
+use std::{cell::RefCell, collections::BTreeMap, path::PathBuf};
 use tauri::Manager;
 
+#[path = "panel/content.rs"]
 mod content;
 
 define_class!(
@@ -42,7 +43,7 @@ define_class!(
         fn active_space_changed(&self, _: &NSNotification) {
             PANEL.with(|state| {
                 if let Ok(current) = state.try_borrow() {
-                    if let Some(item) = current.as_ref() { record_visibility(&item.panel, &self.ivars().log); }
+                    for item in current.values() { record_visibility(&item.panel, &item._delegate.ivars().log); }
                 }
             });
         }
@@ -87,7 +88,7 @@ impl PanelDrag {
         )
     }
 }
-thread_local! { static PANEL: RefCell<Option<FloatingPanel>> = const { RefCell::new(None) }; }
+thread_local! { static PANEL: RefCell<BTreeMap<String, FloatingPanel>> = const { RefCell::new(BTreeMap::new()) }; }
 
 fn record_visibility(window: &NSWindow, path: &std::path::Path) {
     // Local, non-content diagnostics: unlike a window-targeted screenshot, these
@@ -104,10 +105,15 @@ fn record_visibility(window: &NSWindow, path: &std::path::Path) {
 }
 
 pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
+    prepare(window, true)
+}
+// Separating preparation from presentation also permits an invisible native regression.
+pub(super) fn prepare(window: &tauri::WebviewWindow, reveal: bool) -> Result<(), String> {
     let mtm = MainThreadMarker::new().ok_or("字幕窗必须在主线程显示。")?;
     PANEL.with(|state| {
         let mut current = state.borrow_mut();
-        if current.is_none() {
+        let label = window.label();
+        if !current.contains_key(label) {
             let raw = window.ns_window().map_err(|_| "无法读取字幕窗。")?;
             if raw.is_null() {
                 return Err("字幕窗不可用。".into());
@@ -122,7 +128,7 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
             ] };
             // The thread-local owner retains the panel until application exit.
             unsafe { panel.setReleasedWhenClosed(false); }
-            panel.setTitle(&NSString::from_str("VoxBridge 字幕"));
+            panel.setTitle(&NSString::from_str(&window.title().unwrap_or_else(|_| "VoxBridge".into())));
             panel.setCollectionBehavior(super::subtitle_collection_behavior(
                 panel.collectionBehavior(),
             ));
@@ -140,7 +146,7 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
             panel.setContentMinSize(original.contentMinSize());
             let directory = window.app_handle().path().app_log_dir().map_err(|_| "无法初始化字幕窗诊断。")?;
             let _ = std::fs::create_dir_all(&directory);
-            let allocated = PanelDelegate::alloc(mtm).set_ivars(DelegateIvars { log: directory.join("overlay-window.json") });
+            let allocated = PanelDelegate::alloc(mtm).set_ivars(DelegateIvars { log: directory.join(if label == "subtitle" { "overlay-window.json" } else { "text-overlay-window.json" }) });
             let delegate: Retained<PanelDelegate> = unsafe { objc2::msg_send![super(allocated), init] };
             // Move the complete root view only after all fallible initialization.
             // Its WKWebView keeps its original Tauri label and IPC identity.
@@ -152,37 +158,39 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
                 );
             }
             panel.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&*delegate)));
-            *current = Some(FloatingPanel {
+            current.insert(label.to_owned(), FloatingPanel {
                 panel,
                 _delegate: delegate,
                 drag: None,
                 resize: None,
             });
         }
-        let item = current.as_ref().unwrap();
-        item.panel.orderFrontRegardless();
-        item.panel.makeKeyWindow();
+        let item = current.get(label).unwrap();
+        if reveal {
+            item.panel.orderFrontRegardless();
+            item.panel.makeKeyWindow();
+        }
         record_visibility(&item.panel, &item._delegate.ivars().log);
         Ok(())
     })
 }
-pub(super) fn hide() {
+pub(super) fn hide(label: &str) {
     PANEL.with(|state| {
-        if let Some(item) = state.borrow_mut().as_mut() {
+        if let Some(item) = state.borrow_mut().get_mut(label) {
             item.drag = None;
             item.resize = None;
             item.panel.orderOut(None);
         }
     });
 }
-pub(super) fn drag(id: String, phase: &str, x: f64, y: f64) -> Result<(), String> {
+pub(super) fn drag(label: &str, id: String, phase: &str, x: f64, y: f64) -> Result<(), String> {
     if id.len() > 128 || !x.is_finite() || !y.is_finite() || x.abs() > 20000.0 || y.abs() > 20000.0
     {
         return Err("字幕拖动坐标无效。".into());
     }
     PANEL.with(|state| {
         let mut current = state.borrow_mut();
-        let item = current.as_mut().ok_or("字幕窗尚未打开。")?;
+        let item = current.get_mut(label).ok_or("字幕窗尚未打开。")?;
         match phase {
             "begin" => {
                 item.resize = None;
@@ -213,13 +221,14 @@ pub(super) fn drag(id: String, phase: &str, x: f64, y: f64) -> Result<(), String
 }
 
 pub(super) fn resize(
+    label: &str,
     id: String,
     phase: &str,
     direction: tauri_runtime::ResizeDirection,
 ) -> Result<(), String> {
     PANEL.with(|state| {
         let mut current = state.borrow_mut();
-        let item = current.as_mut().ok_or("字幕窗尚未打开。")?;
+        let item = current.get_mut(label).ok_or("字幕窗尚未打开。")?;
         // A lost capture/end must not sample a cursor that has already moved
         // elsewhere after the mouse was released.
         if phase == "end" {
@@ -254,8 +263,8 @@ pub(super) fn resize(
                 resize.direction,
                 cursor.x - resize.cursor.x,
                 cursor.y - resize.cursor.y,
-                minimum.width.max(480.0),
-                minimum.height.max(220.0),
+                minimum.width.max(240.0),
+                minimum.height.max(120.0),
             );
             item.panel.setFrame_display(
                 NSRect::new(

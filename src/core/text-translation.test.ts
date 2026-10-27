@@ -199,3 +199,25 @@ describe('text translation recovery', () => {
     }
   });
 });
+
+it('clipboard replacement cancels old work, clears stale output and does not translate until requested', async () => {
+  const { controller, dependencies, profile } = fixture();
+  const old = deferred();
+  dependencies.translate.mockReturnValueOnce(old.promise);
+  controller.update({ input: 'old copied text' });
+  const task = controller.submit(profile);
+  controller.acceptClipboard('new copied text');
+  expect(controller.getSnapshot()).toMatchObject({
+    input: 'new copied text',
+    result: '',
+    busy: false,
+    error: '',
+  });
+  old.resolve('stale result');
+  await task;
+  expect(controller.getSnapshot().result).toBe('');
+  expect(dependencies.translate).toHaveBeenCalledOnce();
+  await controller.submit(profile);
+  expect(controller.getSnapshot().result).toBe('Hello');
+  expect(dependencies.cancelTranslation).toHaveBeenCalledOnce();
+});
