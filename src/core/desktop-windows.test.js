@@ -14,5 +14,8 @@ it('keeps every shared desktop window available in the Windows array override', 
     // Tauri replaces arrays instead of merging entries by label. Preserve routing,
     // hidden startup, focus, transparency and size constraints for both floats.
     expect(windows.find((entry) => entry.label === window.label)).toEqual(window);
+    // Undecorated native shadows introduce a second 1px Windows frame outside
+    // the rounded web surface. Both floating windows must disable that frame.
+    expect(window.shadow).toBe(false);
   }
 });

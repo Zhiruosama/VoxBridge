@@ -36,6 +36,7 @@
         "alwaysOnTop": true,
         "visibleOnAllWorkspaces": true,
         "transparent": true,
+        "shadow": false,
         "decorations": false,
         "skipTaskbar": true
       },
@@ -53,6 +54,7 @@
         "alwaysOnTop": true,
         "visibleOnAllWorkspaces": true,
         "transparent": true,
+        "shadow": false,
         "decorations": false,
         "skipTaskbar": true
       }
