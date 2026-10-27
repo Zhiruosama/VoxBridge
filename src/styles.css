@@ -3082,3 +3082,23 @@ input[type='range']:focus-visible::-moz-range-thumb {
   overflow-wrap: anywhere;
   font-family: inherit;
 }
+
+.update-reminder-positioner {
+  position: fixed;
+}
+.update-reminder {
+  max-width: min(560px, 100%);
+}
+.update-reminder-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.update-reminder-error {
+  color: var(--danger);
+  font-size: 12px;
+}

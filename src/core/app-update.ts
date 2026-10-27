@@ -10,6 +10,7 @@ export interface AppUpdate {
   close: () => Promise<void>;
 }
 export type UpdateView = {
+  startupPrompt: boolean;
   status: 'idle' | 'checking' | 'latest' | 'available' | 'downloading' | 'installing' | 'error';
   version: string;
   percent: number | null;
@@ -20,7 +21,14 @@ export type UpdateView = {
 export class AppUpdates {
   private update: AppUpdate | null = null;
   private listeners = new Set<() => void>();
-  private state: UpdateView = { status: 'idle', version: '', percent: null, error: '' };
+  private startupChecked = false;
+  private state: UpdateView = {
+    startupPrompt: false,
+    status: 'idle',
+    version: '',
+    percent: null,
+    error: '',
+  };
   blocked = () => true;
   constructor(
     private checkUpdate: () => Promise<AppUpdate | null>,
@@ -36,6 +44,16 @@ export class AppUpdates {
   private emit(state: Partial<UpdateView>) {
     this.state = { ...this.state, ...state };
     this.listeners.forEach((listener) => listener());
+  }
+  async checkAtStartup() {
+    if (this.startupChecked) return;
+    this.startupChecked = true;
+    await this.check();
+    if (this.state.status === 'available' && this.state.version) this.emit({ startupPrompt: true });
+  }
+  dismissStartupPrompt() {
+    if (['downloading', 'installing'].includes(this.state.status)) return;
+    this.emit({ startupPrompt: false });
   }
   async check() {
     if (['checking', 'downloading', 'installing'].includes(this.state.status)) return;

@@ -930,5 +930,7 @@
   "文本浮窗文字颜色": "Text window text color",
   "文本浮窗自定义颜色": "Custom text window color",
   "开始监听剪贴板": "Start watching clipboard",
-  "暂停监听剪贴板": "Pause clipboard watching"
+  "暂停监听剪贴板": "Pause clipboard watching",
+  "更新": "Update",
+  "稍后": "Later"
 }

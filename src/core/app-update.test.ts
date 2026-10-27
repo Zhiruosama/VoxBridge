@@ -56,3 +56,45 @@ it('keeps the current application when signature verification or download fails'
   expect(f.restart).not.toHaveBeenCalled();
   expect(f.controller.snapshot().status).toBe('available');
 });
+
+it('prompts once per launch and dismissal survives manual rechecks and remounts', async () => {
+  const f = fixture();
+  await Promise.all([f.controller.checkAtStartup(), f.controller.checkAtStartup()]);
+  expect(f.check).toHaveBeenCalledOnce();
+  expect(f.controller.snapshot().startupPrompt).toBe(true);
+  expect(f.update.download).not.toHaveBeenCalled();
+  f.controller.dismissStartupPrompt();
+  await f.controller.checkAtStartup();
+  await f.controller.check();
+  expect(f.controller.snapshot().startupPrompt).toBe(false);
+  const nextLaunch = fixture();
+  await nextLaunch.controller.checkAtStartup();
+  expect(nextLaunch.controller.snapshot().startupPrompt).toBe(true);
+});
+it('keeps startup silent when up to date or offline, without blocking manual checks', async () => {
+  for (const check of [
+    vi.fn(async () => null),
+    vi.fn(async () => {
+      throw Error('offline');
+    }),
+  ]) {
+    const controller = new AppUpdates(check, vi.fn());
+    await controller.checkAtStartup();
+    await controller.checkAtStartup();
+    expect(check).toHaveBeenCalledOnce();
+    expect(controller.snapshot().startupPrompt).toBe(false);
+    await controller.check();
+    expect(check).toHaveBeenCalledTimes(2);
+  }
+});
+it('keeps the prompt visible for recovery when installation is blocked', async () => {
+  const f = fixture();
+  await f.controller.checkAtStartup();
+  f.controller.blocked = () => true;
+  await f.controller.install();
+  expect(f.controller.snapshot().startupPrompt).toBe(true);
+  expect(f.controller.snapshot().error).toBeTruthy();
+  expect(f.update.download).not.toHaveBeenCalled();
+  f.controller.dismissStartupPrompt();
+  expect(f.controller.snapshot().startupPrompt).toBe(false);
+});

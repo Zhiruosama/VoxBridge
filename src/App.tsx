@@ -1,3 +1,4 @@
+import UpdatePrompt from './components/UpdatePrompt';
 import TextTranslation from './components/TextTranslation';
 import { useTextTools } from './hooks/useTextTools';
 import { TextTranslationController } from './core/text-translation';
@@ -231,11 +232,7 @@ export default function App() {
   useEffect(() => {
     if (!desktop) return;
     appUpdates.blocked = () => updateBlocked.current;
-    void appUpdates.check().then(() => {
-      const next = appUpdates.snapshot();
-      if (next.status === 'available')
-        notify(t('发现新版本 {0}，可在设置的关于部分更新。', next.version));
-    });
+    void appUpdates.checkAtStartup();
     return () => {
       appUpdates.blocked = () => true;
     };
@@ -292,6 +289,9 @@ export default function App() {
   const [overlayDraft, setOverlayDraft] = useState('');
   updateBlocked.current =
     settingsBusy ||
+    textTools.watching ||
+    textTranslation.getSnapshot().busy ||
+    Boolean(textTranslation.getSnapshot().input.trim()) ||
     listenPhase !== 'idle' ||
     Boolean(voice) ||
     composer.busy ||
@@ -1532,6 +1532,7 @@ export default function App() {
           )}
         </main>
       </div>
+      <UpdatePrompt suspended={Boolean(notice)} />
     </div>
   );
 }
