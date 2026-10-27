@@ -1,19 +1,19 @@
 {
-  "version": "0.5.1",
-  "notes": "VoxBridge 0.5.1",
-  "pub_date": "2026-10-27T11:24:41.068Z",
+  "version": "0.5.2",
+  "notes": "VoxBridge 0.5.2",
+  "pub_date": "2026-10-27T16:34:50.249Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTlhDcm8xb0dIK0VFemtJMnM3M3p0MEhHVGt3cDRsWGVlQ3BQVlF4aDdBRVBFTlRWWFFIRmZHSi9IeDI4bzBSdTFtWXliaGRLb0w0REgwREw0K29iOWdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTAwMjEyCWZpbGU6Vm94QnJpZGdlXzAuNS4xX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjUuMQorOU56azFSbkREeUhzdnVuTFQyaGpQVDVhUklXVFJqQWpORklKWjdaTzdqbkpRT3VZNHl1S3R3dHNuV0M1L0ZvdDI0Mjc2SFppRHFaRmVrTy8xY0tBZz09Cg==",
-      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.5.1/VoxBridge_0.5.1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTlhuS2NtWG9BZVpJd3hTUWdPSU1ZT0VBd2J2N0hPc20wckVtZ01oMytIalFERFhDR0ZTLy9sMFRSOG5oamNWMytvVysvbm9NanpkZndaRk9rTDNKMXc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTE4NzM0CWZpbGU6Vm94QnJpZGdlXzAuNS4yX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjUuMgpCM2ZvL2J4ZXZSdXYxOVI0RklQSXNnZStTZlgzRENBN01LR0JqaEVwS2NWSmxPVi9RN2RtbnlPRXZaalFLWXZvQU9Yd0FiL3RRWXdra0tCQ1lWMHVBdz09Cg==",
+      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.5.2/VoxBridge_0.5.2_x64-setup.exe"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTmFGdnZuc1FlMUg3bGhLcE5kQm5wOGF4Ny9VR2VacjVneU5wTmxoNlFNSExoZXhURXJYYmRoZ2VtYlpmMTM2Y3RKdy9lWk02enczdjk3RnNCdXBKUVFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDk5ODQzCWZpbGU6Vm94QnJpZGdlLmFwcC50YXIuZ3oJdmVyc2lvbjowLjUuMQp5OGhmYzVlTmViNStvR0U2eG1lZGhkSDFxakpHbXlhTEJUMkZaMVVJZEEzY3E3VmhsaUpSbDE3c2Nmbmp5ZWRmTjdRT2dubkovOUR3MTZCSWc1aDlEQT09Cg==",
-      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.5.1/VoxBridge.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTlkyOHRwanoydjVNT3BIcXNKUFBWOWJZdXVWOWZEVTNnbjhucW1EZkIzTlhIM0NwWVZJek94SWZlZm5TWkZORCtjU1hxMk44NmRCZ0VIUE1lNGVONWc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTE4NDE1CWZpbGU6Vm94QnJpZGdlLmFwcC50YXIuZ3oJdmVyc2lvbjowLjUuMgpEYnpaV01qUUszenpSU0VuZkFKU1R2ZXN6VEtLMDVjcXNlZmR6em5iUHJpbHdFVEFIS0RVcEIzS0dlOTNNSkozTHRMSThTZW5paE51eTM3eWUzU0FEUT09Cg==",
+      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.5.2/VoxBridge.app.tar.gz"
     },
     "windows-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTmEzcEVTNVJ5SEx5Znd2YVF6TWJXNERWcHNSNmo3b3VVL2c1bEFUc1ZUdENNWnd3eVhDNGZCUFkxbk9tTkc2NmNlQ2svMittTCtVNW95blBFekM5QUFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTAwMTM3CWZpbGU6Vm94QnJpZGdlXzAuNS4xX2FybTY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNS4xCmxjNFJRN3RKKzVBWjZlME4xdnhnam52K01reXF3bFRFQ1ZhUGk5cFhWbnBROEFNTlZCZ0dHTGxYSU5QTzVrLzFqaUFzeFpidERNWURjakkxVlpWd0J3PT0K",
-      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.5.1/VoxBridge_0.5.1_arm64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdHd4eUNVVzhWTmNUSEhKVytqTnpaeDNpNjF1UXJLdGxSU1dZZmVYaFRxd0FoRkxuNE42aVU3aUozNjVsTE9sOEgvMXJQOWFRNjUyeEZhdnBYOFh5Y1ZodnNvajNnL0FjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTE4Nzk4CWZpbGU6Vm94QnJpZGdlXzAuNS4yX2FybTY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNS4yCjJFT215aW1lM0JVd0FEc0E0aDYyYTRzMGdlMmpLeG42YkE5OG8wd3NJcGREOGhMdFhQR1NSSjA0WVVRbWlOdHpkZ0ZQOHorWGxJNVFVMVFXY0lVOEFBPT0K",
+      "url": "https://github.com/Zhiruosama/VoxBridge/releases/download/v0.5.2/VoxBridge_0.5.2_arm64-setup.exe"
     }
   }
 }
