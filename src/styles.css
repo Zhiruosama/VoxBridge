@@ -3058,13 +3058,15 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 .text-overlay-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   flex-shrink: 0;
 }
-.text-overlay-actions > .status-spinner {
+.text-overlay-actions > .text-overlay-automatic {
   margin-right: auto;
+  flex-shrink: 0;
 }
 .clipboard-tools {
   margin-bottom: 16px;

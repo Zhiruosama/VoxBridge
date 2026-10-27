@@ -88,9 +88,12 @@ export default function TextTranslationOverlay() {
             {snapshot.target ? ` · ${t(snapshot.target)}` : ''}
           </span>
           <div>
-            {snapshot.watching && (
-              <button onClick={() => void act({ action: 'pause' })}>{t('暂停监听')}</button>
-            )}
+            <button
+              aria-label={t(snapshot.watching ? '暂停监听剪贴板' : '开始监听剪贴板')}
+              onClick={() => void act({ action: snapshot.watching ? 'pause' : 'start' })}
+            >
+              {t(snapshot.watching ? '暂停监听' : '开始监听')}
+            </button>
             <button
               className="icon-button"
               aria-label={t('返回文本翻译')}
@@ -136,6 +139,18 @@ export default function TextTranslationOverlay() {
           </p>
         )}
         <footer className="text-overlay-actions">
+          <button
+            type="button"
+            role="switch"
+            className="bilingual-toggle text-overlay-automatic"
+            aria-label={t('自动翻译')}
+            aria-checked={snapshot.automatic}
+            disabled={!snapshot.watching}
+            onClick={() => void act({ action: 'automatic', enabled: !snapshot.automatic })}
+          >
+            <span className="bilingual-toggle-track" aria-hidden="true" />
+            <span>{t('自动翻译')}</span>
+          </button>
           {snapshot.busy && (
             <LoaderCircle size={14} className="status-spinner" aria-label={t('翻译中…')} />
           )}

@@ -48,7 +48,8 @@ export interface TextOverlaySnapshot {
   copyError: boolean;
 }
 export type TextOverlayAction =
-  | { action: 'translate' | 'focus' | 'pause' }
+  | { action: 'translate' | 'focus' | 'pause' | 'start' }
+  | { action: 'automatic'; enabled: boolean }
   | { action: 'copy'; text: string };
 export const textOverlayDefaults: TextOverlaySnapshot = {
   appearance: { ...textOverlayAppearanceDefaults },

@@ -45,6 +45,8 @@ pub enum TextAction {
     Copy { text: String },
     Focus,
     Pause,
+    Start,
+    Automatic { enabled: bool },
 }
 fn validate(snapshot: &TextSnapshot) -> Result<(), String> {
     let a = &snapshot.appearance;
@@ -165,6 +167,9 @@ mod tests {
         for action in [
             TextAction::Translate,
             TextAction::Pause,
+            TextAction::Start,
+            TextAction::Automatic { enabled: true },
+            TextAction::Automatic { enabled: false },
             TextAction::Focus,
             TextAction::Copy {
                 text: "译文".into(),

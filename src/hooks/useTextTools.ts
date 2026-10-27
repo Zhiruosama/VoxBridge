@@ -102,6 +102,8 @@ export function useTextTools(
     else if (request.action === 'copy')
       void copy(request.text).catch(() => setMessage('复制失败，请手动选择译文复制。'));
     else if (request.action === 'pause') changeWatching(false);
+    else if (request.action === 'start') changeWatching(true);
+    else if (request.action === 'automatic') changeAutomatic(request.enabled);
     else {
       current.current.onFocus();
       void focusMain()
