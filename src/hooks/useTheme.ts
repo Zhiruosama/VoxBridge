@@ -3,10 +3,13 @@ import { recordDiagnostic } from '../diagnostics';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { Settings } from '../core/types';
 import { fadeThemeSnapshot } from '../core/theme-snapshot';
+import { syncNativeTheme, type ChromeColor } from '../core/native-theme';
 
 export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
   const frameUpdates = useRef(Promise.resolve());
   const frameRevision = useRef(0);
+  const frameColor = useRef<ChromeColor | null>(null);
+  const frameAbort = useRef<AbortController | null>(null);
   const transition = useRef<ViewTransition | null>(null);
   const clearSnapshot = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
@@ -21,19 +24,32 @@ export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
       clearSnapshot.current?.();
       clearSnapshot.current = null;
       const revision = ++frameRevision.current;
+      frameAbort.current?.abort();
+      const abort = new AbortController();
+      frameAbort.current = abort;
+      const animate =
+        root.dataset.theme !== undefined &&
+        root.dataset.theme !== next &&
+        !matchMedia('(prefers-reduced-motion: reduce)').matches;
       const update = () => {
         if (revision !== frameRevision.current) return;
         root.dataset.theme = next;
         if (nativeMacFrame) {
-          // Native chrome cannot join a DOM snapshot transition. Apply it alongside
-          // the new surface and skip queued intermediate themes on rapid toggles.
+          // Serialize native calls, but cancel obsolete fades immediately. The
+          // retained color lets rapid toggles continue from the visible shade.
           frameUpdates.current = frameUpdates.current
             .then(async () => {
               if (revision !== frameRevision.current) return;
-              const window = getCurrentWindow();
-              await window.setTheme(theme === 'system' ? null : next);
-              if (revision !== frameRevision.current) return;
-              await window.setBackgroundColor(next === 'light' ? '#f0f0ee' : '#181818');
+              await syncNativeTheme(getCurrentWindow(), {
+                theme,
+                resolved: next,
+                from: frameColor.current,
+                animate,
+                signal: abort.signal,
+                onColor: (color) => {
+                  frameColor.current = color;
+                },
+              });
             })
             .catch(() => console.warn('Unable to synchronize the native window theme.'));
         }
@@ -42,8 +58,6 @@ export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
         update();
         return;
       }
-      const animate =
-        root.dataset.theme !== undefined && !matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (animate && typeof document.startViewTransition === 'function') {
         // Blend two complete, readable frames instead of interpolating foreground
         // and background through the same grey (which makes text appear to blink).
@@ -79,6 +93,7 @@ export function useTheme(theme: Settings['theme'], nativeMacFrame = false) {
   useEffect(
     () => () => {
       ++frameRevision.current;
+      frameAbort.current?.abort();
       transition.current?.skipTransition();
       clearSnapshot.current?.();
     },
