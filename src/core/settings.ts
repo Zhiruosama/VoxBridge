@@ -1,3 +1,4 @@
+import { parseTextOverlayAppearance, textOverlayAppearanceDefaults } from './text-overlay';
 import { textPanelOpacity } from './text-translation-layout';
 import { parseSpeechOptions } from './speech-options';
 import { parseUiLanguage } from '../i18n';
@@ -22,6 +23,7 @@ export const defaults: Settings = {
   captionColors: { ...captionColorDefaults },
   captionSpacing: 26,
   textTranslationOpacity: textPanelOpacity(undefined),
+  textOverlay: { ...textOverlayAppearanceDefaults },
   captionFontSize: 17,
   audio: {
     previewDeviceId: systemDefaultOutputId,
@@ -257,6 +259,7 @@ export function parseSettings(value: unknown): Settings {
     mainWindowCloseBehavior: input.mainWindowCloseBehavior === 'quit' ? 'quit' : 'hide',
     captionColors: parseCaptionColors(input.captionColors),
     textTranslationOpacity: textPanelOpacity(input.textTranslationOpacity),
+    textOverlay: parseTextOverlayAppearance(input.textOverlay),
     captionSpacing:
       typeof input.captionSpacing === 'number' && Number.isFinite(input.captionSpacing)
         ? Math.min(64, Math.max(8, Math.round(input.captionSpacing)))

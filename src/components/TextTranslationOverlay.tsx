@@ -72,7 +72,14 @@ export default function TextTranslationOverlay() {
   return (
     <div
       className="subtitle-overlay text-result-overlay"
-      style={{ '--overlay-background': 'rgba(22,24,29,.9)' } as React.CSSProperties}
+      style={
+        {
+          '--overlay-background': `rgba(22,24,29,${snapshot.appearance.backgroundOpacity})`,
+          '--text-overlay-font-size': `${snapshot.appearance.fontSize}px`,
+          '--text-overlay-line-height': snapshot.appearance.lineHeight,
+          '--text-overlay-color': snapshot.appearance.textColor,
+        } as React.CSSProperties
+      }
     >
       <section className="subtitle-overlay-panel">
         <header className="subtitle-overlay-toolbar" {...drag}>

@@ -19,6 +19,7 @@ import {
   setCredential,
 } from '../bridge';
 import { subtitleDefaults } from '../core/overlay';
+import { textOverlayAppearanceDefaults } from '../core/text-overlay';
 import CaptionColorPicker from './CaptionColorPicker';
 import Select from './Select';
 import SettingRow from './SettingRow';
@@ -576,6 +577,98 @@ export default function SettingsPanel({
             <p className="preference-help">
               {t('Shift + Enter 换行。翻译和语音合成会调用所选服务，可能计费。')}
             </p>
+          </section>
+          <section className="preference-section" aria-labelledby="text-overlay-heading">
+            <div className="preference-section-title">
+              <h2 id="text-overlay-heading">{t('文本翻译悬浮窗')}</h2>
+              <button
+                className="subtle"
+                onClick={() =>
+                  setDraft({ ...draft, textOverlay: { ...textOverlayAppearanceDefaults } })
+                }
+              >
+                {t('恢复默认')}
+              </button>
+            </div>
+            <div className="preference-card">
+              <SettingRow title={t('背景不透明度')}>
+                <input
+                  type="range"
+                  aria-label={t('文本浮窗背景不透明度')}
+                  min={20}
+                  max={100}
+                  step={1}
+                  value={Math.round(draft.textOverlay.backgroundOpacity * 100)}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      textOverlay: {
+                        ...draft.textOverlay,
+                        backgroundOpacity: Number(event.target.value) / 100,
+                      },
+                    })
+                  }
+                />
+                <span className="preference-value">
+                  {Math.round(draft.textOverlay.backgroundOpacity * 100)}%
+                </span>
+              </SettingRow>
+              <SettingRow title={t('字号')}>
+                <input
+                  type="range"
+                  aria-label={t('文本浮窗字号')}
+                  min={14}
+                  max={40}
+                  step={1}
+                  value={draft.textOverlay.fontSize}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      textOverlay: { ...draft.textOverlay, fontSize: Number(event.target.value) },
+                    })
+                  }
+                />
+                <span className="preference-value">{draft.textOverlay.fontSize} px</span>
+              </SettingRow>
+              <SettingRow title={t('行距')}>
+                <input
+                  type="range"
+                  aria-label={t('文本浮窗行距')}
+                  min={1.2}
+                  max={2.2}
+                  step={0.05}
+                  value={draft.textOverlay.lineHeight}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      textOverlay: { ...draft.textOverlay, lineHeight: Number(event.target.value) },
+                    })
+                  }
+                />
+                <span className="preference-value">{draft.textOverlay.lineHeight.toFixed(2)}</span>
+              </SettingRow>
+              <SettingRow title={t('文字颜色')}>
+                <CaptionColorPicker
+                  label={t('文本浮窗文字颜色')}
+                  customLabel={t('文本浮窗自定义颜色')}
+                  value={draft.textOverlay.textColor}
+                  onChange={(textColor) =>
+                    setDraft({ ...draft, textOverlay: { ...draft.textOverlay, textColor } })
+                  }
+                />
+              </SettingRow>
+              <div
+                className="text-overlay-appearance-preview"
+                style={{
+                  background: `rgba(22,24,29,${draft.textOverlay.backgroundOpacity})`,
+                  color: draft.textOverlay.textColor,
+                  fontSize: draft.textOverlay.fontSize,
+                  lineHeight: draft.textOverlay.lineHeight,
+                }}
+              >
+                {t('这是译文预览')}
+              </div>
+            </div>
           </section>
           <section className="preference-section" aria-labelledby="subtitle-heading">
             <div className="preference-section-title">

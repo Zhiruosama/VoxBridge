@@ -922,5 +922,11 @@
   "复制文字后，译文将在这里显示": "Copy text to see its translation here",
   "暂停监听": "Pause watching",
   "已复制": "Copied",
-  "文字已就绪，点击翻译": "Text is ready. Click Translate."
+  "文字已就绪，点击翻译": "Text is ready. Click Translate.",
+  "文本翻译悬浮窗": "Text translation window",
+  "文本浮窗背景不透明度": "Text window background opacity",
+  "文本浮窗字号": "Text window font size",
+  "文本浮窗行距": "Text window line spacing",
+  "文本浮窗文字颜色": "Text window text color",
+  "文本浮窗自定义颜色": "Custom text window color"
 }

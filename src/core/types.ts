@@ -89,6 +89,7 @@ export interface Settings {
   captionLayout: import('./caption-layout').CaptionLayout;
   captionColors: { recognition: string; expression: string };
   textTranslationOpacity: number;
+  textOverlay: import('./text-overlay').TextOverlayAppearance;
   captionSpacing: number;
   captionFontSize: number;
   audio: AudioRouting;

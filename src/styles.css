@@ -3047,7 +3047,10 @@ input[type='range']:focus-visible::-moz-range-thumb {
   overflow-wrap: anywhere;
   padding: 16px 0;
   user-select: text;
-  line-height: 1.7;
+  font-family: inherit;
+  font-size: var(--text-overlay-font-size, 17px);
+  line-height: var(--text-overlay-line-height, 1.7);
+  color: var(--text-overlay-color, #f5f5f7);
 }
 .text-overlay-placeholder {
   color: #a8b0bf;
@@ -3065,4 +3068,11 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 .clipboard-tools {
   margin-bottom: 16px;
+}
+
+.text-overlay-appearance-preview {
+  padding: 16px 20px;
+  border-radius: 14px;
+  overflow-wrap: anywhere;
+  font-family: inherit;
 }

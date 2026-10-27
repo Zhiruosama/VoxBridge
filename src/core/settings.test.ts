@@ -516,3 +516,38 @@ it('defaults old settings to background hiding and persists an explicit quit pre
     parseSettings({ ...defaults, mainWindowCloseBehavior: 'invalid' }).mainWindowCloseBehavior,
   ).toBe('hide');
 });
+
+describe('text overlay appearance', () => {
+  it('migrates old settings and persists independent window appearance', () => {
+    const legacy = parseSettings({ ...defaults, textOverlay: undefined });
+    expect(legacy.textOverlay).toEqual({
+      backgroundOpacity: 0.9,
+      fontSize: 17,
+      lineHeight: 1.7,
+      textColor: '#f5f5f7',
+    });
+    const appearance = {
+      backgroundOpacity: 0.35,
+      fontSize: 28,
+      lineHeight: 2,
+      textColor: '#80deea',
+    };
+    const restored = parseSettings(
+      JSON.parse(JSON.stringify({ ...defaults, textOverlay: appearance })),
+    );
+    expect(restored.textOverlay).toEqual(appearance);
+    expect(restored.subtitle).toEqual(defaults.subtitle);
+  });
+  it('bounds appearance and rejects invalid colors and non-finite values', () => {
+    expect(
+      parseSettings({
+        ...defaults,
+        textOverlay: { fontSize: 999, backgroundOpacity: -1, lineHeight: 99, textColor: 'red' },
+      }).textOverlay,
+    ).toEqual({ fontSize: 40, backgroundOpacity: 0.2, lineHeight: 2.2, textColor: '#f5f5f7' });
+    expect(
+      parseSettings({ ...defaults, textOverlay: { fontSize: NaN, backgroundOpacity: Infinity } })
+        .textOverlay,
+    ).toEqual(defaults.textOverlay);
+  });
+});

@@ -2,9 +2,28 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TextAppearance {
+    background_opacity: f64,
+    font_size: f64,
+    line_height: f64,
+    text_color: String,
+}
+impl Default for TextAppearance {
+    fn default() -> Self {
+        Self {
+            background_opacity: 0.9,
+            font_size: 17.0,
+            line_height: 1.7,
+            text_color: "#f5f5f7".into(),
+        }
+    }
+}
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextSnapshot {
+    appearance: TextAppearance,
     version: u64,
     ui_language: String,
     result: String,
@@ -28,7 +47,19 @@ pub enum TextAction {
     Pause,
 }
 fn validate(snapshot: &TextSnapshot) -> Result<(), String> {
-    if snapshot.version == 0
+    let a = &snapshot.appearance;
+    if !a.background_opacity.is_finite()
+        || !(0.2..=1.0).contains(&a.background_opacity)
+        || !a.font_size.is_finite()
+        || !(14.0..=40.0).contains(&a.font_size)
+        || !a.line_height.is_finite()
+        || !(1.2..=2.2).contains(&a.line_height)
+        || a.text_color.len() != 7
+        || !a.text_color.starts_with('#')
+        || !a.text_color.as_bytes()[1..]
+            .iter()
+            .all(u8::is_ascii_hexdigit)
+        || snapshot.version == 0
         || snapshot.version > 9_007_199_254_740_991
         || !matches!(snapshot.ui_language.as_str(), "zh-CN" | "en")
         || snapshot.result.chars().count() > 12000
@@ -123,6 +154,12 @@ mod tests {
             ..Default::default()
         };
         assert!(validate(&s).is_ok());
+        s.appearance.font_size = f64::NAN;
+        assert!(validate(&s).is_err());
+        s.appearance = TextAppearance::default();
+        s.appearance.text_color = "#zzzzzz".into();
+        assert!(validate(&s).is_err());
+        s.appearance = TextAppearance::default();
         s.result = "界".repeat(12001);
         assert!(validate(&s).is_err());
         for action in [

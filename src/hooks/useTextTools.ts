@@ -144,6 +144,7 @@ export function useTextTools(
     if (!desktop) return;
     void publishTextOverlay({
       version: ++version.current,
+      appearance: settings.textOverlay,
       uiLanguage: settings.uiLanguage,
       result: [...state.result].slice(0, 12000).join(''),
       target: state.resultTarget || state.target,
@@ -163,6 +164,7 @@ export function useTextTools(
     state.error,
     canTranslate,
     settings.uiLanguage,
+    settings.textOverlay,
     watching,
     automatic,
     copiedText,
