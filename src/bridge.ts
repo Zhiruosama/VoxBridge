@@ -19,6 +19,9 @@ import type {
 } from './core/types';
 
 export const desktop = isTauri();
+export async function setMainCloseBehavior(behavior: 'hide' | 'quit'): Promise<void> {
+  if (desktop) await invoke('set_main_close_behavior', { behavior });
+}
 export async function microphoneAccess(): Promise<string> {
   return desktop ? invoke('microphone_access') : 'not-applicable';
 }

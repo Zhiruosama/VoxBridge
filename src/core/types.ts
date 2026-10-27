@@ -83,6 +83,7 @@ export interface Settings {
   sourceLanguage: string;
   targetLanguage: string;
   theme: 'dark' | 'light' | 'system';
+  mainWindowCloseBehavior: 'hide' | 'quit';
   captionColors: { recognition: string; expression: string };
   textTranslationOpacity: number;
   captionSpacing: number;

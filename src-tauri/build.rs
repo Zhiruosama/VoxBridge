@@ -6,6 +6,7 @@ fn main() {
             "setup_install",
             "setup_finish",
             "runtime_info",
+            "set_main_close_behavior",
             "record_diagnostic",
             "open_diagnostics_folder",
             "export_diagnostics",

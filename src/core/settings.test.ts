@@ -504,3 +504,15 @@ it('retains German for incoming captions and outgoing speech after reload', () =
   expect(restored.targetLanguage).toBe('德语');
   expect(restored.listening).toEqual(settings.listening);
 });
+
+it('defaults old settings to background hiding and persists an explicit quit preference', () => {
+  expect(
+    parseSettings({ ...defaults, mainWindowCloseBehavior: undefined }).mainWindowCloseBehavior,
+  ).toBe('hide');
+  expect(
+    parseSettings({ ...defaults, mainWindowCloseBehavior: 'quit' }).mainWindowCloseBehavior,
+  ).toBe('quit');
+  expect(
+    parseSettings({ ...defaults, mainWindowCloseBehavior: 'invalid' }).mainWindowCloseBehavior,
+  ).toBe('hide');
+});

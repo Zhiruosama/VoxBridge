@@ -60,7 +60,9 @@ export default function SettingsPanel({
   section,
   onBusyChange,
   focusSection,
+  platform,
 }: {
+  platform?: string;
   settings: Settings;
   savedSettings: Settings;
   onDraftChange: Dispatch<SetStateAction<Settings>>;
@@ -284,6 +286,24 @@ export default function SettingsPanel({
                   ]}
                 />
               </SettingRow>
+              {platform === 'macos' && (
+                <SettingRow title={t('关闭主窗口时')}>
+                  <Select
+                    label={t('关闭主窗口时')}
+                    value={draft.mainWindowCloseBehavior}
+                    options={[
+                      { value: 'hide', label: '隐藏到后台' },
+                      { value: 'quit', label: '退出应用' },
+                    ]}
+                    onChange={(value) =>
+                      setDraft({
+                        ...draft,
+                        mainWindowCloseBehavior: value as Settings['mainWindowCloseBehavior'],
+                      })
+                    }
+                  />
+                </SettingRow>
+              )}
               <SettingRow title={t('文本翻译面板不透明度')}>
                 <input
                   type="range"

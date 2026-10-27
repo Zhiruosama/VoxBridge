@@ -17,6 +17,7 @@ export const defaults: Settings = {
   targetLanguage: '英语',
   listening: { sourceLanguage: '自动识别', targetLanguage: '简体中文' },
   theme: 'dark',
+  mainWindowCloseBehavior: 'hide',
   captionColors: { ...captionColorDefaults },
   captionSpacing: 26,
   textTranslationOpacity: textPanelOpacity(undefined),
@@ -251,6 +252,7 @@ export function parseSettings(value: unknown): Settings {
   }
   return {
     schemaVersion: 1,
+    mainWindowCloseBehavior: input.mainWindowCloseBehavior === 'quit' ? 'quit' : 'hide',
     captionColors: parseCaptionColors(input.captionColors),
     textTranslationOpacity: textPanelOpacity(input.textTranslationOpacity),
     captionSpacing:

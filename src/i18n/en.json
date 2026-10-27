@@ -892,5 +892,9 @@
   "请先保存输入的密钥，再测试服务。": "Save the entered API key before testing.",
   "请先保存此服务的 API 密钥。": "Save an API key for this service first.",
   "服务响应超时，内容已保留，请重试。": "The service timed out. Your text is kept; please retry.",
-  "语音生成测试通过，未播放或发送。": "Speech generation passed. No audio was played or sent."
+  "语音生成测试通过，未播放或发送。": "Speech generation passed. No audio was played or sent.",
+  "关闭主窗口时": "When closing the main window",
+  "隐藏到后台": "Hide in background",
+  "退出应用": "Quit app",
+  "无法应用窗口关闭设置，请重试。": "Could not apply the window close setting. Please try again."
 }

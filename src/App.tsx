@@ -11,7 +11,12 @@ import { t, setUiLanguage, useUiLanguage } from './i18n';
 import SendQueueControls from './components/SendQueueControls';
 import type { QueueAction } from './core/send-queue';
 import { SendQueue, type QueueView } from './core/send-queue';
-import { prepareSpeech, playPreparedSpeech, discardPreparedSpeech } from './bridge';
+import {
+  prepareSpeech,
+  playPreparedSpeech,
+  discardPreparedSpeech,
+  setMainCloseBehavior,
+} from './bridge';
 import SpeechSpeedPicker from './components/SpeechSpeedPicker';
 import { updateSpeechProfile } from './core/speech-presets';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -469,6 +474,12 @@ export default function App() {
       .catch((e) => notify(String(e)));
   }, [notify]);
   useTheme(settings.theme, desktop && runtime?.platform === 'macos');
+  useEffect(() => {
+    if (runtime?.platform !== 'macos') return;
+    void setMainCloseBehavior(savedSettings.mainWindowCloseBehavior).catch(() =>
+      notify(t('无法应用窗口关闭设置，请重试。')),
+    );
+  }, [runtime?.platform, savedSettings.mainWindowCloseBehavior, notify]);
   useEffect(() => {
     if (!desktop || runtime?.platform !== 'windows') return;
     let active = true;
@@ -1101,6 +1112,7 @@ export default function App() {
           )}
           {page === 'settings' && (
             <SettingsPanel
+              platform={runtime?.platform}
               section={settingsSection}
               focusSection={settingsFocus}
               onBusyChange={setSettingsBusy}

@@ -19,6 +19,7 @@ mod setup;
 mod speech;
 #[cfg(all(test, target_os = "windows"))]
 mod update_tests;
+mod window_behavior;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,7 +72,10 @@ pub fn run() {
             let builder = builder
                 .decorations(true)
                 .title_bar_style(tauri::TitleBarStyle::Transparent)
-                .hidden_title(false);
+                .hidden_title(false)
+                // The main WebView owns queue scheduling and listening state.
+                // Hiding/minimizing must not suspend those tasks after a few minutes.
+                .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
             builder.build()?;
             if let Some(config) = app
                 .config()
@@ -95,12 +99,14 @@ pub fn run() {
         .manage(speech::PreparedSpeechState::default())
         .manage(speech::AudioGate::new())
         .manage(setup::SetupState::default())
+        .manage(window_behavior::WindowBehavior::default())
         .invoke_handler(tauri::generate_handler![
             setup::setup_inspect,
             setup::setup_choose_folder,
             setup::setup_install,
             setup::setup_finish,
             runtime_info,
+            window_behavior::set_main_close_behavior,
             diagnostics::record_diagnostic,
             diagnostics::open_diagnostics_folder,
             diagnostics::export_diagnostics,
@@ -153,6 +159,15 @@ pub fn run() {
                     api.prevent_close();
                     let _ = window.hide();
                 } else if window.label() == "main" {
+                    if window
+                        .app_handle()
+                        .state::<window_behavior::WindowBehavior>()
+                        .should_hide(std::env::consts::OS, window.label())
+                    {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        return;
+                    }
                     window
                         .app_handle()
                         .state::<capture::CaptureState>()
@@ -177,6 +192,16 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("VoxBridge desktop runtime failed")
         .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                use tauri::Manager;
+                if let Some(main) = app.get_webview_window("main") {
+                    let _ = main
+                        .show()
+                        .and_then(|_| main.unminimize())
+                        .and_then(|_| main.set_focus());
+                }
+            }
             if matches!(
                 event,
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit

@@ -49,6 +49,7 @@
     "allow-show-overlay",
     "allow-hide-overlay",
     "allow-focus-main",
-    "allow-stop-overlay-listening"
+    "allow-stop-overlay-listening",
+    "allow-set-main-close-behavior"
   ]
 }
