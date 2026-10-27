@@ -5,6 +5,7 @@ import {
   openVirtualMicVendor,
   openAudioSettings,
   virtualMicStatus,
+  testTone,
 } from '../bridge';
 import type { OutputDevice, VirtualMicStatus } from '../core/types';
 import { t } from '../i18n';
@@ -26,6 +27,7 @@ export default function VirtualMicrophone({
   const [status, setStatus] = useState<VirtualMicStatus | null>(null);
   const [error, setError] = useState('');
   const [opening, setOpening] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [watching, setWatching] = useState(false);
   useEffect(() => {
     let active = true;
@@ -66,6 +68,18 @@ export default function VirtualMicrophone({
 
   const ready = !!status?.output && !!status.inputName && !status.partial && !error;
   const windows = status?.provider === 'vb-cable';
+  async function testMicrophone() {
+    if (!ready || !status?.output || testing) return;
+    setTesting(true);
+    try {
+      await testTone(status.output.id);
+      notify(t('测试音已发送到虚拟麦克风，请在聊天软件的麦克风测试中确认。'));
+    } catch (reason) {
+      notify(String(reason));
+    } finally {
+      setTesting(false);
+    }
+  }
   async function install() {
     setOpening(true);
     try {
@@ -128,7 +142,17 @@ export default function VirtualMicrophone({
               <p>
                 <strong>{status.inputName}</strong>
               </p>
+              {selected !== status.output!.id && (
+                <p>{t('尚未用于发送：请点击“用作发送设备”，再保存更改。')}</p>
+              )}
               <p>{t('试听设备请选择真实耳机或扬声器，然后保存更改。')}</p>
+              <p>{t('安装驱动不会转发实体麦克风。请在 VoxBridge 中输入或录音并发送语音。')}</p>
+              <p className="virtual-mic-credit">
+                <button className="subtle" disabled={testing} onClick={() => void testMicrophone()}>
+                  {t(testing ? '正在测试…' : '测试虚拟麦克风')}
+                </button>
+                <span>{t('测试音约 1 秒，通话中对方可能听到。')}</span>
+              </p>
             </>
           ) : (
             <p>

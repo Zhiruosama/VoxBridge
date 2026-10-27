@@ -46,6 +46,10 @@ jobs:
       # the later desktop build hook or a developer's local cache.
       - name: Prepare platform desktop resources
         run: node scripts/build-desktop-resources.mjs
+      - name: Validate Windows audio-default protection
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File native/windows/Audio-Defaults.Tests.ps1
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - name: Build Windows installer

@@ -3,6 +3,7 @@
   "bundle": {
     "resources": {
       "../native/windows/.build/VBCABLE_Driver_Pack45/": "virtual-microphone/vb-cable/",
+      "../native/windows/Audio-Defaults.cs": "virtual-microphone/Audio-Defaults.cs",
       "../native/windows/Manage-Virtual-Microphone.ps1": "virtual-microphone/Manage-Virtual-Microphone.ps1",
       "../native/windows/vb-cable-manifest.json": "virtual-microphone/vb-cable-manifest.json"
     },

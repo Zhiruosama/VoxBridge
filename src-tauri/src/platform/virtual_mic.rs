@@ -12,9 +12,25 @@ pub struct VirtualMicStatus {
 
 #[tauri::command]
 pub async fn virtual_mic_status() -> Result<VirtualMicStatus, String> {
-    tauri::async_runtime::spawn_blocking(status)
+    let status = tauri::async_runtime::spawn_blocking(status)
         .await
-        .map_err(|_| "无法检测虚拟麦克风。".to_string())?
+        .map_err(|_| "无法检测虚拟麦克风。".to_string())??;
+    crate::diagnostics::record(crate::diagnostics::DiagnosticEvent {
+        operation: "virtual_mic_status".into(),
+        kind: "state".into(),
+        phase: Some(
+            if status.output.is_some() && status.input_name.is_some() && !status.partial {
+                "ready"
+            } else {
+                "waitingDevice"
+            }
+            .into(),
+        ),
+        count: Some(u32::from(status.output.is_some()) + u32::from(status.input_name.is_some())),
+        failed_count: Some(u32::from(status.partial)),
+        ..Default::default()
+    });
+    Ok(status)
 }
 
 fn status() -> Result<VirtualMicStatus, String> {
@@ -127,14 +143,40 @@ pub(super) fn open_installer(window: &tauri::WebviewWindow) -> Result<(), String
     verify_package(&directory)?;
     // Keep the complete original vendor package beside the elevated installer.
     let directory = directory.canonicalize().map_err(|_| "无法定位安装目录。")?;
-    // ShellExecute does not consistently accept Windows extended-length prefixes.
-    let directory =
-        std::path::PathBuf::from(directory.to_string_lossy().trim_start_matches(r"\\?\"));
-    shell_open(
-        "runas",
-        &directory.join("VBCABLE_Setup_x64.exe"),
-        Some(&directory),
-    )
+    // All entry points use the same non-elevated wrapper. It snapshots the
+    // caller's defaults, elevates only vendor setup, and restores any displaced
+    // defaults. Launching the EXE directly bypasses that protection.
+    let helper = directory
+        .parent()
+        .ok_or("无法定位驱动管理器。")?
+        .join("Manage-Virtual-Microphone.ps1");
+    #[cfg(debug_assertions)]
+    let helper = if helper.is_file() {
+        helper
+    } else {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../native/windows/Manage-Virtual-Microphone.ps1")
+    };
+    if !helper.is_file() || !helper.with_file_name("Audio-Defaults.cs").is_file() {
+        return Err("虚拟麦克风管理器缺失，请重新安装 VoxBridge。".into());
+    }
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-WindowStyle",
+            "Hidden",
+            "-File",
+        ])
+        .arg(helper.to_string_lossy().trim_start_matches(r"\\?\"))
+        .arg("-PackageDirectory")
+        .arg(directory.to_string_lossy().trim_start_matches(r"\\?\"))
+        .creation_flags(0x08000000)
+        .spawn()
+        .map(|_| ())
+        .map_err(|_| "未能打开驱动管理器，请稍后重试。".into())
 }
 
 #[cfg(target_os = "windows")]

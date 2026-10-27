@@ -932,5 +932,11 @@
   "开始监听剪贴板": "Start watching clipboard",
   "暂停监听剪贴板": "Pause clipboard watching",
   "更新": "Update",
-  "稍后": "Later"
+  "稍后": "Later",
+  "测试音已发送到虚拟麦克风，请在聊天软件的麦克风测试中确认。": "Test tone sent to the virtual microphone. Check it using your chat app’s microphone test.",
+  "尚未用于发送：请点击“用作发送设备”，再保存更改。": "Not selected for sending: click “Use for sending”, then save changes.",
+  "安装驱动不会转发实体麦克风。请在 VoxBridge 中输入或录音并发送语音。": "Installing the driver does not forward your physical microphone. Type or record in VoxBridge, then send speech.",
+  "正在测试…": "Testing…",
+  "测试虚拟麦克风": "Test virtual microphone",
+  "测试音约 1 秒，通话中对方可能听到。": "The test tone lasts about 1 second. Others may hear it during a call."
 }
