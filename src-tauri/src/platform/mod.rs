@@ -16,6 +16,7 @@ pub struct OutputDevice {
 }
 
 pub(crate) const SYSTEM_DEFAULT_OUTPUT: &str = "__system_default__";
+pub(crate) const VIRTUAL_MICROPHONE_OUTPUT: &str = "__virtual_microphone__";
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn device_name(description: &cpal::DeviceDescription) -> String {
@@ -100,6 +101,14 @@ fn select_unique<T>(entries: impl Iterator<Item = (T, String)>, id: &str) -> Res
 }
 
 pub fn resolve_output(id: &str) -> Result<cpal::Device, String> {
+    // Auto-send means a verified virtual pair, never a system speaker fallback.
+    let virtual_id;
+    let id = if id == VIRTUAL_MICROPHONE_OUTPUT {
+        virtual_id = virtual_mic::ready_output_id()?;
+        virtual_id.as_str()
+    } else {
+        id
+    };
     if id == SYSTEM_DEFAULT_OUTPUT {
         return cpal::default_host()
             .default_output_device()
@@ -309,6 +318,17 @@ pub(crate) async fn wait_for_output(
     stop: &tokio_util::sync::CancellationToken,
     waiting: impl FnMut(),
 ) -> Result<String, String> {
+    // Bind once to a concrete endpoint before synthesis. A late default change
+    // or a newly connected cable must not redirect an already accepted request.
+    let virtual_id;
+    let id = if id == VIRTUAL_MICROPHONE_OUTPUT {
+        virtual_id = tauri::async_runtime::spawn_blocking(virtual_mic::ready_output_id)
+            .await
+            .map_err(|_| "无法检测虚拟麦克风。".to_string())??;
+        virtual_id.as_str()
+    } else {
+        id
+    };
     if id == SYSTEM_DEFAULT_OUTPUT {
         return wait_until_available(
             stop,

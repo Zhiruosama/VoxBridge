@@ -144,6 +144,7 @@ pub fn run() {
             asr::transcribe_wav,
             asr::stop_asr,
             audio::list_outputs,
+            audio::inspect_speech_output,
             audio::test_tone,
             audio::stop_tone,
             capture::list_capture_sources,

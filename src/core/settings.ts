@@ -2,7 +2,7 @@ import { parseTextOverlayAppearance, textOverlayAppearanceDefaults } from './tex
 import { textPanelOpacity } from './text-translation-layout';
 import { parseSpeechOptions } from './speech-options';
 import { parseUiLanguage } from '../i18n';
-import { systemDefaultOutputId } from './audio-routing';
+import { systemDefaultOutputId, virtualMicrophoneOutputId } from './audio-routing';
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import type { ComposerSettings, ProviderProfile, Settings, Stage } from './types';
 import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
@@ -27,7 +27,7 @@ export const defaults: Settings = {
   captionFontSize: 17,
   audio: {
     previewDeviceId: systemDefaultOutputId,
-    sendDeviceId: systemDefaultOutputId,
+    sendDeviceId: virtualMicrophoneOutputId,
     monitorEnabled: false,
   },
   subtitle: { ...subtitleDefaults },
@@ -312,8 +312,8 @@ export function parseSettings(value: unknown): Settings {
           : systemDefaultOutputId,
       sendDeviceId:
         typeof (input.audio as Record<string, unknown> | undefined)?.sendDeviceId === 'string'
-          ? (input.audio as Record<string, string>).sendDeviceId || systemDefaultOutputId
-          : systemDefaultOutputId,
+          ? (input.audio as Record<string, string>).sendDeviceId || virtualMicrophoneOutputId
+          : virtualMicrophoneOutputId,
     },
     profiles,
     active: {

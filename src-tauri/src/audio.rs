@@ -15,6 +15,30 @@ pub fn list_outputs() -> Result<Vec<crate::platform::OutputDevice>, String> {
     crate::platform::list_outputs()
 }
 
+/// Read-only route preflight: no audio stream, provider call or OS-default change.
+#[tauri::command]
+pub async fn inspect_speech_output(
+    window: tauri::WebviewWindow,
+    device_id: String,
+) -> Result<crate::platform::OutputDevice, String> {
+    if window.label() != "main" {
+        return Err("此操作仅限主窗口。".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let device = crate::platform::resolve_output(&device_id)?;
+        device
+            .default_output_config()
+            .map_err(|_| "设备不支持默认输出格式。")?;
+        let id = crate::platform::output_id(&device)?;
+        crate::platform::list_outputs()?
+            .into_iter()
+            .find(|d| d.id == id)
+            .ok_or_else(|| "输出设备已断开，请刷新并重新选择。".into())
+    })
+    .await
+    .map_err(|_| "读取输出设备失败。".to_string())?
+}
+
 #[tauri::command]
 pub fn stop_tone(state: tauri::State<'_, ToneState>) {
     state.0.fetch_add(1, Ordering::SeqCst);

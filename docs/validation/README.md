@@ -27,6 +27,8 @@
 
 ## 文字输入与翻译
 
+- [Windows 首次使用虚拟麦克风的配置阻塞](2026-10-27-windows-first-run-speech.md) — 2026-10-27
+
 - [剪贴板翻译与独立小窗](2026-10-27-clipboard-translation.md) — 2026-10-27
 
 - [Clear input after successful send](2026-10-23-clear-composer.md) — 2026-10-23

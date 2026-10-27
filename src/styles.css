@@ -552,6 +552,30 @@ nav button[aria-current='page'] {
   padding: 16px 24px 24px;
   flex-shrink: 0;
 }
+.speech-setup {
+  margin: 0 4px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.speech-route-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.speech-route-status > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.speech-setup p {
+  margin: 3px 0;
+}
+.speech-setup .subtle {
+  min-height: 24px;
+  padding: 2px 6px;
+  font-size: inherit;
+}
 .composer-box {
   position: relative;
   background: var(--raised);

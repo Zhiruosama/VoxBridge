@@ -198,7 +198,16 @@ it('preserves manual pause during failure and retry, then resumes despite failed
 it('editing a prepared waiting message discards the old audio and keeps FIFO position', async () => {
   const f = fixture();
   const a = f.enqueue('one'),
-    b = f.enqueue('two');
+    b = f.queue.run(
+      {
+        id: 'two',
+        text: 'two',
+        settings: f.settings,
+        action: 'speak',
+        detection: { language: '英语' },
+      },
+      { accepted: f.accepted, translation: f.translation, phase: () => {} },
+    );
   await vi.waitFor(() => expect(f.queue.snapshot().items[1].status).toBe('ready'));
   await f.queue.edit('two', 'edited');
   await vi.waitFor(() => expect(f.deps.prepare).toHaveBeenCalledTimes(2));

@@ -104,6 +104,10 @@ import {
 
 import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
 import { migrateLegacyOutputRouting } from './core/audio-routing';
+import { virtualMicrophoneOutputId } from './core/audio-routing';
+import { ComposerSetupError, preflightComposer } from './core/composer-preflight';
+import SpeechSetup from './components/SpeechSetup';
+import { inspectSpeechOutput } from './bridge';
 import { useTextSelection } from './hooks/useTextSelection';
 
 const languages = [
@@ -729,6 +733,7 @@ export default function App() {
     }
     const id = crypto.randomUUID();
     const source = sourceOverride ?? text;
+    const submittedSettings = structuredClone(settings);
     const sourceRevision = draftRevisionRef.current;
     let clearedRevision: number | null = null;
     const restoreSubmittedDraft = () => {
@@ -743,11 +748,17 @@ export default function App() {
     };
     const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
     try {
+      const detection = await preflightComposer(submittedSettings, source, action, route, {
+        detect: detectTextLanguage,
+        output: inspectSpeechOutput,
+      });
+      if (!mountedRef.current) return;
       const outcome = await (action === 'speak' ? sendQueue : composer).run(
         {
           id,
           text: source,
-          settings,
+          settings: submittedSettings,
+          detection,
           action,
           route,
           listening: Boolean(listeningRef.current),
@@ -787,7 +798,13 @@ export default function App() {
     } catch (error) {
       restoreSubmittedDraft();
       if (mountedRef.current) {
-        notify(String(error));
+        if (error instanceof ComposerSetupError)
+          recordDiagnostic({
+            operation: 'frontend',
+            kind: 'error',
+            reason: error.section === 'general' ? 'device' : 'configuration',
+          });
+        notify(String(error), error instanceof ComposerSetupError ? error.section : undefined);
         options?.onError(String(error));
       }
     }
@@ -1243,6 +1260,21 @@ export default function App() {
                 </button>
               )}
               <section className="composer-area" aria-label={t('文字表达')}>
+                <SpeechSetup
+                  settings={settings}
+                  onSettings={(section) =>
+                    openSettings(section, section === 'general' ? 'audio-heading' : undefined)
+                  }
+                  onVirtual={() =>
+                    persist({
+                      ...settings,
+                      audio: { ...settings.audio, sendDeviceId: virtualMicrophoneOutputId },
+                    })
+                  }
+                  onSource={() =>
+                    persist({ ...settings, composer: { ...settings.composer, output: 'source' } })
+                  }
+                />
                 <div className={`composer-box${voice ? ' is-voice-active' : ''}`}>
                   {voice && (
                     <div className="voice-recording" aria-label={t('语音输入')}>

@@ -80,6 +80,7 @@ export class ComposerController {
       listening?: boolean;
       route?: ComposerSettings['route'];
       output?: ComposerSettings['output'];
+      detection?: { language: string | null };
     },
     callbacks: {
       accepted?: () => void;
@@ -122,7 +123,9 @@ export class ComposerController {
       callbacks.accepted?.();
       let content = text;
       let detected: string | null = null;
-      if (this.dependencies.detectLanguage) {
+      if (input.detection) {
+        detected = input.detection.language;
+      } else if (this.dependencies.detectLanguage) {
         callbacks.phase('detecting');
         detected = await this.dependencies.detectLanguage(text);
         if (operation.cancelled) return 'stopped';

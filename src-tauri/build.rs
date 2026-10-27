@@ -32,6 +32,7 @@ fn main() {
             "transcribe_wav",
             "stop_asr",
             "list_outputs",
+            "inspect_speech_output",
             "test_tone",
             "stop_tone",
             "list_capture_sources",

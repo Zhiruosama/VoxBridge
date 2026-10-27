@@ -66,6 +66,10 @@ export async function cancelTranslation(requestId: string) {
 export async function listOutputs(): Promise<OutputDevice[]> {
   return desktop ? invoke('list_outputs') : [];
 }
+export async function inspectSpeechOutput(deviceId: string): Promise<OutputDevice> {
+  if (!desktop) throw new Error('音频设备测试需要桌面版。');
+  return invoke('inspect_speech_output', { deviceId });
+}
 export async function testTone(deviceId: string) {
   if (!desktop) throw new Error('音频设备测试需要桌面版。');
   return invoke('test_tone', { deviceId });
