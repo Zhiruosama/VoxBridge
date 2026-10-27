@@ -571,7 +571,6 @@ mod tests {
     use std::io::{BufRead, BufReader, Read, Write};
 
     #[test]
-    #[cfg(target_os = "macos")]
     fn wrong_target_language_is_not_accepted_as_a_translation() {
         let english = "This is a wonderful day and I would like to talk to my friends.";
         for target in [

@@ -104,7 +104,7 @@ describe('provider profiles', () => {
     const input = { ...structuredClone(defaults), audio: undefined };
     expect(parseSettings(input).audio).toEqual({
       previewDeviceId: '__system_default__',
-      sendDeviceId: '__system_default__',
+      sendDeviceId: '__virtual_microphone__',
       monitorEnabled: false,
     });
     const withAudio = {
@@ -117,15 +117,21 @@ describe('provider profiles', () => {
       monitorEnabled: false,
     });
   });
-  it('defaults empty output settings to following the system and preserves explicit routes', () => {
+  it('defaults sending to a virtual microphone, previews to the system, and preserves explicit routes', () => {
     const settings = structuredClone(defaults);
     settings.audio.previewDeviceId = '';
     settings.audio.sendDeviceId = '';
     expect(parseSettings(settings).audio.previewDeviceId).toBe('__system_default__');
-    expect(parseSettings(settings).audio.sendDeviceId).toBe('__system_default__');
+    expect(parseSettings(settings).audio.sendDeviceId).toBe('__virtual_microphone__');
     expect(parseSettings(defaults).audio.previewDeviceId).toBe('__system_default__');
-    expect(parseSettings(defaults).audio.sendDeviceId).toBe('__system_default__');
-    for (const id of ['windows-output:61', 'macos-output:61', 'disconnected-device']) {
+    expect(parseSettings(defaults).audio.sendDeviceId).toBe('__virtual_microphone__');
+    for (const id of [
+      '__system_default__',
+      '__virtual_microphone__',
+      'windows-output:61',
+      'macos-output:61',
+      'disconnected-device',
+    ]) {
       settings.audio.sendDeviceId = id;
       expect(parseSettings(settings).audio.sendDeviceId).toBe(id);
     }

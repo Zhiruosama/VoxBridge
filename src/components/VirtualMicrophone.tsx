@@ -10,16 +10,19 @@ import {
 import type { OutputDevice, VirtualMicStatus } from '../core/types';
 import { t } from '../i18n';
 import SettingRow from './SettingRow';
+import { virtualMicrophoneOutputId } from '../core/audio-routing';
 
 export default function VirtualMicrophone({
   devices,
   selected,
+  savedSelected,
   onSelect,
   onRefresh,
   notify,
 }: {
   devices: OutputDevice[];
   selected: string;
+  savedSelected: string;
   onSelect: (id: string) => void;
   onRefresh: () => Promise<void>;
   notify: (message: string) => void;
@@ -68,6 +71,9 @@ export default function VirtualMicrophone({
 
   const ready = !!status?.output && !!status.inputName && !status.partial && !error;
   const windows = status?.provider === 'vb-cable';
+  const selectedVirtual = selected === virtualMicrophoneOutputId || selected === status?.output?.id;
+  const savedVirtual =
+    savedSelected === virtualMicrophoneOutputId || savedSelected === status?.output?.id;
   async function testMicrophone() {
     if (!ready || !status?.output || testing) return;
     setTesting(true);
@@ -115,10 +121,16 @@ export default function VirtualMicrophone({
         {ready ? (
           <button
             className="subtle"
-            disabled={selected === status.output!.id}
+            disabled={selectedVirtual}
             onClick={() => onSelect(status.output!.id)}
           >
-            {t(selected === status.output!.id ? '已设为发送设备' : '用作发送设备')}
+            {t(
+              selectedVirtual
+                ? savedVirtual
+                  ? '已设为发送设备'
+                  : '已选择，保存更改后生效'
+                : '用作发送设备',
+            )}
           </button>
         ) : (
           <button
@@ -142,9 +154,7 @@ export default function VirtualMicrophone({
               <p>
                 <strong>{status.inputName}</strong>
               </p>
-              {selected !== status.output!.id && (
-                <p>{t('尚未用于发送：请点击“用作发送设备”，再保存更改。')}</p>
-              )}
+              {!selectedVirtual && <p>{t('尚未用于发送：请点击“用作发送设备”，再保存更改。')}</p>}
               <p>{t('试听设备请选择真实耳机或扬声器，然后保存更改。')}</p>
               <p>{t('安装驱动不会转发实体麦克风。请在 VoxBridge 中输入或录音并发送语音。')}</p>
               <p className="virtual-mic-credit">

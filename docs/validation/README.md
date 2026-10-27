@@ -13,6 +13,7 @@
 - [ASR 纠正、短回答与音频诊断](2026-10-27-asr-accuracy.md) — 2026-10-27
 
 - [Windows 与 Mac 后端对齐](2026-10-26-windows-backend-parity.md) — 2026-10-26
+- [Windows 0.5 后端与浮窗对齐](2026-10-27-windows-0.5-parity.md) — 2026-10-27
 
 - [Application selection for listening](2026-10-23-application-capture.md) — 2026-10-23
 - [2026-10-23 Mac 受控音频闭环](2026-10-23-capture-loop.md) — 2026-10-23
@@ -25,6 +26,8 @@
 - [单句译文校验失败导致监听停止](2026-10-25-listening-translation-failures.md) — 2026-10-25
 
 ## 文字输入与翻译
+
+- [Windows 首次使用虚拟麦克风的配置阻塞](2026-10-27-windows-first-run-speech.md) — 2026-10-27
 
 - [剪贴板翻译与独立小窗](2026-10-27-clipboard-translation.md) — 2026-10-27
 

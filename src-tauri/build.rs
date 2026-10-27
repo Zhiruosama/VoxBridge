@@ -1,4 +1,11 @@
 fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        // Tauri embeds its Windows manifest in the application binary only.
+        // Native GUI regression examples also need Common Controls v6 before
+        // the loader can resolve Tao's TaskDialogIndirect import.
+        println!("cargo:rustc-link-arg-examples=/MANIFEST:EMBED");
+        println!("cargo:rustc-link-arg-examples=/MANIFESTDEPENDENCY:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'");
+    }
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "setup_inspect",
@@ -25,6 +32,7 @@ fn main() {
             "transcribe_wav",
             "stop_asr",
             "list_outputs",
+            "inspect_speech_output",
             "test_tone",
             "stop_tone",
             "list_capture_sources",

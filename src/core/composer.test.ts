@@ -133,7 +133,7 @@ describe('selected language and direct speech', () => {
 });
 
 describe('composer operation', () => {
-  it('uses the system output for an unconfigured route before any settings visit', async () => {
+  it('uses automatic virtual sending and system preview before any settings visit', async () => {
     const { controller, input, callbacks, dependencies } = fixture();
     input.settings = parseSettings({
       ...input.settings,
@@ -145,7 +145,7 @@ describe('composer operation', () => {
       expect.any(String),
       {
         previewDeviceId: '__system_default__',
-        sendDeviceId: '__system_default__',
+        sendDeviceId: '__virtual_microphone__',
         monitorEnabled: true,
       },
       'send',

@@ -308,7 +308,8 @@ export class SendQueue {
     if (job.status === 'failed') this.jobs = [...this.jobs.filter((j) => j !== job), job];
     job.generation++;
     job.wake?.();
-    job.input = { ...job.input, text };
+    // A language preflight belongs to the submitted text, never an edited draft.
+    job.input = { ...job.input, text, detection: undefined };
     job.error = '';
     job.status = 'queued';
     job.controller = undefined;

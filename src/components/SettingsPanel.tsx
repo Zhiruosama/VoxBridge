@@ -9,7 +9,11 @@ import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
 import { blankProfile, profileFor, captionColorDefaults, defaults } from '../core/settings';
-import { previewDeviceOptions, migrateLegacyOutputRouting } from '../core/audio-routing';
+import {
+  previewDeviceOptions,
+  sendDeviceOptions,
+  migrateLegacyOutputRouting,
+} from '../core/audio-routing';
 import {
   credentialStatus,
   desktop,
@@ -828,6 +832,7 @@ export default function SettingsPanel({
               <VirtualMicrophone
                 devices={devices}
                 selected={draft.audio.sendDeviceId}
+                savedSelected={savedSettings.audio.sendDeviceId}
                 onSelect={(id) =>
                   setDraft((current) => ({
                     ...current,
@@ -900,7 +905,7 @@ export default function SettingsPanel({
                   value={draft.audio.sendDeviceId}
                   disabled={!desktop || refreshing}
                   placeholder={t('系统默认')}
-                  options={previewDeviceOptions(devices, draft.audio.sendDeviceId)}
+                  options={sendDeviceOptions(devices, draft.audio.sendDeviceId)}
                   onChange={(value) =>
                     setDraft({ ...draft, audio: { ...draft.audio, sendDeviceId: value } })
                   }
@@ -915,7 +920,7 @@ export default function SettingsPanel({
               <div className="virtual-mic-help">
                 <p>
                   {t(
-                    '未指定输出设备时跟随系统默认耳机或扬声器；要让聊天软件收到语音，请将发送设备改为虚拟麦克风。',
+                    '新用户默认自动选择虚拟麦克风发送，试听跟随系统默认；驱动未就绪时不会改发到扬声器。已有设备选择保持不变。',
                   )}
                 </p>
               </div>

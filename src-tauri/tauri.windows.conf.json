@@ -49,6 +49,25 @@
         "alwaysOnTop": true,
         "visibleOnAllWorkspaces": true,
         "transparent": true,
+        "shadow": false,
+        "decorations": false,
+        "skipTaskbar": true
+      },
+      {
+        "label": "text-overlay",
+        "create": false,
+        "title": "VoxBridge 文本翻译",
+        "url": "index.html?window=text-overlay",
+        "width": 560,
+        "height": 300,
+        "minWidth": 360,
+        "minHeight": 180,
+        "visible": false,
+        "focus": false,
+        "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
+        "transparent": true,
+        "shadow": false,
         "decorations": false,
         "skipTaskbar": true
       }

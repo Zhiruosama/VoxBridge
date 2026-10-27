@@ -1,5 +1,5 @@
-//! Two invisible native panels using production ownership and content transfer.
-//! This example never initializes clipboard access or calls any model service.
+//! Isolated native window regression: Mac panel ownership and Windows config.
+//! Never initializes clipboard access or calls any model service.
 #[cfg(target_os = "macos")]
 #[path = "../src/overlay/panel.rs"]
 mod panel;
@@ -44,7 +44,43 @@ fn main() {
         app.handle().exit(0); Ok(())
     }).run(context).expect("text panel regression failed");
 }
-#[cfg(not(target_os = "macos"))]
+// Exercise the merged Windows config, not a hand-written replacement. Hidden
+// about:blank WebViews use a separate identifier/profile and never read the
+// user's settings, clipboard or credentials.
+#[cfg(target_os = "windows")]
 fn main() {
-    println!("macOS-only panel regression");
+    use std::collections::HashSet;
+    use tauri::Manager;
+    let mut context = tauri::generate_context!();
+    context.config_mut().identifier = "dev.voxbridge.text-panel-regression".into();
+    tauri::Builder::default()
+        .setup(|app| {
+            let labels: HashSet<_> = app.config().app.windows.iter().map(|w| w.label.as_str()).collect();
+            assert_eq!(labels, HashSet::from(["main", "subtitle", "text-overlay"]));
+            let profile = std::env::temp_dir().join(format!("VoxBridgeWindowRegression-{}", std::process::id()));
+            let mut handles = HashSet::new();
+            for config in &app.config().app.windows {
+                let mut fixture = config.clone();
+                fixture.url = tauri::WebviewUrl::External("about:blank".parse()?);
+                let window = tauri::WebviewWindowBuilder::from_config(app, &fixture)?
+                    .data_directory(profile.join(&config.label))
+                    .visible(false)
+                    .build()?;
+                assert!(!window.is_visible()?);
+                assert!(handles.insert(window.hwnd()?.0 as usize));
+                let size = window.inner_size()?.to_logical::<f64>(window.scale_factor()?);
+                assert!(size.width >= config.min_width.unwrap_or(1.0));
+                assert!(size.height >= config.min_height.unwrap_or(1.0));
+                assert!(app.get_webview_window(&config.label).is_some());
+            }
+            println!("PASS: merged Windows config creates main, subtitle and text-overlay as independent hidden native WebViews within their size limits; no user profile or clipboard access");
+            app.handle().exit(0);
+            Ok(())
+        })
+        .run(context)
+        .expect("Windows text window regression failed");
+}
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn main() {
+    println!("Desktop window regression requires macOS or Windows");
 }

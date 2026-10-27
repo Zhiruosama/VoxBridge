@@ -1,6 +1,7 @@
 import type { AudioRouting, OutputDevice } from './types';
 
 export const systemDefaultOutputId = '__system_default__';
+export const virtualMicrophoneOutputId = '__virtual_microphone__';
 
 /** Upgrade only exact, unambiguous Windows device names; never guess a route. */
 export function migrateLegacyOutputRouting(
@@ -11,6 +12,7 @@ export function migrateLegacyOutputRouting(
     if (
       !value ||
       value === systemDefaultOutputId ||
+      value === virtualMicrophoneOutputId ||
       value.startsWith('windows-output:') ||
       value.startsWith('macos-output:')
     )
@@ -33,6 +35,13 @@ export function previewDeviceOptions(devices: OutputDevice[], value: string) {
   return [
     { value: systemDefaultOutputId, label: '系统默认' },
     ...outputDeviceOptions(devices, value === systemDefaultOutputId ? '' : value),
+  ];
+}
+
+export function sendDeviceOptions(devices: OutputDevice[], value: string) {
+  return [
+    { value: virtualMicrophoneOutputId, label: '自动选择虚拟麦克风（推荐）' },
+    ...previewDeviceOptions(devices, value === virtualMicrophoneOutputId ? '' : value),
   ];
 }
 

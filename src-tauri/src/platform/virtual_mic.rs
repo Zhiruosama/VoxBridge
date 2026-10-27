@@ -80,6 +80,50 @@ fn status() -> Result<VirtualMicStatus, String> {
     })
 }
 
+fn ready_output(status: VirtualMicStatus) -> Result<String, String> {
+    if status.partial || status.input_name.is_none() {
+        return Err("虚拟麦克风未就绪，请安装驱动、按提示重启电脑后刷新设备。".into());
+    }
+    status
+        .output
+        .map(|output| output.id)
+        .ok_or_else(|| "虚拟麦克风未就绪，请安装驱动、按提示重启电脑后刷新设备。".into())
+}
+
+pub(super) fn ready_output_id() -> Result<String, String> {
+    ready_output(status()?)
+}
+
+#[cfg(test)]
+mod readiness_tests {
+    use super::*;
+    #[test]
+    fn automatic_send_requires_both_virtual_ends_and_never_falls_back() {
+        for (output, input, partial, ready) in [
+            (false, false, false, false),
+            (true, false, true, false),
+            (false, true, true, false),
+            (true, true, true, false),
+            (true, true, false, true),
+        ] {
+            let result = ready_output(VirtualMicStatus {
+                provider: "fixture",
+                output: output.then(|| OutputDevice {
+                    id: "virtual-id".into(),
+                    name: "Cable".into(),
+                }),
+                input_name: input.then(|| "Virtual input".into()),
+                partial,
+            });
+            if ready {
+                assert_eq!(result.unwrap(), "virtual-id");
+            } else {
+                assert!(result.unwrap_err().contains("虚拟麦克风未就绪"));
+            }
+        }
+    }
+}
+
 #[cfg(target_os = "windows")]
 pub(crate) fn is_cable_endpoint(name: &str, direction: &str) -> bool {
     let name = name.to_ascii_lowercase();
@@ -238,6 +282,22 @@ pub fn open_virtual_mic_vendor(window: tauri::WebviewWindow) -> Result<(), Strin
 #[cfg(all(test, target_os = "windows"))]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "manual read-only: installed base VB-CABLE required; no audio streams"]
+    fn automatic_virtual_output_resolves_to_the_verified_cable_pair() {
+        let expected = ready_output_id().unwrap();
+        let device =
+            crate::platform::resolve_output(crate::platform::VIRTUAL_MICROPHONE_OUTPUT).unwrap();
+        assert_eq!(crate::platform::output_id(&device).unwrap(), expected);
+        let stop = tokio_util::sync::CancellationToken::new();
+        let waited = tauri::async_runtime::block_on(crate::platform::wait_for_output(
+            crate::platform::VIRTUAL_MICROPHONE_OUTPUT,
+            &stop,
+            || {},
+        ))
+        .unwrap();
+        assert_eq!(waited, expected);
+    }
     #[test]
     #[ignore = "manual: requires verified vendor resources; does not install or open audio streams"]
     fn verify_vendor_resources_and_read_only_inventory() {

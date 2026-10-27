@@ -33,6 +33,7 @@
     "allow-transcribe-wav",
     "allow-stop-asr",
     "allow-list-outputs",
+    "allow-inspect-speech-output",
     "allow-test-tone",
     "allow-stop-tone",
     "allow-list-capture-sources",

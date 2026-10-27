@@ -104,6 +104,8 @@ import {
 
 import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
 import { migrateLegacyOutputRouting } from './core/audio-routing';
+import { ComposerSetupError, preflightComposer } from './core/composer-preflight';
+import { inspectSpeechOutput } from './bridge';
 import { useTextSelection } from './hooks/useTextSelection';
 
 const languages = [
@@ -157,6 +159,13 @@ export default function App() {
         kind: 'error',
         phase: 'settings_load_failed',
         reason: 'configuration',
+      });
+    else
+      recordDiagnostic({
+        operation: 'frontend',
+        kind: 'state',
+        phase: 'settings_loaded',
+        count: initial.settings.profiles.filter((profile) => !validateProfile(profile)).length,
       });
   }, [initial]);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
@@ -729,6 +738,7 @@ export default function App() {
     }
     const id = crypto.randomUUID();
     const source = sourceOverride ?? text;
+    const submittedSettings = structuredClone(settings);
     const sourceRevision = draftRevisionRef.current;
     let clearedRevision: number | null = null;
     const restoreSubmittedDraft = () => {
@@ -743,11 +753,17 @@ export default function App() {
     };
     const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
     try {
+      const detection = await preflightComposer(submittedSettings, source, action, route, {
+        detect: detectTextLanguage,
+        output: inspectSpeechOutput,
+      });
+      if (!mountedRef.current) return;
       const outcome = await (action === 'speak' ? sendQueue : composer).run(
         {
           id,
           text: source,
-          settings,
+          settings: submittedSettings,
+          detection,
           action,
           route,
           listening: Boolean(listeningRef.current),
@@ -787,7 +803,13 @@ export default function App() {
     } catch (error) {
       restoreSubmittedDraft();
       if (mountedRef.current) {
-        notify(String(error));
+        if (error instanceof ComposerSetupError)
+          recordDiagnostic({
+            operation: 'frontend',
+            kind: 'error',
+            reason: error.section === 'general' ? 'device' : 'configuration',
+          });
+        notify(String(error), error instanceof ComposerSetupError ? error.section : undefined);
         options?.onError(String(error));
       }
     }

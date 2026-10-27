@@ -10,6 +10,7 @@ const commands = new Set([
   'translate',
   'cancel_translation',
   'list_outputs',
+  'inspect_speech_output',
   'test_tone',
   'stop_tone',
   'speak',

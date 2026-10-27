@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { outputDeviceOptions, previewDeviceOptions, systemDefaultOutputId } from './audio-routing';
+import {
+  outputDeviceOptions,
+  previewDeviceOptions,
+  sendDeviceOptions,
+  systemDefaultOutputId,
+  virtualMicrophoneOutputId,
+} from './audio-routing';
 import { migrateLegacyOutputRouting } from './audio-routing';
 
 describe('Windows output configuration upgrade', () => {
@@ -39,7 +45,13 @@ describe('Windows output configuration upgrade', () => {
   });
 
   it('preserves default, empty, disconnected and foreign platform IDs', () => {
-    for (const id of ['', systemDefaultOutputId, 'windows-output:99', 'macos-output:99']) {
+    for (const id of [
+      '',
+      systemDefaultOutputId,
+      virtualMicrophoneOutputId,
+      'windows-output:99',
+      'macos-output:99',
+    ]) {
       const audio = { previewDeviceId: id, sendDeviceId: id };
       expect(
         migrateLegacyOutputRouting(audio, [...outputs, { id: 'windows-output:64', name: id }]),
@@ -97,6 +109,14 @@ describe('output device options', () => {
 });
 
 describe('system default preview output', () => {
+  it('keeps automatic virtual sending distinct from speaker preview and unavailable IDs', () => {
+    expect(sendDeviceOptions([], virtualMicrophoneOutputId)).toEqual([
+      { value: virtualMicrophoneOutputId, label: '自动选择虚拟麦克风（推荐）' },
+      { value: systemDefaultOutputId, label: '系统默认' },
+    ]);
+    expect(previewDeviceOptions([], systemDefaultOutputId)).toHaveLength(1);
+    expect(sendDeviceOptions([], 'windows-output:99').at(-1)?.label).toContain('不可用');
+  });
   it('keeps a stable default option as headphones disconnect and reconnect', () => {
     const option = { value: systemDefaultOutputId, label: '系统默认' };
     expect(previewDeviceOptions(devices, systemDefaultOutputId)[0]).toEqual(option);

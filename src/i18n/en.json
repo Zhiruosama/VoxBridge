@@ -938,5 +938,22 @@
   "安装驱动不会转发实体麦克风。请在 VoxBridge 中输入或录音并发送语音。": "Installing the driver does not forward your physical microphone. Type or record in VoxBridge, then send speech.",
   "正在测试…": "Testing…",
   "测试虚拟麦克风": "Test virtual microphone",
-  "测试音约 1 秒，通话中对方可能听到。": "The test tone lasts about 1 second. Others may hear it during a call."
+  "测试音约 1 秒，通话中对方可能听到。": "The test tone lasts about 1 second. Others may hear it during a call.",
+  "自动选择虚拟麦克风（推荐）": "Select virtual microphone automatically (recommended)",
+  "语音发送检查": "Speech output checks",
+  "新用户默认自动选择虚拟麦克风发送，试听跟随系统默认；驱动未就绪时不会改发到扬声器。已有设备选择保持不变。": "New setups send to the virtual microphone automatically and preview on the system output. An unavailable driver never redirects sending to speakers. Existing device choices are preserved.",
+  "发送到：{0}": "Send to: {0}",
+  "试听到：{0}": "Preview on: {0}",
+  "设备未就绪": "Device not ready",
+  "改用虚拟麦克风并保存": "Use virtual microphone and save",
+  "聊天软件的麦克风请选择：{0}": "Select this microphone in your chat app: {0}",
+  "当前发送设备不是 VoxBridge 虚拟麦克风，请确认聊天软件使用对应输入。": "The selected output is not the VoxBridge virtual microphone. Check that your chat app uses the corresponding input.",
+  "请先配置语音合成服务": "Configure speech synthesis first",
+  "译文发送尚未配置文字翻译服务。": "Translated speech needs a configured translation service.",
+  "配置文字翻译": "Configure translation",
+  "改发原文并保存": "Send original text and save",
+  "录音结束后发送合成语音；不会直通麦克风原声。": "Finishing a recording sends synthesized speech; it does not forward live microphone audio.",
+  "录音后先填入文字，确认后点击发送；不会直通麦克风原声。": "Recording fills the text box. Review it and click Send; live microphone audio is not forwarded.",
+  "已选择，保存更改后生效": "Selected; save changes to apply",
+  "虚拟麦克风未就绪，请安装驱动、按提示重启电脑后刷新设备。": "Virtual microphone not ready. Install its driver, restart as instructed, then refresh devices."
 }
