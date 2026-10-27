@@ -1,5 +1,6 @@
 #[cfg(target_os = "macos")]
 mod panel;
+mod resize;
 pub mod voice;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -286,6 +287,43 @@ pub async fn drag_overlay(
     }
 }
 
+#[tauri::command]
+pub async fn resize_overlay(
+    window: tauri::WebviewWindow,
+    id: String,
+    phase: String,
+    direction: tauri_runtime::ResizeDirection,
+) -> Result<(), String> {
+    if window.label() != "subtitle"
+        || id.is_empty()
+        || id.len() > 128
+        || !matches!(phase.as_str(), "begin" | "move" | "end")
+    {
+        return Err("字幕缩放请求无效。".into());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(panel::resize(id, &phase, direction));
+            })
+            .map_err(|_| "无法调整字幕窗大小。")?;
+        rx.await.map_err(|_| "字幕窗已关闭。")?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        if phase != "begin" {
+            return Ok(());
+        }
+        let webview: &tauri::Webview = window.as_ref();
+        webview
+            .window()
+            .start_resize_dragging(direction)
+            .map_err(|_| "无法调整字幕窗大小。".into())
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn subtitle_collection_behavior(
     current: objc2_app_kit::NSWindowCollectionBehavior,
@@ -500,6 +538,7 @@ mod tests {
             "core:event:allow-listen",
             "core:event:allow-unlisten",
             "allow-drag-overlay",
+            "allow-resize-overlay",
             "allow-read-overlay-voice",
             "allow-overlay-voice-action",
             "allow-read-overlay",

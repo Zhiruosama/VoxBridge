@@ -197,6 +197,23 @@ export async function cancelVoiceInput(requestId: string) {
   await invoke('cancel_voice_input', { requestId });
 }
 
+export type OverlayResizeDirection =
+  | 'North'
+  | 'South'
+  | 'East'
+  | 'West'
+  | 'NorthEast'
+  | 'NorthWest'
+  | 'SouthEast'
+  | 'SouthWest';
+export async function resizeOverlay(
+  id: string,
+  phase: 'begin' | 'move' | 'end',
+  direction: OverlayResizeDirection,
+): Promise<void> {
+  await invoke('resize_overlay', { id, phase, direction });
+}
+
 export async function dragOverlay(
   id: string,
   phase: 'begin' | 'move' | 'end',

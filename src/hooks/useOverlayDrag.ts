@@ -1,5 +1,5 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
-import { dragOverlay } from '../bridge';
+import { dragOverlay, resizeOverlay, type OverlayResizeDirection } from '../bridge';
 
 type Drag = {
   id: string;
@@ -10,7 +10,9 @@ type Drag = {
   ended: boolean;
 };
 /** Coalesce pointer movement while one native update is in flight. No modal mouse loop. */
-export function useOverlayDrag(onError: () => void) {
+export function useOverlayDrag(onError: () => void, direction?: OverlayResizeDirection) {
+  const operation = (id: string, phase: 'begin' | 'move' | 'end') =>
+    direction ? resizeOverlay(id, phase, direction) : dragOverlay(id, phase);
   const active = useRef<Drag | null>(null);
   async function flush(drag: Drag) {
     if (drag.running) return;
@@ -21,10 +23,10 @@ export function useOverlayDrag(onError: () => void) {
         drag.latest = false;
         // Native macOS samples the cursor in global AppKit points. Sending
         // browser screen deltas creates jumps across displays with different DPI.
-        await dragOverlay(drag.id, 'move');
+        await operation(drag.id, 'move');
       }
       if (drag.ended) {
-        await dragOverlay(drag.id, 'end');
+        await operation(drag.id, 'end');
         if (active.current === drag) active.current = null;
       }
     } catch {
@@ -62,7 +64,7 @@ export function useOverlayDrag(onError: () => void) {
       const drag: Drag = {
         id,
         pointer: event.pointerId,
-        ready: dragOverlay(id, 'begin'),
+        ready: operation(id, 'begin'),
         latest: false,
         running: false,
         ended: false,

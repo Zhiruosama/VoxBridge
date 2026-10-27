@@ -49,6 +49,7 @@ fn main() {
             "show_overlay",
             "hide_overlay",
             "drag_overlay",
+            "resize_overlay",
             "focus_main",
             "stop_overlay_listening",
         ]),

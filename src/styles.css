@@ -2938,3 +2938,64 @@ input[type='range']:focus-visible::-moz-range-thumb {
 .subtitle-overlay-toolbar > span {
   flex-shrink: 0;
 }
+
+/* Include the transparent margin and visible rim, without adding a thicker border. */
+.overlay-resize-handle {
+  position: absolute;
+  z-index: 100;
+  touch-action: none;
+  user-select: none;
+}
+.overlay-resize-handle.edge-North,
+.overlay-resize-handle.edge-South {
+  left: 22px;
+  right: 22px;
+  height: 12px;
+  cursor: ns-resize;
+}
+.overlay-resize-handle.edge-North {
+  top: 0;
+}
+.overlay-resize-handle.edge-South {
+  bottom: 0;
+}
+.overlay-resize-handle.edge-East,
+.overlay-resize-handle.edge-West {
+  top: 22px;
+  bottom: 22px;
+  width: 12px;
+  cursor: ew-resize;
+}
+.overlay-resize-handle.edge-East {
+  right: 0;
+}
+.overlay-resize-handle.edge-West {
+  left: 0;
+}
+.overlay-resize-handle.edge-NorthEast,
+.overlay-resize-handle.edge-NorthWest,
+.overlay-resize-handle.edge-SouthEast,
+.overlay-resize-handle.edge-SouthWest {
+  width: 22px;
+  height: 22px;
+}
+.overlay-resize-handle.edge-NorthEast {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.overlay-resize-handle.edge-NorthWest {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.overlay-resize-handle.edge-SouthEast {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+.overlay-resize-handle.edge-SouthWest {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}

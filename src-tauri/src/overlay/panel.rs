@@ -6,7 +6,9 @@ use objc2_app_kit::{
     NSWindowOcclusionState, NSWindowStyleMask, NSWorkspace,
     NSWorkspaceActiveSpaceDidChangeNotification,
 };
-use objc2_foundation::{NSNotification, NSObject, NSObjectProtocol, NSPoint, NSString};
+use objc2_foundation::{
+    NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+};
 use std::{cell::RefCell, path::PathBuf};
 use tauri::Manager;
 
@@ -61,10 +63,17 @@ struct FloatingPanel {
     panel: Retained<SubtitlePanel>,
     _delegate: Retained<PanelDelegate>,
     drag: Option<PanelDrag>,
+    resize: Option<PanelResize>,
 }
 // Browser screen coordinates can change their scale/origin when WKWebView
 // crosses displays. Both the anchor and subsequent samples must use AppKit's
 // global logical points, including screens above/left of the primary display.
+struct PanelResize {
+    id: String,
+    frame: super::resize::Rect,
+    cursor: NSPoint,
+    direction: tauri_runtime::ResizeDirection,
+}
 struct PanelDrag {
     id: String,
     origin: NSPoint,
@@ -147,6 +156,7 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
                 panel,
                 _delegate: delegate,
                 drag: None,
+                resize: None,
             });
         }
         let item = current.as_ref().unwrap();
@@ -158,7 +168,9 @@ pub(super) fn show(window: &tauri::WebviewWindow) -> Result<(), String> {
 }
 pub(super) fn hide() {
     PANEL.with(|state| {
-        if let Some(item) = state.borrow().as_ref() {
+        if let Some(item) = state.borrow_mut().as_mut() {
+            item.drag = None;
+            item.resize = None;
             item.panel.orderOut(None);
         }
     });
@@ -173,6 +185,7 @@ pub(super) fn drag(id: String, phase: &str, x: f64, y: f64) -> Result<(), String
         let item = current.as_mut().ok_or("字幕窗尚未打开。")?;
         match phase {
             "begin" => {
+                item.resize = None;
                 item.drag = Some(PanelDrag {
                     id,
                     origin: item.panel.frame().origin,
@@ -194,6 +207,63 @@ pub(super) fn drag(id: String, phase: &str, x: f64, y: f64) -> Result<(), String
                 }
             }
             _ => return Err("字幕拖动状态无效。".into()),
+        }
+        Ok(())
+    })
+}
+
+pub(super) fn resize(
+    id: String,
+    phase: &str,
+    direction: tauri_runtime::ResizeDirection,
+) -> Result<(), String> {
+    PANEL.with(|state| {
+        let mut current = state.borrow_mut();
+        let item = current.as_mut().ok_or("字幕窗尚未打开。")?;
+        // A lost capture/end must not sample a cursor that has already moved
+        // elsewhere after the mouse was released.
+        if phase == "end" {
+            if item.resize.as_ref().is_some_and(|resize| resize.id == id) {
+                item.resize = None;
+                record_visibility(&item.panel, &item._delegate.ivars().log);
+            }
+            return Ok(());
+        }
+        if phase == "begin" {
+            let frame = item.panel.frame();
+            item.drag = None;
+            item.resize = Some(PanelResize {
+                id,
+                direction,
+                cursor: NSEvent::mouseLocation(),
+                frame: super::resize::Rect {
+                    x: frame.origin.x,
+                    y: frame.origin.y,
+                    width: frame.size.width,
+                    height: frame.size.height,
+                },
+            });
+        } else if let Some(resize) = &item.resize {
+            if resize.id != id {
+                return Ok(());
+            }
+            let cursor = NSEvent::mouseLocation();
+            let minimum = item.panel.contentMinSize();
+            let frame = super::resize::frame(
+                resize.frame,
+                resize.direction,
+                cursor.x - resize.cursor.x,
+                cursor.y - resize.cursor.y,
+                minimum.width.max(480.0),
+                minimum.height.max(220.0),
+            );
+            item.panel.setFrame_display(
+                NSRect::new(
+                    NSPoint::new(frame.x, frame.y),
+                    NSSize::new(frame.width, frame.height),
+                ),
+                true,
+            );
         }
         Ok(())
     })

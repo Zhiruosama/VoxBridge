@@ -905,5 +905,6 @@
   "下混低电平窗口": "Low downmix windows",
   "纠正字幕 / 句末分歧": "Corrected captions / final discrepancies",
   "双语字幕": "Bilingual captions",
-  "关闭后仅显示译文": "Show translations only when off"
+  "关闭后仅显示译文": "Show translations only when off",
+  "无法调整字幕窗大小，请重试。": "Could not resize the caption window. Please try again."
 }

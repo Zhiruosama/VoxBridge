@@ -1,5 +1,6 @@
 import CaptionFeed from './CaptionFeed';
 import BilingualToggle from './BilingualToggle';
+import OverlayResizeHandles from './OverlayResizeHandles';
 import { t, setUiLanguage, useUiLanguage } from '../i18n';
 import OverlayVoiceControls from './OverlayVoiceControls';
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -150,6 +151,7 @@ export default function SubtitleOverlay() {
         />
       </section>
       <div className="overlay-text-slot" ref={setEditorContainer} />
+      <OverlayResizeHandles onError={() => setError('无法调整字幕窗大小，请重试。')} />
     </div>
   );
 }
