@@ -104,9 +104,7 @@ import {
 
 import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
 import { migrateLegacyOutputRouting } from './core/audio-routing';
-import { virtualMicrophoneOutputId } from './core/audio-routing';
 import { ComposerSetupError, preflightComposer } from './core/composer-preflight';
-import SpeechSetup from './components/SpeechSetup';
 import { inspectSpeechOutput } from './bridge';
 import { useTextSelection } from './hooks/useTextSelection';
 
@@ -161,6 +159,13 @@ export default function App() {
         kind: 'error',
         phase: 'settings_load_failed',
         reason: 'configuration',
+      });
+    else
+      recordDiagnostic({
+        operation: 'frontend',
+        kind: 'state',
+        phase: 'settings_loaded',
+        count: initial.settings.profiles.filter((profile) => !validateProfile(profile)).length,
       });
   }, [initial]);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
@@ -1260,21 +1265,6 @@ export default function App() {
                 </button>
               )}
               <section className="composer-area" aria-label={t('文字表达')}>
-                <SpeechSetup
-                  settings={settings}
-                  onSettings={(section) =>
-                    openSettings(section, section === 'general' ? 'audio-heading' : undefined)
-                  }
-                  onVirtual={() =>
-                    persist({
-                      ...settings,
-                      audio: { ...settings.audio, sendDeviceId: virtualMicrophoneOutputId },
-                    })
-                  }
-                  onSource={() =>
-                    persist({ ...settings, composer: { ...settings.composer, output: 'source' } })
-                  }
-                />
                 <div className={`composer-box${voice ? ' is-voice-active' : ''}`}>
                   {voice && (
                     <div className="voice-recording" aria-label={t('语音输入')}>

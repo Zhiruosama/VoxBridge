@@ -77,6 +77,7 @@ const PHASES: &[&str] = &[
     "page_diagnostics",
     "settings_saved",
     "settings_load_failed",
+    "settings_loaded",
     "settings_save_failed",
     "theme_light",
     "theme_dark",
