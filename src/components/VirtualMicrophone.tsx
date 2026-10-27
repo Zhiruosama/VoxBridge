@@ -132,7 +132,7 @@ export default function VirtualMicrophone({
           </button>
         )}
       </SettingRow>
-      {(windows || error) && (
+      {(windows || ready || error || watching) && (
         <div className="virtual-mic-help">
           {error ? (
             <p role="alert">{t(error)}</p>
@@ -154,7 +154,7 @@ export default function VirtualMicrophone({
                 <span>{t('测试音约 1 秒，通话中对方可能听到。')}</span>
               </p>
             </>
-          ) : (
+          ) : windows ? (
             <p>
               {t(
                 status?.partial
@@ -162,7 +162,7 @@ export default function VirtualMicrophone({
                   : '安装 VB-CABLE 时请允许系统权限，并在安装器中点击 Install Driver。完成后请重启电脑，再回来刷新设备。',
               )}
             </p>
-          )}
+          ) : null}
           {watching && <p role="status">{t('正在等待虚拟麦克风就绪…')}</p>}
           {windows && (
             <p className="virtual-mic-credit">
