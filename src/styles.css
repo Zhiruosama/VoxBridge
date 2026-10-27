@@ -3071,7 +3071,11 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 
 .text-overlay-appearance-preview {
-  padding: 16px 20px;
+  margin-top: 14px;
+  padding: 20px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
   border-radius: 14px;
   overflow-wrap: anywhere;
   font-family: inherit;

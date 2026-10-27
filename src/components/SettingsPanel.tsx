@@ -657,17 +657,17 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
-              <div
-                className="text-overlay-appearance-preview"
-                style={{
-                  background: `rgba(22,24,29,${draft.textOverlay.backgroundOpacity})`,
-                  color: draft.textOverlay.textColor,
-                  fontSize: draft.textOverlay.fontSize,
-                  lineHeight: draft.textOverlay.lineHeight,
-                }}
-              >
-                {t('这是译文预览')}
-              </div>
+            </div>
+            <div
+              className="text-overlay-appearance-preview"
+              style={{
+                background: `rgba(22,24,29,${draft.textOverlay.backgroundOpacity})`,
+                color: draft.textOverlay.textColor,
+                fontSize: draft.textOverlay.fontSize,
+                lineHeight: draft.textOverlay.lineHeight,
+              }}
+            >
+              {t('这是译文预览')}
             </div>
           </section>
           <section className="preference-section" aria-labelledby="subtitle-heading">
