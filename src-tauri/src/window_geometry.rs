@@ -1,9 +1,12 @@
 //! macOS main-window zoom and WebView sizing share the native resize lifecycle.
 #[cfg(target_os = "macos")]
 mod mac {
-    use objc2::{define_class, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly};
+    use objc2::{
+        define_class, rc::Retained, runtime::AnyObject, DefinedClass, MainThreadMarker,
+        MainThreadOnly,
+    };
     use objc2_app_kit::{
-        NSAutoresizingMaskOptions as Mask, NSView, NSWindow,
+        NSAutoresizingMaskOptions as Mask, NSEvent, NSEventMask, NSView, NSWindow,
         NSWindowDidChangeBackingPropertiesNotification, NSWindowDidResizeNotification,
         NSWindowStyleMask,
     };
@@ -13,12 +16,15 @@ mod mac {
     use std::{
         cell::{Cell, RefCell},
         collections::BTreeMap,
+        ptr::NonNull,
     };
 
     pub struct State {
         window: Retained<NSWindow>,
         view: Retained<NSView>,
         restore: Cell<Option<NSRect>>,
+        // Retain the local monitor for the lifetime of the main window.
+        monitor: RefCell<Option<Retained<AnyObject>>>,
         #[cfg(debug_assertions)]
         resize_events: Cell<usize>,
     }
@@ -50,6 +56,8 @@ mod mac {
             }
         }
         fn toggle(&self) {
+            #[cfg(debug_assertions)]
+            let started = std::time::Instant::now();
             let state = self.ivars();
             if state
                 .window
@@ -86,7 +94,19 @@ mod mac {
             // explicitly. Native view autoresizing also runs throughout the resize.
             state.window.setFrame_display_animate(target, true, true);
             self.fit();
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "native animated titlebar zoom: {}ms, frame {:?}, webview {:?}, resize events {}",
+                started.elapsed().as_millis(),
+                state.window.frame(),
+                state.view.frame(),
+                state.resize_events.get()
+            );
         }
+    }
+    // y is measured down from the top of the native frame, in logical points.
+    fn is_titlebar_double_click(window: isize, main: isize, clicks: isize, x: f64, y: f64) -> bool {
+        window == main && clicks == 2 && x >= 82.0 && (0.0..32.0).contains(&y)
     }
     fn visible_restore(mut frame: NSRect, screen: NSRect) -> NSRect {
         frame.size.width = frame.size.width.min(screen.size.width);
@@ -105,6 +125,21 @@ mod mac {
     mod tests {
         use super::*;
         use objc2_foundation::{NSPoint, NSSize};
+        #[test]
+        fn native_titlebar_gesture_excludes_controls_content_and_other_windows() {
+            assert!(is_titlebar_double_click(1, 1, 2, 700.0, 12.0));
+            assert!(is_titlebar_double_click(1, 1, 2, 700.0, 30.0));
+            for (window, clicks, x, y) in [
+                (2, 2, 700.0, 12.0),
+                (1, 1, 700.0, 12.0),
+                (1, 3, 700.0, 12.0),
+                (1, 2, 40.0, 12.0),
+                (1, 2, 700.0, 40.0),
+                (1, 2, 700.0, -1.0),
+            ] {
+                assert!(!is_titlebar_double_click(window, 1, clicks, x, y));
+            }
+        }
         #[test]
         fn restore_stays_on_current_display_with_negative_origins_and_different_scales() {
             let screen = NSRect::new(NSPoint::new(-2560.0, 900.0), NSSize::new(2560.0, 1400.0));
@@ -135,6 +170,7 @@ mod mac {
                 window: native.clone(),
                 view,
                 restore: Cell::new(None),
+                monitor: RefCell::new(None),
                 #[cfg(debug_assertions)]
                 resize_events: Cell::new(0),
             });
@@ -152,6 +188,34 @@ mod mac {
                     );
                 }
             }
+            // AppKit's overlay titlebar consumes mouse events above the WebView.
+            // Handle the native titlebar as well as its DOM-painted lower edge;
+            // a React double-click alone never sees the upper native strip.
+            let observed = observer.clone();
+            let handler = block2::RcBlock::new(move |event: NonNull<NSEvent>| {
+                let event_ref = unsafe { event.as_ref() };
+                let state = observed.ivars();
+                let point = event_ref.locationInWindow();
+                let height = state.window.frame().size.height;
+                if is_titlebar_double_click(
+                    event_ref.windowNumber(),
+                    state.window.windowNumber(),
+                    event_ref.clickCount(),
+                    point.x,
+                    height - point.y,
+                ) {
+                    observed.toggle();
+                    std::ptr::null_mut()
+                } else {
+                    event.as_ptr()
+                }
+            });
+            *observer.ivars().monitor.borrow_mut() = unsafe {
+                NSEvent::addLocalMonitorForEventsMatchingMask_handler(
+                    NSEventMask::LeftMouseDown,
+                    &handler,
+                )
+            };
             observer.fit();
             OBSERVERS.with(|items| {
                 items.borrow_mut().insert(label, observer);
@@ -229,5 +293,11 @@ pub async fn zoom_main_window(window: tauri::WebviewWindow) -> Result<(), String
         rx.await.map_err(|e| e.to_string())?
     }
     #[cfg(not(target_os = "macos"))]
-    window.toggle_maximize().map_err(|e| e.to_string())
+    {
+        if window.is_maximized().map_err(|e| e.to_string())? {
+            window.unmaximize().map_err(|e| e.to_string())
+        } else {
+            window.maximize().map_err(|e| e.to_string())
+        }
+    }
 }
