@@ -962,5 +962,7 @@
   "请先完成或取消发送队列中的任务，再更新。": "Complete or cancel the tasks in the send queue before updating.",
   "文本翻译正在进行，请完成或取消后再更新。": "Wait for text translation to finish or cancel it before updating.",
   "设置尚未保存，请保存或放弃更改后再更新。": "Save or discard your settings changes before updating.",
-  "输入内容暂存失败，更新未开始。请复制保存输入内容后重试。": "Could not preserve your text. The update has not started. Copy and save your input, then retry."
+  "输入内容暂存失败，更新未开始。请复制保存输入内容后重试。": "Could not preserve your text. The update has not started. Copy and save your input, then retry.",
+  "尚未添加预设": "No presets yet",
+  "名称": "Name"
 }

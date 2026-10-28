@@ -584,9 +584,6 @@ export default function SettingsPanel({
                 />
               </SettingRow>
             </div>
-            <p className="preference-help">
-              {t('Shift + Enter 换行。翻译和语音合成会调用所选服务，可能计费。')}
-            </p>
           </section>
           <section className="preference-section" aria-labelledby="text-overlay-heading">
             <div className="preference-section-title">
@@ -1190,25 +1187,20 @@ export default function SettingsPanel({
             onDiagnostics={onDiagnostics}
           />
           {stage === 'tts' && <SpeechOptionsControls profile={profile} onChange={update} />}
-          <section className="preference-section" aria-labelledby="personal-presets-heading">
-            <h2 id="personal-presets-heading">{t('自定义预设')}</h2>
-            <div className="preference-card">
-              <PresetEditor
-                key={`${profile.id}:${profile.adapter}:models`}
-                profile={profile}
-                kind="modelPresets"
-                onChange={update}
-              />
-              {stage === 'tts' && (
-                <PresetEditor
-                  key={`${profile.id}:${profile.adapter}:voices`}
-                  profile={profile}
-                  kind="voicePresets"
-                  onChange={update}
-                />
-              )}
-            </div>
-          </section>
+          <PresetEditor
+            key={`${profile.id}:${profile.adapter}:models`}
+            profile={profile}
+            kind="modelPresets"
+            onChange={update}
+          />
+          {stage === 'tts' && (
+            <PresetEditor
+              key={`${profile.id}:${profile.adapter}:voices`}
+              profile={profile}
+              kind="voicePresets"
+              onChange={update}
+            />
+          )}
           {stage === 'translation' && (
             <section className="preference-section" aria-labelledby="translation-prompt-heading">
               <div className="preference-section-title">

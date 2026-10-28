@@ -669,12 +669,6 @@ nav button[aria-current='page'] {
   font-size: 11px;
   color: var(--muted);
 }
-.preset-editor {
-  padding: 16px 20px;
-}
-.preset-editor + .preset-editor {
-  border-top: 1px solid var(--border);
-}
 .preset-editor-heading,
 .preset-editor-row,
 .preset-editor-actions {
@@ -685,10 +679,6 @@ nav button[aria-current='page'] {
 .preset-editor-heading {
   justify-content: space-between;
 }
-.preset-editor-heading h3 {
-  font-size: 13px;
-  margin: 0;
-}
 .preset-editor-heading button {
   display: inline-flex;
   align-items: center;
@@ -698,14 +688,22 @@ nav button[aria-current='page'] {
 .preset-editor-empty {
   color: var(--muted);
   font-size: 12px;
-  margin: 10px 0 0;
+  margin: 0;
+  padding: 18px 0;
 }
 .preset-editor-row {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  gap: 8px;
+  min-height: 68px;
+  padding: 14px 0;
 }
-.preset-editor-row:last-child {
-  border-bottom: 0;
+.preset-editor-row > .icon-button {
+  width: 32px;
+  height: 32px;
+}
+.preset-editor-row .icon-button:hover {
+  background: var(--hover);
 }
 .preset-editor-row > div {
   flex: 1;
@@ -724,13 +722,39 @@ nav button[aria-current='page'] {
 }
 .preset-editor-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 0;
+}
+.preset-editor-form label {
+  display: grid;
   gap: 8px;
-  margin-top: 12px;
+  min-width: 0;
+}
+.preset-editor-form label > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.preset-editor-form > .preset-editor-actions,
+.preset-editor-form > .preset-editor-error {
+  grid-column: 1 / -1;
+}
+@container preferences (max-width: 620px) {
+  .preset-editor-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .preset-editor-form input {
   width: 100%;
   font-size: 13px;
 }
+.preset-editor .preset-editor-form input:focus {
+  border-color: var(--composer-focus-border);
+  box-shadow:
+    0 1px 3px var(--composer-shadow-near),
+    0 3px 12px var(--composer-shadow-far);
+}
+
 .preset-editor-actions {
   justify-content: flex-end;
   flex-wrap: wrap;
