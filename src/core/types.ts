@@ -86,6 +86,7 @@ export interface Settings {
   targetLanguage: string;
   theme: 'dark' | 'light' | 'system';
   mainWindowCloseBehavior: 'hide' | 'quit';
+  automaticUpdates: boolean;
   captionLayout: import('./caption-layout').CaptionLayout;
   captionColors: { recognition: string; expression: string };
   textTranslationOpacity: number;

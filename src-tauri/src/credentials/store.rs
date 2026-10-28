@@ -269,4 +269,5 @@ fn private_read(path: &Path, maximum: u64) -> Result<Option<Zeroizing<Vec<u8>>>,
     }
 }
 #[cfg(test)]
+#[path = "store/tests.rs"]
 mod tests;

@@ -1,6 +1,6 @@
 [package]
 name = "voxbridge"
-version = "0.5.3"
+version = "0.5.4"
 description = "Desktop voice bridge"
 license = "PolyForm-Noncommercial-1.0.0"
 edition = "2021"
@@ -49,6 +49,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSString", "NSUUID", "NSValue", "NSBundle", "NSURL", "NSNotification"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 lingua = { version = "1.8", default-features = false, features = ["chinese", "english", "finnish", "french", "german", "indonesian", "japanese", "korean", "russian", "spanish"] }
 windows-core = "0.62.2"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_System_Diagnostics_ToolHelp", "Win32_Storage_FileSystem", "Win32_Graphics_Dwm", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Security", "Win32_Security_Cryptography", "Win32_Security_Authorization", "Win32_System_WinRT", "Security_Authorization_AppCapabilityAccess"] }

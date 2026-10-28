@@ -57,6 +57,7 @@ export default function SettingsPanel({
   settings,
   savedSettings,
   onDraftChange,
+  onAutomaticUpdatesChange,
   onSave,
   notify,
   onDiagnostics,
@@ -73,6 +74,7 @@ export default function SettingsPanel({
   settings: Settings;
   savedSettings: Settings;
   onDraftChange: Dispatch<SetStateAction<Settings>>;
+  onAutomaticUpdatesChange: (enabled: boolean) => void;
   onSave: (settings: Settings) => void;
   notify: (message: string) => void;
   onDiagnostics: () => void;
@@ -298,13 +300,16 @@ export default function SettingsPanel({
                   ]}
                 />
               </SettingRow>
-              {platform === 'macos' && (
+              {(platform === 'macos' || platform === 'windows') && (
                 <SettingRow title={t('关闭主窗口时')}>
                   <Select
                     label={t('关闭主窗口时')}
                     value={draft.mainWindowCloseBehavior}
                     options={[
-                      { value: 'hide', label: '隐藏到后台' },
+                      {
+                        value: 'hide',
+                        label: platform === 'windows' ? '最小化到系统托盘' : '隐藏到后台',
+                      },
                       { value: 'quit', label: '退出应用' },
                     ]}
                     onChange={(value) =>
@@ -935,7 +940,10 @@ export default function SettingsPanel({
               <SettingRow title="VoxBridge">
                 <span className="preference-value">{version}</span>
               </SettingRow>
-              <UpdateControls />
+              <UpdateControls
+                automatic={savedSettings.automaticUpdates}
+                onAutomaticChange={onAutomaticUpdatesChange}
+              />
             </div>
           </section>
         </>

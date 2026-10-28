@@ -124,13 +124,13 @@ const languages = [
 ];
 type Page = 'workspace' | 'text' | 'settings' | 'diagnostics';
 
-export default function App() {
+export default function App({ bootstrapError = '' }: { bootstrapError?: string }) {
   useUiLanguage();
   useTextSelection();
   useEffect(watchFrontendErrors, []);
   const [initial] = useState(() => {
     try {
-      return { settings: loadSettings(), error: '' };
+      return { settings: loadSettings(), error: bootstrapError };
     } catch {
       return {
         settings: structuredClone(defaults),
@@ -250,10 +250,16 @@ export default function App() {
   const [queueView, setQueueView] = useState<QueueView>({ paused: false, items: [] });
   const [unsavedKey, setUnsavedKey] = useState(false);
   const updateBlocked = useRef<boolean | string>(true);
+  const automaticUpdateHasDrafts = useRef(false);
   const prepareUpdate = useRef(() => {});
   useEffect(() => {
     if (!desktop) return;
-    appUpdates.blocked = () => updateBlocked.current;
+    appUpdates.blocked = (automatic) =>
+      updateBlocked.current ||
+      (automatic && automaticUpdateHasDrafts.current
+        ? '仍有输入草稿，处理完成后将自动更新。'
+        : false);
+    appUpdates.setAutomatic(initial.settings.automaticUpdates);
     appUpdates.beforeInstall = () => prepareUpdate.current();
     appUpdates.installFailed = clearUpdateDrafts;
     void appUpdates.checkAtStartup();
@@ -263,6 +269,9 @@ export default function App() {
       appUpdates.installFailed = () => {};
     };
   }, [notify]);
+  useEffect(() => {
+    appUpdates.setAutomatic(savedSettings.automaticUpdates);
+  }, [savedSettings.automaticUpdates]);
   const [sendQueue] = useState(
     () =>
       new SendQueue({
@@ -313,6 +322,9 @@ export default function App() {
     else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
   }
   const [overlayDraft, setOverlayDraft] = useState(updateDrafts?.overlay ?? '');
+  automaticUpdateHasDrafts.current = Boolean(
+    text.trim() || overlayDraft.trim() || textTranslation.getSnapshot().input.trim(),
+  );
   updateBlocked.current = settingsBusy
     ? '设置正在保存，请完成后再更新。'
     : listenPhase !== 'idle'
@@ -548,7 +560,7 @@ export default function App() {
     desktop && (runtime ? runtime.platform === 'macos' : /Mac/.test(navigator.platform));
   useTheme(settings.theme, macFrame);
   useEffect(() => {
-    if (runtime?.platform !== 'macos') return;
+    if (!runtime || !['macos', 'windows'].includes(runtime.platform)) return;
     void setMainCloseBehavior(savedSettings.mainWindowCloseBehavior).catch(() =>
       notify(t('无法应用窗口关闭设置，请重试。')),
     );
@@ -748,6 +760,16 @@ export default function App() {
         reason: 'configuration',
       });
       notify(t('保存失败：{0}', String(e)));
+    }
+  }
+  function persistAutomaticUpdates(enabled: boolean) {
+    try {
+      const next = { ...savedSettings, automaticUpdates: enabled };
+      saveSettings(next);
+      setSavedSettings(next);
+      setSettings((current) => ({ ...current, automaticUpdates: enabled }));
+    } catch (error) {
+      notify(t('保存失败：{0}', String(error)));
     }
   }
   async function runComposer(
@@ -1205,6 +1227,7 @@ export default function App() {
               settings={settings}
               savedSettings={savedSettings}
               onDraftChange={setSettings}
+              onAutomaticUpdatesChange={persistAutomaticUpdates}
               onSave={persist}
               notify={notify}
               onDiagnostics={() => setPage('diagnostics')}

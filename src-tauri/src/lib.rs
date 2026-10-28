@@ -13,6 +13,7 @@ mod overlay;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod pcm;
 mod platform;
+mod private_preset;
 mod providers;
 mod recovery;
 mod setup;
@@ -22,6 +23,8 @@ mod text_overlay;
 mod update_tests;
 mod window_behavior;
 mod window_geometry;
+#[cfg(target_os = "windows")]
+mod windows_tray;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,6 +86,9 @@ pub fn run() {
                 // Hiding/minimizing must not suspend those tasks after a few minutes.
                 .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
             let main = builder.build()?;
+            #[cfg(target_os = "windows")]
+            // If tray initialization fails, keep a taskbar recovery route.
+            let _ = windows_tray::initialize(app.handle());
             #[cfg(target_os = "macos")]
             window_geometry::install(&main)?;
             #[cfg(not(target_os = "macos"))]
@@ -116,7 +122,9 @@ pub fn run() {
             setup::setup_choose_folder,
             setup::setup_install,
             setup::setup_finish,
+            setup::setup_uninstall,
             runtime_info,
+            private_preset::private_preset,
             window_behavior::set_main_close_behavior,
             window_geometry::zoom_main_window,
             diagnostics::record_diagnostic,
@@ -179,6 +187,15 @@ pub fn run() {
                     api.prevent_close();
                     let _ = window.hide();
                 } else if window.label() == "main" {
+                    if window
+                        .app_handle()
+                        .state::<window_behavior::WindowBehavior>()
+                        .should_minimize(std::env::consts::OS, window.label())
+                    {
+                        api.prevent_close();
+                        let _ = window.minimize();
+                        return;
+                    }
                     if window
                         .app_handle()
                         .state::<window_behavior::WindowBehavior>()

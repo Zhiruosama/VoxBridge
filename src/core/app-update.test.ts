@@ -1,5 +1,6 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { AppUpdates } from './app-update';
+afterEach(() => vi.useRealTimers());
 
 function fixture() {
   const update = {
@@ -97,6 +98,139 @@ it('keeps the prompt visible for recovery when installation is blocked', async (
   expect(f.update.download).not.toHaveBeenCalled();
   f.controller.dismissStartupPrompt();
   expect(f.controller.snapshot().startupPrompt).toBe(false);
+});
+
+it('automatically downloads at startup then counts down before installing and restarting', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  expect(f.update.download).toHaveBeenCalledOnce();
+  expect(f.controller.snapshot()).toMatchObject({
+    status: 'countdown',
+    seconds: 5,
+    downloaded: true,
+    startupPrompt: true,
+  });
+  await vi.advanceTimersByTimeAsync(4999);
+  expect(f.update.install).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.update.install).toHaveBeenCalledOnce();
+  expect(f.restart).toHaveBeenCalledOnce();
+});
+
+it('snapshots drafts at automatic handoff and stops safely if storage fails', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  let draft = 'before';
+  const saved: string[] = [];
+  f.controller.beforeInstall = () => {
+    saved.push(draft);
+    throw Error('storage full');
+  };
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  draft = 'latest';
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(saved).toEqual(['latest']);
+  expect(f.update.install).not.toHaveBeenCalled();
+  expect(f.controller.snapshot().error).toContain('暂存失败');
+  f.controller.beforeInstall = () => saved.push(draft);
+  f.controller.installFailed = vi.fn();
+  f.update.install.mockRejectedValueOnce(Error('install failed'));
+  await f.controller.install();
+  expect(f.update.download).toHaveBeenCalledOnce();
+  expect(saved).toEqual(['latest', 'latest']);
+  expect(f.controller.installFailed).toHaveBeenCalledOnce();
+  expect(f.restart).not.toHaveBeenCalled();
+});
+
+it('allows explicit update with saved drafts but automatic update waits until they are handled', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  f.controller.blocked = (automatic) => (automatic ? 'draft pending' : false);
+  f.controller.beforeInstall = vi.fn();
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.controller.snapshot().status).toBe('waiting');
+  expect(f.controller.beforeInstall).not.toHaveBeenCalled();
+  await f.controller.install();
+  expect(f.controller.beforeInstall).toHaveBeenCalledOnce();
+  expect(f.update.install).toHaveBeenCalledOnce();
+});
+
+it('downloads while busy, waits for drafts/tasks, and resets countdown if work resumes', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  f.controller.blocked = () => true;
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  expect(f.update.download).toHaveBeenCalledOnce();
+  expect(f.controller.snapshot().status).toBe('waiting');
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.update.install).not.toHaveBeenCalled();
+  f.controller.blocked = () => false;
+  await vi.advanceTimersByTimeAsync(4500);
+  f.controller.blocked = () => true;
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(f.controller.snapshot().status).toBe('waiting');
+  expect(f.update.install).not.toHaveBeenCalled();
+  f.controller.blocked = () => false;
+  await vi.advanceTimersByTimeAsync(5250);
+  expect(f.update.install).toHaveBeenCalledOnce();
+  expect(f.update.download).toHaveBeenCalledOnce();
+});
+
+it('turning automatic updates off during download never installs after the download completes', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  let finish!: () => void;
+  f.update.download.mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  f.controller.setAutomatic(true);
+  const startup = f.controller.checkAtStartup();
+  await vi.advanceTimersByTimeAsync(0);
+  f.controller.setAutomatic(false);
+  finish();
+  await startup;
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.controller.snapshot()).toMatchObject({ status: 'available', downloaded: true });
+  expect(f.update.install).not.toHaveBeenCalled();
+  await f.controller.install();
+  expect(f.update.download).toHaveBeenCalledOnce();
+  expect(f.restart).toHaveBeenCalledOnce();
+});
+
+it('Later cancels automatic installation for this launch without turning off the saved preference', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  f.controller.dismissStartupPrompt();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.controller.snapshot()).toMatchObject({
+    automatic: true,
+    status: 'available',
+    startupPrompt: false,
+  });
+  expect(f.update.install).not.toHaveBeenCalled();
+});
+
+it('automatic signature failure never starts an installation timer', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  f.update.download.mockRejectedValue(new Error('invalid signature'));
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.controller.snapshot()).toMatchObject({ downloaded: false, status: 'available' });
+  expect(f.update.install).not.toHaveBeenCalled();
+  expect(f.restart).not.toHaveBeenCalled();
 });
 
 it('explains the actual blocking task and allows update when it ends', async () => {

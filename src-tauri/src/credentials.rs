@@ -1,6 +1,9 @@
+#[path = "credentials/crypto.rs"]
 mod crypto;
+#[path = "credentials/store.rs"]
 mod store;
 #[cfg(target_os = "windows")]
+#[path = "credentials/windows.rs"]
 mod windows;
 use crypto::Master;
 use std::sync::{Mutex, OnceLock};

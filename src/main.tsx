@@ -4,8 +4,10 @@ import App from './App';
 import SubtitleOverlay from './components/SubtitleOverlay';
 import TextTranslationOverlay from './components/TextTranslationOverlay';
 import Setup from './components/Setup';
+import Uninstall from './components/Uninstall';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
+import { bootstrapPrivatePreset } from './core/private-preset';
 import '@fontsource-variable/noto-sans-sc';
 import './styles.css';
 
@@ -21,17 +23,32 @@ function StartupReady() {
   return null;
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    {subtitleWindow ? (
-      <SubtitleOverlay />
-    ) : textWindow ? (
-      <TextTranslationOverlay />
-    ) : setupWindow ? (
-      <Setup />
-    ) : (
-      <App />
-    )}
-    {!subtitleWindow && !textWindow && <StartupReady />}
-  </React.StrictMode>,
-);
+async function start() {
+  let bootstrapError = '';
+  if (isTauri() && !subtitleWindow && !textWindow && !setupWindow) {
+    try {
+      await bootstrapPrivatePreset((install) => invoke('private_preset', { install }));
+    } catch {
+      bootstrapError = '体验配置导入失败，原有设置与密钥未覆盖，请重启重试。';
+    }
+  }
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      {subtitleWindow ? (
+        <SubtitleOverlay />
+      ) : textWindow ? (
+        <TextTranslationOverlay />
+      ) : setupWindow ? (
+        new URLSearchParams(location.search).get('mode') === 'uninstall' ? (
+          <Uninstall />
+        ) : (
+          <Setup />
+        )
+      ) : (
+        <App bootstrapError={bootstrapError} />
+      )}
+      {!subtitleWindow && !textWindow && <StartupReady />}
+    </React.StrictMode>,
+  );
+}
+void start();
