@@ -2,14 +2,19 @@
 //! superclass: its allocation layout and event implementation belong to Tao.
 use objc2::{define_class, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSApplication, NSBackingStoreType, NSColor, NSEvent, NSFloatingWindowLevel, NSPanel,
-    NSStatusWindowLevel, NSView, NSWindow, NSWindowDelegate, NSWindowOcclusionState,
-    NSWindowStyleMask, NSWorkspace, NSWorkspaceActiveSpaceDidChangeNotification,
+    NSApplication, NSBackingStoreType, NSColor, NSEvent, NSEventType, NSFloatingWindowLevel,
+    NSPanel, NSStatusWindowLevel, NSTextInputContext, NSView, NSWindow, NSWindowDelegate,
+    NSWindowOcclusionState, NSWindowStyleMask, NSWorkspace,
+    NSWorkspaceActiveSpaceDidChangeNotification,
 };
 use objc2_foundation::{
     NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
 };
-use std::{cell::RefCell, collections::BTreeMap, path::PathBuf};
+use std::{
+    cell::{Cell, RefCell},
+    collections::BTreeMap,
+    path::PathBuf,
+};
 use tauri::Manager;
 
 #[path = "panel/content.rs"]
@@ -26,6 +31,15 @@ define_class!(
         fn can_become_key(&self) -> bool { true }
         #[unsafe(method(canBecomeMainWindow))]
         fn can_become_main(&self) -> bool { false }
+        #[unsafe(method(sendEvent:))]
+        fn send_event(&self, event: &NSEvent) {
+            unsafe { let _: () = objc2::msg_send![super(self), sendEvent: event]; }
+            if event.r#type() == NSEventType::LeftMouseDown {
+                // A WKWebView can keep DOM focus across Spaces. Clicking its
+                // already-focused editor does not emit another DOM focus event.
+                queue_text_focus(self.windowNumber());
+            }
+        }
     }
 );
 struct DelegateIvars {
@@ -49,6 +63,12 @@ define_class!(
         }
     }
     unsafe impl NSWindowDelegate for PanelDelegate {
+        #[unsafe(method(windowDidBecomeKey:))]
+        fn became_key(&self, notification: &NSNotification) {
+            if let Some(window) = notification.object().and_then(|o| o.downcast::<NSWindow>().ok()) {
+                queue_text_focus(window.windowNumber());
+            }
+        }
         #[unsafe(method(windowDidChangeOcclusionState:))]
         fn occlusion_changed(&self, notification: &NSNotification) {
             if let Some(window) = notification
@@ -63,6 +83,8 @@ define_class!(
 struct FloatingPanel {
     panel: Retained<SubtitlePanel>,
     _delegate: Retained<PanelDelegate>,
+    editing: Cell<bool>,
+    focus_epoch: Cell<u64>,
     drag: Option<PanelDrag>,
     resize: Option<PanelResize>,
 }
@@ -99,6 +121,7 @@ fn record_visibility(window: &NSWindow, path: &std::path::Path) {
         "onActiveSpace": window.isOnActiveSpace(),
         "unoccluded": window.occlusionState().contains(NSWindowOcclusionState::Visible),
         "level": window.level(), "panel": true, "key": window.isKeyWindow(),
+        "currentInputContext": MainThreadMarker::new().is_some_and(|mtm| NSTextInputContext::currentInputContext(mtm).is_some()),
         "inputContext": window.firstResponder().and_then(|r| r.downcast::<NSView>().ok()).is_some_and(|view| view.inputContext().is_some()),
         "frontmost": NSWorkspace::sharedWorkspace().frontmostApplication().is_some_and(|app| app.processIdentifier() == std::process::id() as i32),
         "frame": { "x": window.frame().origin.x, "y": window.frame().origin.y, "width": window.frame().size.width, "height": window.frame().size.height },
@@ -163,6 +186,8 @@ pub(super) fn prepare(window: &tauri::WebviewWindow, reveal: bool) -> Result<(),
             current.insert(label.to_owned(), FloatingPanel {
                 panel,
                 _delegate: delegate,
+                editing: Cell::new(false),
+                focus_epoch: Cell::new(0),
                 drag: None,
                 resize: None,
             });
@@ -180,8 +205,79 @@ pub(super) fn prepare(window: &tauri::WebviewWindow, reveal: bool) -> Result<(),
 // status-level panel may receive keys while the IME remains bound to another
 // frontmost app, and can also cover the candidate popup. Keep the same panel
 // and Spaces flags, but give editing ordinary floating level and real activation.
+fn queue_text_focus(number: isize) {
+    dispatch2::DispatchQueue::main().exec_async(move || {
+        let epoch = PANEL.with(|state| {
+            state
+                .borrow()
+                .values()
+                .find(|item| item.panel.windowNumber() == number)
+                .filter(|item| {
+                    item.editing.get() && item.panel.isVisible() && item.panel.isKeyWindow()
+                })
+                .map(|item| item.focus_epoch.get())
+        });
+        if let Some(epoch) = epoch {
+            finish_text_focus(number, epoch, 0);
+        }
+    });
+}
+
+fn finish_text_focus(number: isize, epoch: u64, attempt: u8) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    // Release the RefCell borrow before invoking AppKit: activation and focus
+    // changes synchronously call window delegates back into this module.
+    let target = PANEL.with(|state| {
+        state
+            .borrow()
+            .values()
+            .find(|item| item.panel.windowNumber() == number)
+            .filter(|item| {
+                item.focus_epoch.get() == epoch
+                    && item.editing.get()
+                    && item.panel.isVisible()
+                    && item.panel.isKeyWindow()
+                    && item.panel.isOnActiveSpace()
+            })
+            .map(|item| (item.panel.clone(), item._delegate.ivars().log.clone()))
+    });
+    let Some((panel, log)) = target else {
+        return;
+    };
+    let frontmost = NSWorkspace::sharedWorkspace()
+        .frontmostApplication()
+        .is_some_and(|app| app.processIdentifier() == std::process::id() as i32);
+    if !frontmost {
+        if attempt == 0 {
+            #[allow(deprecated)]
+            NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
+        }
+        // Activation completes asynchronously, especially in another app's
+        // fullscreen Space. Rebind only after it completes, never while typing.
+        if attempt < 8 {
+            let when = dispatch2::DispatchTime::NOW.time(25_000_000);
+            let _ = dispatch2::DispatchQueue::main()
+                .after(when, move || finish_text_focus(number, epoch, attempt + 1));
+        }
+        record_visibility(&panel, &log);
+        return;
+    }
+    panel.makeKeyWindow();
+    if let Some(responder) = panel.firstResponder() {
+        panel.makeFirstResponder(Some(&responder));
+        if let Ok(view) = responder.downcast::<NSView>() {
+            if let Some(context) = view.inputContext() {
+                context.invalidateCharacterCoordinates();
+            }
+        }
+    }
+    record_visibility(&panel, &log);
+}
+
 pub(super) fn text_input(label: &str, active: bool) -> Result<(), String> {
-    let mtm = MainThreadMarker::new().ok_or("字幕窗必须在主线程显示。")?;
+    MainThreadMarker::new().ok_or("字幕窗必须在主线程显示。")?;
     PANEL.with(|state| {
         let current = state.borrow();
         let Some(item) = current.get(label) else {
@@ -191,31 +287,15 @@ pub(super) fn text_input(label: &str, active: bool) -> Result<(), String> {
                 Ok(())
             };
         };
+        if active && !item.panel.isVisible() {
+            return Err("字幕窗尚未显示。".into());
+        }
+        item.editing.set(active);
+        item.focus_epoch.set(item.focus_epoch.get().wrapping_add(1));
         if active {
-            if !item.panel.isVisible() {
-                return Err("字幕窗尚未显示。".into());
-            }
             item.panel.setLevel(NSFloatingWindowLevel);
             item.panel.makeKeyWindow();
-            // Activate only on an explicit editor focus, never on caption updates
-            // or Space notifications. Do not order the main window to the front.
-            let frontmost = NSWorkspace::sharedWorkspace().frontmostApplication();
-            if !frontmost.is_some_and(|app| app.processIdentifier() == std::process::id() as i32) {
-                #[allow(deprecated)]
-                NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
-            }
-            item.panel.makeKeyWindow();
-            if let Some(view) = item
-                .panel
-                .firstResponder()
-                .and_then(|r| r.downcast::<NSView>().ok())
-            {
-                if let Some(context) = view.inputContext() {
-                    // Let AppKit own marked text; only invalidate the caret's
-                    // screen position after cross-display/Space focus changes.
-                    context.invalidateCharacterCoordinates();
-                }
-            }
+            queue_text_focus(item.panel.windowNumber());
         } else {
             item.panel.setLevel(NSStatusWindowLevel);
         }
@@ -226,6 +306,9 @@ pub(super) fn text_input(label: &str, active: bool) -> Result<(), String> {
 pub(super) fn hide(label: &str) {
     PANEL.with(|state| {
         if let Some(item) = state.borrow_mut().get_mut(label) {
+            item.editing.set(false);
+            item.focus_epoch.set(item.focus_epoch.get().wrapping_add(1));
+            item.panel.setLevel(NSStatusWindowLevel);
             item.drag = None;
             item.resize = None;
             item.panel.orderOut(None);

@@ -25,3 +25,13 @@
 手动复现工具：先运行 `npm run dev`，再显式运行 `cargo run --manifest-path src-tauri/Cargo.toml --example overlay-ime-regression`。它会创建临时测试窗，180 秒后退出；不要在用户工作时自动运行。用系统拼音输入真实键盘字符，检查候选框，测试后关闭工具。
 
 参考：[Apple NSPanel 焦点策略](https://developer.apple.com/documentation/appkit/nspanel/becomeskeyonlyifneeded)、[Ghostty 非激活面板输入上下文讨论](https://github.com/ghostty-org/ghostty/discussions/14213)。后者仅为同类故障的诊断参考。
+
+## 再次切换到其他应用后的候选框
+
+用户后续截图确认：同一输入框在普通桌面可见候选框，在 Discord 全屏空间中只有带下划线的拼音。已核对运行进程启动时间，包含前次修复，不能归为未重启旧版本。
+
+补充检查发现原实现仅依赖 DOM focus／展开编辑器；WKWebView 在窗口失去焦点、切换 Spaces 后可能仍保持同一 DOM 焦点，重新点击不会再次触发原逻辑。另外应用激活不保证同步完成，原先在调用 activate 后立即刷新输入上下文存在时序缺口。
+
+本轮在原生 NSPanel 的 become-key 和鼠标点击完成后重新检查编辑焦点，不再只依赖网页事件；应用激活完成、确认处于当前 Space 后才重申原有 first responder 并刷新候选框坐标。激活等待最多 200ms；收起／隐藏编辑器会使旧任务失效，失去 key 状态或不在当前 Space 时不执行，不因字幕更新或 Spaces 通知主动抢焦点。不手动启停输入上下文，不丢弃组合文字。诊断补充系统当前输入上下文是否存在（无文本内容）。
+
+170 项 Rust 测试、隐藏原生面板回归、Mac 打包和签名检查通过。本轮遵照用户要求不弹测试窗；Discord 全屏中的真实候选框仍需日常体验确认，未宣称已完成全屏实机验收。
