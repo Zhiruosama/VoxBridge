@@ -27,6 +27,7 @@ export class TextTranslationController {
   constructor(
     private dependencies: Dependencies,
     target: string,
+    draft?: Pick<TextTranslationState, 'input' | 'source' | 'target' | 'result' | 'resultTarget'>,
   ) {
     this.state = {
       input: '',
@@ -38,6 +39,7 @@ export class TextTranslationController {
       error: '',
       canRetry: false,
       startedAt: 0,
+      ...draft,
     };
   }
   getSnapshot = () => this.state;

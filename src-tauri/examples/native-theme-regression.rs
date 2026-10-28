@@ -1,6 +1,5 @@
-//! Run `npm run dev`, then `cargo run --manifest-path src-tauri/Cargo.toml
-//! --example native-theme-regression`. Samples a disposable native window while
-//! the production useTheme hook changes themes. No user app data is loaded.
+//! Disposable real Mac window running the production header/theme hook.
+//! Run the Vite server first. No user settings, credentials or audio are accessed.
 #[cfg(target_os = "macos")]
 fn main() {
     use objc2_app_kit::NSWindow;
@@ -9,64 +8,60 @@ fn main() {
     use tauri::{Listener, Manager};
     let mut context = tauri::generate_context!();
     context.config_mut().identifier = "dev.voxbridge.native-theme-regression".into();
-    tauri::Builder::default().setup(|app| {
+    let layout_only = std::env::var_os("VOXBRIDGE_CHROME_LAYOUT_ONLY").is_some();
+    tauri::Builder::default().setup(move |app| {
         tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(
-            "http://127.0.0.1:1420/src-tauri/examples/native-theme-regression.html".parse()?))
+            if layout_only { "about:blank" } else { "http://127.0.0.1:1420/src-tauri/examples/native-theme-regression.html" }.parse()?))
             .title("Native theme regression")
-            .visible(true).focused(false).inner_size(700.0, 480.0)
-            .title_bar_style(tauri::TitleBarStyle::Transparent)
+            .visible(!layout_only).focused(false).inner_size(700.0, 480.0)
+            .decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true)
+            .traffic_light_position(tauri::LogicalPosition::new(12.0,18.0))
             .background_color(tauri::utils::config::Color(24, 24, 24, 255))
             .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled)
             .build()?;
-        let alignment = Arc::new(Mutex::new((0usize, 0u8, true)));
-        let report = alignment.clone();
-        let monitor = app.handle().clone();
+        if layout_only {
+            let window = app.get_webview_window("main").unwrap();
+            let native = unsafe { &*window.ns_window()?.cast::<NSWindow>() };
+            assert!(!native.isVisible());
+            for button in [objc2_app_kit::NSWindowButton::CloseButton, objc2_app_kit::NSWindowButton::MiniaturizeButton, objc2_app_kit::NSWindowButton::ZoomButton] {
+                let button = native.standardWindowButton(button).unwrap();
+                let frame = button.convertRect_toView(button.bounds(), None);
+                let top = native.frame().size.height - frame.origin.y - frame.size.height;
+                let center = top + frame.size.height / 2.0;
+                println!("Traffic light: top={top}, height={}, center={center}", frame.size.height);
+                assert!(top >= 6.0, "traffic light touches the top edge");
+                assert!((center - 16.0).abs() <= 0.5, "traffic light is not centered in the 32px DOM header");
+            }
+            println!("PASS: hidden native traffic-light geometry");
+            app.handle().exit(0);
+            return Ok(());
+        }
+        let samples = Arc::new(Mutex::new((0usize, true, false, false)));
+        let stats = samples.clone();
         app.listen("theme-probe-color", move |event| {
-            let Ok(value) = serde_json::from_str::<serde_json::Value>(event.payload()) else {return};
-            let Some(rgb) = value["rgb"].as_array() else {return};
-            if rgb.len() != 3 {return;}
-            let expected: Vec<u8> = rgb.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect();
-            let text: Vec<u8> = value["text"].as_array().unwrap().iter().map(|v|v.as_u64().unwrap_or(0) as u8).collect();
-            let readable = text == [236,236,238] || text == [36,36,38];
-            let no_snapshot = value["snapshots"].as_u64() == Some(0);
-            let app = monitor.clone(); let report = report.clone();
-            monitor.run_on_main_thread(move || {
-                let window=app.get_webview_window("main").unwrap();
-                let native=unsafe {&*window.ns_window().unwrap().cast::<NSWindow>()};
-                let color=native.backgroundColor();
-                let actual=[color.redComponent(),color.greenComponent(),color.blueComponent()].map(|v|(v*255.0).round() as u8);
-                let delta=actual.iter().zip(expected).map(|(a,b)|a.abs_diff(b)).max().unwrap();
-                let mut stats=report.lock().unwrap(); stats.0+=1; stats.1=stats.1.max(delta); stats.2 &= readable && no_snapshot;
-            }).unwrap();
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(event.payload()) else {return};
+            let mut stats = stats.lock().unwrap();
+            stats.0 += 1;
+            if stats.0 == 1 { println!("First DOM sample: {}", v); }
+            stats.1 &= v["header"] == v["body"] && v["text"] == true && v["height"] == 32 && v["width"] == v["viewport"] && v["inlineTokens"] == "";
+            stats.2 |= v["header"] == "rgb(240, 240, 238)";
+            stats.3 |= v["header"] == "rgb(24, 24, 24)";
         });
         let handle = app.handle().clone();
-        let colors = Arc::new(Mutex::new(Vec::new()));
         std::thread::spawn(move || {
-            for index in 0..250 {
-                std::thread::sleep(Duration::from_millis(20));
-                let app = handle.clone();
-                let samples = colors.clone();
-                let alignment = alignment.clone();
-                handle.run_on_main_thread(move || {
-                    let window = app.get_webview_window("main").unwrap();
-                    let native = unsafe { &*window.ns_window().unwrap().cast::<NSWindow>() };
-                    let color = native.backgroundColor();
-                    let rgb = [color.redComponent(), color.greenComponent(), color.blueComponent()]
-                        .map(|v| (v * 255.0).round() as u8);
-                    samples.lock().unwrap().push(rgb);
-                    if index == 249 {
-                        let samples = samples.lock().unwrap();
-                        let unique: std::collections::BTreeSet<_> = samples.iter().copied().collect();
-                        let light = unique.contains(&[240, 240, 238]);
-                        let dark = samples.last() == Some(&[24, 24, 24]);
-                        let stats = alignment.lock().unwrap();
-                        println!("DOM/native alignment: {} frames, max RGB delta={}, readable text without snapshots={}", stats.0,stats.1,stats.2);
-                        let passed = unique.len() > 5 && light && dark && stats.0 > 10 && stats.1 <= 8 && stats.2;
-                        println!("Native theme regression: {} native colors, reached light={}, ended dark={} ({})", unique.len(), light, dark, if passed {"PASS"} else {"FAIL"});
-                        app.exit(if passed {0} else {1});
-                    }
-                }).unwrap();
-            }
+            std::thread::sleep(Duration::from_secs(if std::env::var_os("VOXBRIDGE_THEME_VISUAL").is_some() { 60 } else { 12 }));
+            let app = handle.clone();
+            handle.run_on_main_thread(move || {
+                let window = app.get_webview_window("main").unwrap();
+                let native = unsafe { &*window.ns_window().unwrap().cast::<NSWindow>() };
+                let overlay = native.styleMask().contains(objc2_app_kit::NSWindowStyleMask::FullSizeContentView);
+                let hidden = native.titleVisibility() == objc2_app_kit::NSWindowTitleVisibility::Hidden;
+                let transparent = native.titlebarAppearsTransparent();
+                let stats = samples.lock().unwrap();
+                let passed = overlay && hidden && transparent && stats.0 > 30 && stats.1 && stats.2 && stats.3;
+                println!("Mac shared chrome: {} frames, aligned={}, light={}, dark={}, native overlay={}, hidden title={}, transparent titlebar={} ({})", stats.0, stats.1, stats.2, stats.3, overlay, hidden, transparent, if passed {"PASS"} else {"FAIL"});
+                app.exit(if passed {0} else {1});
+            }).unwrap();
         });
         Ok(())
     }).run(context).expect("native theme regression failed");

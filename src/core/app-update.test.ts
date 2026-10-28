@@ -119,6 +119,47 @@ it('automatically downloads at startup then counts down before installing and re
   expect(f.restart).toHaveBeenCalledOnce();
 });
 
+it('snapshots drafts at automatic handoff and stops safely if storage fails', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  let draft = 'before';
+  const saved: string[] = [];
+  f.controller.beforeInstall = () => {
+    saved.push(draft);
+    throw Error('storage full');
+  };
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  draft = 'latest';
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(saved).toEqual(['latest']);
+  expect(f.update.install).not.toHaveBeenCalled();
+  expect(f.controller.snapshot().error).toContain('暂存失败');
+  f.controller.beforeInstall = () => saved.push(draft);
+  f.controller.installFailed = vi.fn();
+  f.update.install.mockRejectedValueOnce(Error('install failed'));
+  await f.controller.install();
+  expect(f.update.download).toHaveBeenCalledOnce();
+  expect(saved).toEqual(['latest', 'latest']);
+  expect(f.controller.installFailed).toHaveBeenCalledOnce();
+  expect(f.restart).not.toHaveBeenCalled();
+});
+
+it('allows explicit update with saved drafts but automatic update waits until they are handled', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  f.controller.blocked = (automatic) => (automatic ? 'draft pending' : false);
+  f.controller.beforeInstall = vi.fn();
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.controller.snapshot().status).toBe('waiting');
+  expect(f.controller.beforeInstall).not.toHaveBeenCalled();
+  await f.controller.install();
+  expect(f.controller.beforeInstall).toHaveBeenCalledOnce();
+  expect(f.update.install).toHaveBeenCalledOnce();
+});
+
 it('downloads while busy, waits for drafts/tasks, and resets countdown if work resumes', async () => {
   vi.useFakeTimers();
   const f = fixture();
@@ -189,5 +230,46 @@ it('automatic signature failure never starts an installation timer', async () =>
   await vi.advanceTimersByTimeAsync(10000);
   expect(f.controller.snapshot()).toMatchObject({ downloaded: false, status: 'available' });
   expect(f.update.install).not.toHaveBeenCalled();
+  expect(f.restart).not.toHaveBeenCalled();
+});
+
+it('explains the actual blocking task and allows update when it ends', async () => {
+  const f = fixture();
+  await f.controller.check();
+  f.controller.blocked = () => '文本翻译正在进行，请完成或取消后再更新。';
+  await f.controller.install();
+  expect(f.controller.snapshot().error).toContain('文本翻译');
+  expect(f.update.download).not.toHaveBeenCalled();
+  f.controller.blocked = () => false;
+  await f.controller.install();
+  expect(f.update.install).toHaveBeenCalledOnce();
+});
+it('preserves the latest drafts only after the download and final activity check', async () => {
+  const f = fixture();
+  const prepare = vi.fn();
+  f.controller.beforeInstall = prepare;
+  await f.controller.check();
+  f.update.install.mockImplementation(async () => {
+    expect(prepare).toHaveBeenCalledOnce();
+  });
+  await f.controller.install();
+  expect(f.update.download.mock.invocationCallOrder[0]).toBeLessThan(
+    prepare.mock.invocationCallOrder[0],
+  );
+});
+it('does not install when preserving drafts fails, and removes the backup after an install failure', async () => {
+  const f = fixture();
+  await f.controller.check();
+  f.controller.beforeInstall = () => {
+    throw Error('storage full');
+  };
+  await f.controller.install();
+  expect(f.update.install).not.toHaveBeenCalled();
+  expect(f.controller.snapshot().error).toContain('暂存失败');
+  f.controller.beforeInstall = () => {};
+  f.controller.installFailed = vi.fn();
+  f.update.install.mockRejectedValueOnce(Error('native install failed'));
+  await f.controller.install();
+  expect(f.controller.installFailed).toHaveBeenCalledOnce();
   expect(f.restart).not.toHaveBeenCalled();
 });

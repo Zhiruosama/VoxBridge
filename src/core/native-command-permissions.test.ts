@@ -4,8 +4,22 @@ import buildSource from '../../src-tauri/build.rs?raw';
 import main from '../../src-tauri/capabilities/main.json';
 import subtitle from '../../src-tauri/capabilities/subtitle.json';
 import setup from '../../src-tauri/capabilities/setup.json';
+import macChrome from '../../src-tauri/capabilities/macos-chrome.json';
+import windowsChrome from '../../src-tauri/capabilities/windows-chrome.json';
 
 describe('native command permission integration', () => {
+  it('authorizes the shared titlebar drag script on both desktop platforms', () => {
+    expect(macChrome.platforms).toEqual(['macOS']);
+    expect(windowsChrome.platforms).toEqual(['windows']);
+    for (const chrome of [macChrome, windowsChrome]) {
+      expect(chrome.windows).toEqual(['main']);
+      expect(chrome.permissions).toContain('core:window:allow-start-dragging');
+    }
+    expect(macChrome.permissions).toContain('allow-zoom-main-window');
+    expect(windowsChrome.permissions).toContain('core:window:allow-internal-toggle-maximize');
+    expect(subtitle.permissions).not.toContain('allow-zoom-main-window');
+    expect(macChrome.permissions).toHaveLength(2);
+  });
   it('isolates installer commands and excludes saved keys and audio from setup', () => {
     expect(setup.windows).toEqual(['setup']);
     for (const operation of [

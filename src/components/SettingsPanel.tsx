@@ -4,7 +4,7 @@ import SpeechOptionsControls from './SpeechOptionsControls';
 import { t, useUiLanguage } from '../i18n';
 import SpeechSpeed from './SpeechSpeed';
 import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react';
-import { ArrowUpRight, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
 import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
@@ -66,6 +66,7 @@ export default function SettingsPanel({
   captureSupported,
   section,
   onBusyChange,
+  onUnsavedKeyChange,
   focusSection,
   platform,
 }: {
@@ -82,6 +83,7 @@ export default function SettingsPanel({
   captureSupported: boolean;
   section: SettingsSection;
   onBusyChange: (busy: boolean) => void;
+  onUnsavedKeyChange: (dirty: boolean) => void;
   focusSection?: { id: string; version: number } | null;
 }) {
   const draft = settings;
@@ -93,6 +95,10 @@ export default function SettingsPanel({
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [keyError, setKeyError] = useState('');
+  useEffect(() => {
+    onUnsavedKeyChange(Boolean(secret.trim()));
+    return () => onUnsavedKeyChange(false);
+  }, [secret, onUnsavedKeyChange]);
   const [renaming, setRenaming] = useState(false);
   const [deletingProfile, setDeletingProfile] = useState<string | null>(null);
   const [previousName, setPreviousName] = useState('');
@@ -580,9 +586,6 @@ export default function SettingsPanel({
                 />
               </SettingRow>
             </div>
-            <p className="preference-help">
-              {t('Shift + Enter 换行。翻译和语音合成会调用所选服务，可能计费。')}
-            </p>
           </section>
           <section className="preference-section" aria-labelledby="text-overlay-heading">
             <div className="preference-section-title">
@@ -1124,32 +1127,6 @@ export default function SettingsPanel({
                   </span>
                 )}
               </SettingRow>
-              {stage === 'translation' && (
-                <details
-                  className="service-extensions"
-                  open={/^deepseek/i.test(profile.modelId) || undefined}
-                >
-                  <summary>{t('服务扩展参数')}</summary>
-                  <p>{t('仅在服务明确支持时设置；不确定时保留服务默认。')}</p>
-                  <SettingRow title={t('思考模式')}>
-                    <Select
-                      label={t('翻译思考模式')}
-                      value={profile.thinking ?? 'default'}
-                      options={[
-                        { value: 'default', label: '服务默认' },
-                        { value: 'disabled', label: '关闭' },
-                        { value: 'enabled', label: '开启' },
-                      ]}
-                      onChange={(value) =>
-                        update({
-                          thinking:
-                            value === 'default' ? undefined : (value as 'enabled' | 'disabled'),
-                        })
-                      }
-                    />
-                  </SettingRow>
-                </details>
-              )}
               {stage === 'tts' && (
                 <SettingRow title={t('语速')}>
                   <SpeechSpeed value={profile.speed} onChange={(speed) => update({ speed })} />
@@ -1174,6 +1151,40 @@ export default function SettingsPanel({
               )}
             </div>
           </section>
+          <section
+            className="preference-section service-extension-section"
+            hidden={stage !== 'translation'}
+          >
+            {stage === 'translation' && (
+              <details
+                className="service-extensions preference-card"
+                open={/^deepseek/i.test(profile.modelId) || undefined}
+              >
+                <summary>
+                  <span>{t('服务扩展参数')}</span>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </summary>
+                <p>{t('仅在服务明确支持时设置；不确定时保留服务默认。')}</p>
+                <SettingRow title={t('思考模式')}>
+                  <Select
+                    label={t('翻译思考模式')}
+                    value={profile.thinking ?? 'default'}
+                    options={[
+                      { value: 'default', label: '服务默认' },
+                      { value: 'disabled', label: '关闭' },
+                      { value: 'enabled', label: '开启' },
+                    ]}
+                    onChange={(value) =>
+                      update({
+                        thinking:
+                          value === 'default' ? undefined : (value as 'enabled' | 'disabled'),
+                      })
+                    }
+                  />
+                </SettingRow>
+              </details>
+            )}
+          </section>
           <ServiceCheck
             key={JSON.stringify([profile, hasKey !== false, Boolean(secret.trim())])}
             profile={profile}
@@ -1181,25 +1192,20 @@ export default function SettingsPanel({
             onDiagnostics={onDiagnostics}
           />
           {stage === 'tts' && <SpeechOptionsControls profile={profile} onChange={update} />}
-          <section className="preference-section" aria-labelledby="personal-presets-heading">
-            <h2 id="personal-presets-heading">{t('自定义预设')}</h2>
-            <div className="preference-card">
-              <PresetEditor
-                key={`${profile.id}:${profile.adapter}:models`}
-                profile={profile}
-                kind="modelPresets"
-                onChange={update}
-              />
-              {stage === 'tts' && (
-                <PresetEditor
-                  key={`${profile.id}:${profile.adapter}:voices`}
-                  profile={profile}
-                  kind="voicePresets"
-                  onChange={update}
-                />
-              )}
-            </div>
-          </section>
+          <PresetEditor
+            key={`${profile.id}:${profile.adapter}:models`}
+            profile={profile}
+            kind="modelPresets"
+            onChange={update}
+          />
+          {stage === 'tts' && (
+            <PresetEditor
+              key={`${profile.id}:${profile.adapter}:voices`}
+              profile={profile}
+              kind="voicePresets"
+              onChange={update}
+            />
+          )}
           {stage === 'translation' && (
             <section className="preference-section" aria-labelledby="translation-prompt-heading">
               <div className="preference-section-title">

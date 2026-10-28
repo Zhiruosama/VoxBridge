@@ -47,7 +47,9 @@ export class AppUpdates {
     percent: null,
     error: '',
   };
-  blocked = () => true;
+  blocked: (automatic?: boolean) => boolean | string = () => true;
+  beforeInstall: () => void = () => {};
+  installFailed: () => void = () => {};
   constructor(
     private checkUpdate: () => Promise<AppUpdate | null>,
     private restart: () => Promise<void>,
@@ -89,7 +91,7 @@ export class AppUpdates {
         this.emit({ status: 'available', seconds: null });
         return;
       }
-      if (this.blocked()) {
+      if (this.blocked(true)) {
         this.deadline = null;
         if (this.state.status !== 'waiting') this.emit({ status: 'waiting', seconds: null });
         return;
@@ -151,8 +153,14 @@ export class AppUpdates {
   async install(automatic = false) {
     const update = this.update;
     if (!update || ['checking', 'downloading', 'installing'].includes(this.state.status)) return;
-    if (!automatic && this.blocked()) {
-      this.emit({ error: '请先停止监听和录音、处理发送队列，并保存或放弃设置更改，再更新。' });
+    const blocked = this.blocked(automatic);
+    if (!automatic && blocked) {
+      this.emit({
+        error:
+          typeof blocked === 'string'
+            ? blocked
+            : '请先停止监听和录音、处理发送队列，并保存或放弃设置更改，再更新。',
+      });
       return;
     }
     this.stopTimer();
@@ -183,15 +191,24 @@ export class AppUpdates {
         return;
       }
       // Re-check after download: the user might have started working in another view.
-      if (this.blocked()) {
+      const blockedAfterDownload = this.blocked();
+      if (blockedAfterDownload) {
         this.emit({
           status: 'available',
-          error: '下载已完成，请先结束当前任务并保存设置，再更新。',
+          error:
+            typeof blockedAfterDownload === 'string'
+              ? blockedAfterDownload
+              : '下载已完成，请先结束当前任务并保存设置，再更新。',
         });
         return;
       }
       await this.finishInstall(false);
     } catch {
+      try {
+        this.installFailed();
+      } catch {
+        /* Retain the original failure. */
+      }
       this.emit({
         status: 'available',
         error:
@@ -203,13 +220,29 @@ export class AppUpdates {
   }
   private async finishInstall(automatic: boolean) {
     if (!this.update || (automatic && (!this.state.automatic || this.deferred))) return;
-    if (this.blocked()) {
+    const blocked = this.blocked(automatic);
+    if (blocked) {
       if (automatic) this.waitForIdle();
       else
         this.emit({
           status: 'available',
-          error: '下载已完成，请先结束当前任务并保存设置，再更新。',
+          error:
+            typeof blocked === 'string'
+              ? blocked
+              : '下载已完成，请先结束当前任务并保存设置，再更新。',
         });
+      return;
+    }
+    // Every install path, including cached downloads and automatic countdowns,
+    // must snapshot the latest drafts immediately before handing off.
+    try {
+      this.beforeInstall();
+    } catch {
+      this.emit({
+        status: 'available',
+        seconds: null,
+        error: '输入内容暂存失败，更新未开始。请复制保存输入内容后重试。',
+      });
       return;
     }
     this.emit({ status: 'installing', seconds: null, error: '' });
@@ -217,6 +250,11 @@ export class AppUpdates {
       await this.update.install();
       await this.restart();
     } catch {
+      try {
+        this.installFailed();
+      } catch {
+        /* Retain the original installation failure. */
+      }
       this.emit({
         status: 'available',
         error: '安装未完成，请使用新版安装包覆盖安装，无需删除原有配置。',

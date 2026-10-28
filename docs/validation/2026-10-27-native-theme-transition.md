@@ -33,3 +33,30 @@ cargo run --manifest-path src-tauri/Cargo.toml --example native-theme-regression
 - 270 项前端测试通过，新增覆盖统一的页面颜色进度、清晰文字端点、反向切换连续性、样式清理和 Windows 路径。
 - 独立 Mac 原生窗口的实际采样：89 次 DOM/AppKit 色彩比对最大 RGB 差为 0；采到 40 种原生背景色，准确到达浅色与深色终点；同时确认没有旧页面快照、前景色保持端点颜色。
 - 格式、文档检查、前端构建、Mac 打包与签名检查通过。颜色比对验证原生属性与页面样式同步，不等同于所有显示器下的逐像素视频验收。
+
+## 后续修正：顶部背景与页面共用合成层
+
+实际体验仍出现分层：先前的采样比较 AppKit 背景属性和 DOM 样式，并没有覆盖两条渲染管线最终显示的时机。数值相同不足以证明显示帧一致。
+
+Mac 主窗口现使用 `TitleBarStyle::Overlay`，由同一个 WebView 绘制顶部背景与应用标题，保留系统原生红黄绿按钮。顶部预留 32 个逻辑像素、按钮位置固定，背景与侧栏使用同一主题变量。主题切换复用整页 View Transition 或兼容快照，不再逐帧修改 AppKit 背景和页面颜色变量；AppKit 只同步最终外观设置。Windows 的窗口按钮与布局保持原有实现。
+
+验证使用独立测试窗口，不读取用户设置或凭据：
+
+- 生产主题钩子及 Mac 顶部组件参与测试，706 帧检查均保持同色背景、文字颜色、完整标题栏宽度和 32px 预留高度；到达深浅两端，包含快速反向切换。
+- 原生窗口确认 FullSizeContentView、隐藏原生标题和透明标题栏同时启用。
+- 通过窗口截图采样实际显示结果：8 张截图中包含中间色帧，在顶部与页面的同色背景区域逐张比较，RGB 最大差为 0。这是选定采样点的检查，不代表所有显示器和场景的完整视觉验收。
+- 原生窗口缩放按钮操作正常；点击系统全屏按钮后进入全屏，使用 Control + Command + F 退出后关闭、最小化与全屏按钮恢复。
+
+自动验证仍使用上面的 `native-theme-regression` 命令；设置 `VOXBRIDGE_THEME_VISUAL=1` 可将窗口保留 60 秒，方便观察。旧的原生逐帧插值及逐变量页面过渡代码和对应测试已移除，主题通知、初始化、减少动态效果、取消和 Windows 共用过渡仍有测试覆盖。
+
+## 2026-10-28：窗口按钮贴顶
+
+用户截图显示三个原生按钮贴到窗口上边缘。Tao 的 `inset_traffic_lights` 用按钮高度加 Y 值设置标题栏容器高度，Y 并非按钮距顶部的直接边距。原来的 Y=10 实际得到顶部 1px、中心 8px，与 32px WebView 顶栏不对齐；改为 Y=18 后，原生测量三个按钮均为顶部 9px、高度 14px、中心 16px，与标题垂直居中。横向位置和主题过渡不变。
+
+`VOXBRIDGE_CHROME_LAYOUT_ONLY=1 cargo run --manifest-path src-tauri/Cargo.toml --example native-theme-regression` 使用隐藏的 about:blank 原生窗口测量实际按钮坐标，不弹窗、不读取用户配置。此模式不依赖 Vite，也不代替之前的主题颜色回归。本轮未启动可见测试窗口，Mac 打包与签名检查通过。
+
+## 2026-10-28：主窗口顶栏拖动权限
+
+自绘 Mac 顶栏使用 Tauri 的 `data-tauri-drag-region` 脚本。该脚本调用 `plugin:window|start_dragging`，双击调用 `internal_toggle_maximize`；原先只在 Windows 专用 capability 中授权，Mac 顶栏虽然声明了拖动区域，实际请求会被 ACL 拒绝。
+
+新增仅适用于 macOS 的 main-window capability，只开放这两项顶栏操作。保留系统原生按钮，不扩展悬浮窗或设置安装器权限。281 项前端测试通过，包含双平台标题栏权限范围检查；打包生成的 capabilities 已包含 Mac 专用权限，Mac 构建与签名检查通过。本轮未打开可见测试窗口，真实拖动留待用户重启体验。

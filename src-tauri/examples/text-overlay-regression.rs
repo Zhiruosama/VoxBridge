@@ -32,6 +32,15 @@ fn main() {
             let destination = moved.window().unwrap();
             assert_ne!(destination.windowNumber(), native.windowNumber());
             assert!(!destination.isVisible());
+            let style = destination.styleMask();
+            let spaces = destination.collectionBehavior();
+            assert_eq!(destination.level(), objc2_app_kit::NSStatusWindowLevel);
+            panel::text_input(label, false).map_err(std::io::Error::other)?;
+            assert!(panel::text_input(label, true).is_err(), "hidden panels must not activate for text input");
+            assert!(!destination.isVisible());
+            assert_eq!(destination.styleMask(), style);
+            assert_eq!(destination.collectionBehavior(), spaces);
+            assert_eq!(destination.level(), objc2_app_kit::NSStatusWindowLevel);
             panel::drag(label, "fixture".into(), "begin", 0.0, 0.0).map_err(std::io::Error::other)?;
             panel::drag(label, "fixture".into(), "end", 0.0, 0.0).map_err(std::io::Error::other)?;
             panel::resize(label, "resize".into(), "begin", tauri_runtime::ResizeDirection::SouthEast).map_err(std::io::Error::other)?;

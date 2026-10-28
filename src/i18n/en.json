@@ -967,5 +967,15 @@
   "录音结束后发送合成语音；不会直通麦克风原声。": "Finishing a recording sends synthesized speech; it does not forward live microphone audio.",
   "录音后先填入文字，确认后点击发送；不会直通麦克风原声。": "Recording fills the text box. Review it and click Send; live microphone audio is not forwarded.",
   "已选择，保存更改后生效": "Selected; save changes to apply",
-  "虚拟麦克风未就绪，请安装驱动、按提示重启电脑后刷新设备。": "Virtual microphone not ready. Install its driver, restart as instructed, then refresh devices."
+  "虚拟麦克风未就绪，请安装驱动、按提示重启电脑后刷新设备。": "Virtual microphone not ready. Install its driver, restart as instructed, then refresh devices.",
+  "设置正在保存，请完成后再更新。": "Settings are being saved. Wait for saving to finish before updating.",
+  "请先停止字幕监听，停止完成后再更新。": "Stop caption listening and wait for it to finish before updating.",
+  "请先结束或取消语音输入，再更新。": "Finish or cancel voice input before updating.",
+  "请先完成或取消发送队列中的任务，再更新。": "Complete or cancel the tasks in the send queue before updating.",
+  "文本翻译正在进行，请完成或取消后再更新。": "Wait for text translation to finish or cancel it before updating.",
+  "设置尚未保存，请保存或放弃更改后再更新。": "Save or discard your settings changes before updating.",
+  "输入内容暂存失败，更新未开始。请复制保存输入内容后重试。": "Could not preserve your text. The update has not started. Copy and save your input, then retry.",
+  "尚未添加预设": "No presets yet",
+  "名称": "Name",
+  "无法准备悬浮窗输入法，请收起输入框后重试。": "Could not prepare text input. Close the floating input box and try again."
 }

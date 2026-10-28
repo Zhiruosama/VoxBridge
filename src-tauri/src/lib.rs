@@ -21,6 +21,7 @@ mod text_overlay;
 #[cfg(all(test, target_os = "windows"))]
 mod update_tests;
 mod window_behavior;
+mod window_geometry;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -56,7 +57,7 @@ pub fn run() {
             let _ = diagnostics::initialize(app.handle());
             credentials::initialize(app.handle()).map_err(std::io::Error::other)?;
             // Configure the Windows frame before showing the first native frame.
-            // macOS retains its native title bar and traffic lights.
+            // macOS retains native traffic lights above a WebView-painted header.
             let config = app
                 .config()
                 .app
@@ -67,18 +68,25 @@ pub fn run() {
             let builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
             #[cfg(target_os = "windows")]
             let builder = builder.decorations(false);
-            // Keep the webview below the native title bar on macOS. The default
-            // Visible style uses a full-size content view, which can leave the
-            // traffic lights floating over an otherwise empty header.
+            // Let one compositor paint the header and page transition. Native
+            // traffic lights remain over the WebView, with a reserved DOM row;
+            // an independently painted AppKit background can lag a DOM frame.
             #[cfg(target_os = "macos")]
             let builder = builder
                 .decorations(true)
-                .title_bar_style(tauri::TitleBarStyle::Transparent)
-                .hidden_title(false)
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true)
+                // Tao treats Y as extra titlebar-container height, not a
+                // top margin. 10 places the controls against the top edge.
+                .traffic_light_position(tauri::LogicalPosition::new(12.0, 18.0))
                 // The main WebView owns queue scheduling and listening state.
                 // Hiding/minimizing must not suspend those tasks after a few minutes.
                 .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
-            builder.build()?;
+            let main = builder.build()?;
+            #[cfg(target_os = "macos")]
+            window_geometry::install(&main)?;
+            #[cfg(not(target_os = "macos"))]
+            let _ = main;
             for config in app
                 .config()
                 .app
@@ -110,6 +118,7 @@ pub fn run() {
             setup::setup_finish,
             runtime_info,
             window_behavior::set_main_close_behavior,
+            window_geometry::zoom_main_window,
             diagnostics::record_diagnostic,
             diagnostics::open_diagnostics_folder,
             diagnostics::export_diagnostics,
@@ -134,6 +143,7 @@ pub fn run() {
             overlay::hide_overlay,
             overlay::drag_overlay,
             overlay::resize_overlay,
+            overlay::set_overlay_text_input,
             overlay::focus_main,
             overlay::stop_overlay_listening,
             credentials::credential_status,

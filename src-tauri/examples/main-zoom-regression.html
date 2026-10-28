@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><div id="root"></div>
+<script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {invoke} from '@tauri-apps/api/core';
+import MacWindowChrome from '/src/components/MacWindowChrome.tsx';
+import '/src/styles.css';
+const h=React.createElement;
+createRoot(document.querySelector('#root')).render(h('div',{className:'app-shell has-mac-chrome'},h(MacWindowChrome),h('aside',{className:'sidebar'},'独立缩放测试'),h('main',{className:'main-shell',style:{padding:24}},h('h2',null,'双击顶栏，检查缩放、还原及右侧边界'),h('p',{id:'size'},''),h('p',{id:'frames'},''),h('button',{onClick:async()=>{document.querySelector('#result').textContent=await invoke('zoom_main_window',{check:true})}},'运行原生回归'),h('p',{id:'result'},'不读取配置、不请求模型、不发送声音。'))));
+function size(){const node=document.querySelector('#size');if(node)node.textContent=`页面尺寸 ${innerWidth} × ${innerHeight}`;}
+addEventListener('resize',size);requestAnimationFrame(size);
+</script>
+
+<script>
+let previousWidth=innerWidth, previousHeight=innerHeight, samples=[];
+function frame(){
+  if(innerWidth!==previousWidth || innerHeight!==previousHeight){
+    samples.push(`${innerWidth}×${innerHeight}`);
+    previousWidth=innerWidth;previousHeight=innerHeight;
+    const output=document.querySelector('#frames');
+    if(output)output.textContent=`页面绘制尺寸变化 ${samples.length} 帧：${samples.slice(-8).join(' → ')}`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
