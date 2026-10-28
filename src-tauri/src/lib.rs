@@ -21,6 +21,7 @@ mod text_overlay;
 #[cfg(all(test, target_os = "windows"))]
 mod update_tests;
 mod window_behavior;
+mod window_geometry;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -81,7 +82,11 @@ pub fn run() {
                 // The main WebView owns queue scheduling and listening state.
                 // Hiding/minimizing must not suspend those tasks after a few minutes.
                 .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
-            builder.build()?;
+            let main = builder.build()?;
+            #[cfg(target_os = "macos")]
+            window_geometry::install(&main)?;
+            #[cfg(not(target_os = "macos"))]
+            let _ = main;
             for config in app
                 .config()
                 .app
@@ -113,6 +118,7 @@ pub fn run() {
             setup::setup_finish,
             runtime_info,
             window_behavior::set_main_close_behavior,
+            window_geometry::zoom_main_window,
             diagnostics::record_diagnostic,
             diagnostics::open_diagnostics_folder,
             diagnostics::export_diagnostics,

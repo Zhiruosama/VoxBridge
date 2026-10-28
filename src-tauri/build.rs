@@ -14,6 +14,7 @@ fn main() {
             "setup_finish",
             "runtime_info",
             "set_main_close_behavior",
+            "zoom_main_window",
             "record_diagnostic",
             "open_diagnostics_folder",
             "export_diagnostics",

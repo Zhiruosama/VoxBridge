@@ -14,8 +14,10 @@ describe('native command permission integration', () => {
     for (const chrome of [macChrome, windowsChrome]) {
       expect(chrome.windows).toEqual(['main']);
       expect(chrome.permissions).toContain('core:window:allow-start-dragging');
-      expect(chrome.permissions).toContain('core:window:allow-internal-toggle-maximize');
     }
+    expect(macChrome.permissions).toContain('allow-zoom-main-window');
+    expect(windowsChrome.permissions).toContain('core:window:allow-internal-toggle-maximize');
+    expect(subtitle.permissions).not.toContain('allow-zoom-main-window');
     expect(macChrome.permissions).toHaveLength(2);
   });
   it('isolates installer commands and excludes saved keys and audio from setup', () => {
