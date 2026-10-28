@@ -6,8 +6,16 @@ import subtitle from '../../src-tauri/capabilities/subtitle.json';
 import setup from '../../src-tauri/capabilities/setup.json';
 import macChrome from '../../src-tauri/capabilities/macos-chrome.json';
 import windowsChrome from '../../src-tauri/capabilities/windows-chrome.json';
+import installerHooks from '../../native/windows/installer-hooks.nsh?raw';
 
 describe('native command permission integration', () => {
+  it('keeps retry entries until uninstall succeeds and checks busy files before cleanup', () => {
+    const pre = installerHooks.match(/!macro NSIS_HOOK_PREUNINSTALL([\s\S]*?)!macroend/)![1];
+    const post = installerHooks.match(/!macro NSIS_HOOK_POSTUNINSTALL([\s\S]*?)!macroend/)![1];
+    expect(pre.trimStart().startsWith('!insertmacro VOXBRIDGE_ASSERT_APP_STOPPED')).toBe(true);
+    expect(pre).not.toMatch(/\bDelete\s|\bRMDir\s/);
+    expect(post).toContain('Delete "$SMPROGRAMS\\VoxBridge\\Uninstall VoxBridge.lnk"');
+  });
   it('authorizes the shared titlebar drag script on both desktop platforms', () => {
     expect(macChrome.platforms).toEqual(['macOS']);
     expect(windowsChrome.platforms).toEqual(['windows']);

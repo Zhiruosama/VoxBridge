@@ -317,9 +317,17 @@ fn uninstall(app: &tauri::AppHandle, remove_data: bool, remove_driver: bool) -> 
         // Refuse rather than force-ending an app that may contain live work.
         let executable = folder.join("voxbridge.exe");
         let escaped = executable.to_string_lossy().replace('\'', "''");
-        let running = powershell(&format!("$p='{escaped}'; if(Get-Process voxbridge -ErrorAction SilentlyContinue | Where-Object {{$_.Path -eq $p}}){{'running'}}"))?;
+        let running = powershell(&format!("$p='{escaped}'; if(Get-Process voxbridge -ErrorAction SilentlyContinue | Where-Object {{-not $_.Path -or $_.Path -eq $p}}){{'running'}}"))?;
         if !running.is_empty() {
             return Err("请先在 VoxBridge 中选择退出应用，再重试卸载；最小化不会退出。".into());
+        }
+        // UI only enters the removal phase after preflight passes. The NSIS
+        // guard repeats the file check immediately before any mutations.
+        if let Some(window) = app.get_webview_window("setup") {
+            use tauri::Emitter;
+            window
+                .emit("voxbridge:uninstall-started", ())
+                .map_err(|_| "无法更新卸载状态。")?;
         }
         if remove_driver {
             let helper = folder.join("virtual-microphone/Manage-Virtual-Microphone.ps1");

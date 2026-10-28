@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AudioLines, Check, Copy, Folder, LoaderCircle, Minus, Square, X } from 'lucide-react';
 import './Setup.css';
@@ -11,10 +12,10 @@ export default function Uninstall() {
   const [english, setEnglish] = useState(false);
   const [removeData, setRemoveData] = useState(false);
   const [removeDriver, setRemoveDriver] = useState(false);
-  const [phase, setPhase] = useState<'ready' | 'busy' | 'done'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'checking' | 'busy' | 'done'>('ready');
   const [error, setError] = useState('');
   const [maximized, setMaximized] = useState(false);
-  const busy = phase === 'busy';
+  const busy = phase === 'busy' || phase === 'checking';
   const text = (zh: string, en: string) => (english ? en : zh);
   async function inspect() {
     try {
@@ -69,13 +70,17 @@ export default function Uninstall() {
   async function uninstall() {
     if (!info || busy) return;
     setError('');
-    setPhase('busy');
+    setPhase('checking');
+    let off: (() => void) | undefined;
     try {
+      off = await listen('voxbridge:uninstall-started', () => setPhase('busy'));
       await invoke('setup_uninstall', { removeData, removeDriver });
       setPhase('done');
     } catch (e) {
       setError(String(e));
       setPhase('ready');
+    } finally {
+      off?.();
     }
   }
   async function finish() {
@@ -124,7 +129,7 @@ export default function Uninstall() {
             text('正在卸载', 'Uninstalling'),
             text('卸载完成', 'Finished'),
           ].map((label, index) => {
-            const current = phase === 'ready' ? 0 : busy ? 1 : 2;
+            const current = phase === 'ready' || phase === 'checking' ? 0 : busy ? 1 : 2;
             return (
               <div
                 key={label}
@@ -145,7 +150,7 @@ export default function Uninstall() {
             {english ? '简体中文' : 'English'}
           </button>
         </div>
-        {phase === 'ready' ? (
+        {phase === 'ready' || phase === 'checking' ? (
           <>
             <h1>{text('卸载 VoxBridge', 'Uninstall VoxBridge')}</h1>
             <p className="setup-description">
@@ -174,6 +179,7 @@ export default function Uninstall() {
                   type="checkbox"
                   aria-label={text('清除个人配置与密钥', 'Remove personal settings and keys')}
                   checked={removeData}
+                  disabled={busy}
                   onChange={(e) => setRemoveData(e.target.checked)}
                 />
               </div>
@@ -193,7 +199,7 @@ export default function Uninstall() {
                   type="checkbox"
                   aria-label={text('打开驱动卸载管理器', 'Open driver removal manager')}
                   checked={removeDriver}
-                  disabled={!info?.driver}
+                  disabled={busy || !info?.driver}
                   onChange={(e) => setRemoveDriver(e.target.checked)}
                 />
               </div>
@@ -265,11 +271,13 @@ export default function Uninstall() {
               disabled={busy || (!info && phase !== 'done')}
               onClick={() => void (phase === 'done' ? finish() : uninstall())}
             >
-              {busy
-                ? text('卸载中…', 'Uninstalling…')
-                : phase === 'done'
-                  ? text('完成', 'Finish')
-                  : text('卸载', 'Uninstall')}
+              {phase === 'checking'
+                ? text('正在检查…', 'Checking…')
+                : busy
+                  ? text('卸载中…', 'Uninstalling…')
+                  : phase === 'done'
+                    ? text('完成', 'Finish')
+                    : text('卸载', 'Uninstall')}
             </button>
           </div>
         </footer>

@@ -1,6 +1,7 @@
 ; Keep the original signed vendor package intact. VB-CABLE setup is also its uninstaller.
 ; Distribution terms: https://vb-audio.com/Services/licensing.htm (VB-CABLE distribution).
 !include LogicLib.nsh
+!include "${__FILEDIR__}\uninstall-safety.nsh"
 !include "${__FILEDIR__}\installer-ui.nsh"
 
 ; Tauri includes hooks before declaring UpdateMode. Extend the deferred MUI GUI-init
@@ -70,6 +71,7 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
+  !insertmacro VOXBRIDGE_ASSERT_APP_STOPPED
   ; Only the explicit UI choice opts into Tauri's existing data-removal path.
   ${GetOptions} $CMDLINE "/DELETEAPPDATA" $0
   ${IfNot} ${Errors}
@@ -91,10 +93,11 @@
     ${EndIf}
   ${EndIf}
   voxbridge_driver_uninstall_done:
-  Delete "$SMPROGRAMS\VoxBridge\Uninstall VoxBridge.lnk"
-  Delete "$SMPROGRAMS\VoxBridge\VB-CABLE - Install or Uninstall.lnk"
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
+  ; Only remove maintenance entries after the engine has completed successfully.
+  Delete "$SMPROGRAMS\VoxBridge\Uninstall VoxBridge.lnk"
+  Delete "$SMPROGRAMS\VoxBridge\VB-CABLE - Install or Uninstall.lnk"
   RMDir "$SMPROGRAMS\VoxBridge"
 !macroend
