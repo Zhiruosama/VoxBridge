@@ -98,3 +98,44 @@ it('keeps the prompt visible for recovery when installation is blocked', async (
   f.controller.dismissStartupPrompt();
   expect(f.controller.snapshot().startupPrompt).toBe(false);
 });
+
+it('explains the actual blocking task and allows update when it ends', async () => {
+  const f = fixture();
+  await f.controller.check();
+  f.controller.blocked = () => '文本翻译正在进行，请完成或取消后再更新。';
+  await f.controller.install();
+  expect(f.controller.snapshot().error).toContain('文本翻译');
+  expect(f.update.download).not.toHaveBeenCalled();
+  f.controller.blocked = () => false;
+  await f.controller.install();
+  expect(f.update.install).toHaveBeenCalledOnce();
+});
+it('preserves the latest drafts only after the download and final activity check', async () => {
+  const f = fixture();
+  const prepare = vi.fn();
+  f.controller.beforeInstall = prepare;
+  await f.controller.check();
+  f.update.install.mockImplementation(async () => {
+    expect(prepare).toHaveBeenCalledOnce();
+  });
+  await f.controller.install();
+  expect(f.update.download.mock.invocationCallOrder[0]).toBeLessThan(
+    prepare.mock.invocationCallOrder[0],
+  );
+});
+it('does not install when preserving drafts fails, and removes the backup after an install failure', async () => {
+  const f = fixture();
+  await f.controller.check();
+  f.controller.beforeInstall = () => {
+    throw Error('storage full');
+  };
+  await f.controller.install();
+  expect(f.update.install).not.toHaveBeenCalled();
+  expect(f.controller.snapshot().error).toContain('暂存失败');
+  f.controller.beforeInstall = () => {};
+  f.controller.installFailed = vi.fn();
+  f.update.install.mockRejectedValueOnce(Error('native install failed'));
+  await f.controller.install();
+  expect(f.controller.installFailed).toHaveBeenCalledOnce();
+  expect(f.restart).not.toHaveBeenCalled();
+});

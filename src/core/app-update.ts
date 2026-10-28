@@ -29,7 +29,9 @@ export class AppUpdates {
     percent: null,
     error: '',
   };
-  blocked = () => true;
+  blocked: () => boolean | string = () => true;
+  beforeInstall: () => void = () => {};
+  installFailed: () => void = () => {};
   constructor(
     private checkUpdate: () => Promise<AppUpdate | null>,
     private restart: () => Promise<void>,
@@ -74,8 +76,14 @@ export class AppUpdates {
   async install() {
     const update = this.update;
     if (!update || ['checking', 'downloading', 'installing'].includes(this.state.status)) return;
-    if (this.blocked()) {
-      this.emit({ error: '请先停止监听和录音、处理发送队列，并保存或放弃设置更改，再更新。' });
+    const blocked = this.blocked();
+    if (blocked) {
+      this.emit({
+        error:
+          typeof blocked === 'string'
+            ? blocked
+            : '请先停止监听和录音、处理发送队列，并保存或放弃设置更改，再更新。',
+      });
       return;
     }
     this.emit({ status: 'downloading', percent: null, error: '' });
@@ -88,10 +96,23 @@ export class AppUpdates {
         this.emit({ percent: total ? Math.min(100, Math.round((received * 100) / total)) : null });
       });
       // Re-check after download: the user might have started working in another view.
-      if (this.blocked()) {
+      const blockedAfterDownload = this.blocked();
+      if (blockedAfterDownload) {
         this.emit({
           status: 'available',
-          error: '下载已完成，请先结束当前任务并保存设置，再更新。',
+          error:
+            typeof blockedAfterDownload === 'string'
+              ? blockedAfterDownload
+              : '下载已完成，请先结束当前任务并保存设置，再更新。',
+        });
+        return;
+      }
+      try {
+        this.beforeInstall();
+      } catch {
+        this.emit({
+          status: 'available',
+          error: '输入内容暂存失败，更新未开始。请复制保存输入内容后重试。',
         });
         return;
       }
@@ -99,6 +120,11 @@ export class AppUpdates {
       await update.install();
       await this.restart();
     } catch {
+      try {
+        this.installFailed();
+      } catch {
+        /* Retain the original failure. */
+      }
       this.emit({
         status: 'available',
         error:

@@ -1260,9 +1260,7 @@ nav button[aria-current='page'] {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: relative;
   background: var(--bg);
   padding-block: 12px;
   margin: -12px 0 32px;
@@ -2757,7 +2755,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
     display: none;
   }
 }
-.service-check > p,
+.service-check-main > p,
+.service-check-feedback,
 .service-extensions > p {
   color: var(--muted);
   font-size: 13px;
@@ -2771,10 +2770,75 @@ input[type='range']:focus-visible::-moz-range-thumb {
 .service-check .service-check-success {
   color: var(--good);
 }
-.service-extensions {
-  padding: 16px 0;
+.service-extensions > summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 0;
+  list-style: none;
+  font-weight: 550;
 }
-.service-extensions summary,
+.service-extensions > summary::-webkit-details-marker {
+  display: none;
+}
+.service-extensions > summary svg {
+  transition: transform 160ms ease;
+}
+.service-extensions[open] > summary svg {
+  transform: rotate(180deg);
+}
+.service-extensions > p {
+  border-top: 0;
+  margin: 0 0 8px;
+  max-width: 64ch;
+}
+.service-extensions > .preference-row {
+  border-top: 1px solid var(--border);
+}
+.service-check-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 0;
+}
+.service-check-main > p {
+  margin: 0;
+  max-width: 64ch;
+}
+.service-check-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.service-check-actions button {
+  font-size: 12px;
+}
+.service-check-feedback {
+  padding: 14px 0;
+}
+.service-check-feedback p {
+  margin: 0;
+}
+.service-check-feedback details {
+  margin-top: 10px;
+}
+@container preferences (max-width: 620px) {
+  .service-check-main {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .service-check-actions {
+    justify-content: flex-start;
+  }
+}
 .text-translation-error summary,
 .service-check summary {
   cursor: pointer;

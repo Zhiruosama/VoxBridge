@@ -1,3 +1,4 @@
+import { clearUpdateDrafts, readUpdateDrafts, saveUpdateDrafts } from './core/update-drafts';
 import UpdatePrompt from './components/UpdatePrompt';
 import TextTranslation from './components/TextTranslation';
 import { useTextTools } from './hooks/useTextTools';
@@ -136,6 +137,14 @@ export default function App() {
       };
     }
   });
+  const [updateDrafts] = useState(readUpdateDrafts);
+  useEffect(() => {
+    try {
+      clearUpdateDrafts();
+    } catch {
+      /* Reading can still work in restricted storage. */
+    }
+  }, []);
   const [settings, setSettings] = useState<Settings>(initial.settings);
   useEffect(() => setUiLanguage(settings.uiLanguage), [settings.uiLanguage]);
   const [savedSettings, setSavedSettings] = useState<Settings>(initial.settings);
@@ -145,6 +154,7 @@ export default function App() {
       new TextTranslationController(
         { translate, cancelTranslation },
         initial.settings.targetLanguage,
+        updateDrafts?.translation,
       ),
   );
   useEffect(() => () => textTranslation.cancel(), [textTranslation]);
@@ -210,7 +220,7 @@ export default function App() {
   const listenStoppingRef = useRef(false);
   const listenEpochRef = useRef(new ListeningEpoch());
   const listening = listenPhase !== 'idle';
-  const [text, setText] = useState('');
+  const [text, setText] = useState(updateDrafts?.main ?? '');
   const draftRevisionRef = useRef(0);
   const voiceRef = useRef<{
     id: string;
@@ -237,13 +247,19 @@ export default function App() {
       }),
   );
   const [queueView, setQueueView] = useState<QueueView>({ paused: false, items: [] });
-  const updateBlocked = useRef(true);
+  const [unsavedKey, setUnsavedKey] = useState(false);
+  const updateBlocked = useRef<boolean | string>(true);
+  const prepareUpdate = useRef(() => {});
   useEffect(() => {
     if (!desktop) return;
     appUpdates.blocked = () => updateBlocked.current;
+    appUpdates.beforeInstall = () => prepareUpdate.current();
+    appUpdates.installFailed = clearUpdateDrafts;
     void appUpdates.checkAtStartup();
     return () => {
       appUpdates.blocked = () => true;
+      appUpdates.beforeInstall = () => {};
+      appUpdates.installFailed = () => {};
     };
   }, [notify]);
   const [sendQueue] = useState(
@@ -295,19 +311,29 @@ export default function App() {
     else if (action.action === 'queueRetry') void sendQueue.retry(action.id, settings);
     else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
   }
-  const [overlayDraft, setOverlayDraft] = useState('');
-  updateBlocked.current =
-    settingsBusy ||
-    textTools.watching ||
-    textTranslation.getSnapshot().busy ||
-    Boolean(textTranslation.getSnapshot().input.trim()) ||
-    listenPhase !== 'idle' ||
-    Boolean(voice) ||
-    composer.busy ||
-    busy ||
-    queueView.items.length > 0 ||
-    Boolean(text.trim() || overlayDraft.trim()) ||
-    JSON.stringify(settings) !== JSON.stringify(savedSettings);
+  const [overlayDraft, setOverlayDraft] = useState(updateDrafts?.overlay ?? '');
+  updateBlocked.current = settingsBusy
+    ? '设置正在保存，请完成后再更新。'
+    : listenPhase !== 'idle'
+      ? '请先停止字幕监听，停止完成后再更新。'
+      : voice
+        ? '请先结束或取消语音输入，再更新。'
+        : composer.busy || busy || queueView.items.length > 0
+          ? '请先完成或取消发送队列中的任务，再更新。'
+          : textTranslation.getSnapshot().busy
+            ? '文本翻译正在进行，请完成或取消后再更新。'
+            : unsavedKey || JSON.stringify(settings) !== JSON.stringify(savedSettings)
+              ? '设置尚未保存，请保存或放弃更改后再更新。'
+              : false;
+  prepareUpdate.current = () => {
+    const { input, source, target, result, resultTarget } = textTranslation.getSnapshot();
+    saveUpdateDrafts({
+      main: text,
+      overlay: overlayDraft,
+      translation: { input, source, target, result, resultTarget },
+    });
+    textTools.changeWatching(false);
+  };
   const [overlayVoiceError, setOverlayVoiceError] = useState('');
   const [overlayVoiceReady, setOverlayVoiceReady] = useState(false);
   const overlayActionsRef = useRef<(request: OverlayVoiceRequest) => void>(() => {});
@@ -1171,6 +1197,7 @@ export default function App() {
               section={settingsSection}
               focusSection={settingsFocus}
               onBusyChange={setSettingsBusy}
+              onUnsavedKeyChange={setUnsavedKey}
               settings={settings}
               savedSettings={savedSettings}
               onDraftChange={setSettings}
