@@ -70,6 +70,34 @@ LangString VoxBridgeRun 1033 "Open VoxBridge"
   FunctionEnd
 !macroend
 
+; Reuse the app-rendered setup shell for interactive uninstall. Silent updates
+; never open UI; the original NSIS engine still owns file/data removal.
+!macroundef MUI_UNPAGE_CONFIRM
+!macro MUI_UNPAGE_CONFIRM
+  !insertmacro MUI_UNPAGE_INIT
+  !undef MUI_PAGE_CUSTOMFUNCTION_PRE
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE un.VoxBridgeOpenUninstallUI
+  !insertmacro MUI_PAGEDECLARATION_CONFIRM
+  Function un.VoxBridgeOpenUninstallUI
+    ${If} $UpdateMode = 1
+    ${OrIf} $PassiveMode = 1
+      Abort
+    ${EndIf}
+    InitPluginsDir
+    ClearErrors
+    CopyFiles /SILENT "$INSTDIR\voxbridge.exe" "$PLUGINSDIR\voxbridge-uninstall-ui.exe"
+    CopyFiles /SILENT "$EXEPATH" "$PLUGINSDIR\uninstall-payload.exe"
+    ${IfNot} ${Errors}
+      ExecWait '"$PLUGINSDIR\voxbridge-uninstall-ui.exe" --voxbridge-uninstall "--voxbridge-uninstall-root=$INSTDIR"' $0
+      ${IfNot} ${Errors}
+        SetErrorLevel $0
+        Quit
+      ${EndIf}
+    ${EndIf}
+    ; Copy/start failures leave the native recovery UI available.
+  FunctionEnd
+!macroend
+
 !macroundef MUI_PAGE_INSTFILES
 !macro MUI_PAGE_INSTFILES
   Page custom VoxBridgeReadyShow VoxBridgeReadyLeave

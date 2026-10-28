@@ -15,7 +15,13 @@ pub struct SetupState {
 }
 
 pub fn requested() -> bool {
-    cfg!(target_os = "windows") && std::env::args().any(|arg| arg == "--voxbridge-setup")
+    cfg!(target_os = "windows")
+        && std::env::args()
+            .any(|arg| matches!(arg.as_str(), "--voxbridge-setup" | "--voxbridge-uninstall"))
+}
+
+fn uninstall_requested() -> bool {
+    cfg!(target_os = "windows") && std::env::args().any(|arg| arg == "--voxbridge-uninstall")
 }
 
 pub fn create_window(app: &mut tauri::App) -> Result<bool, Box<dyn std::error::Error>> {
@@ -25,9 +31,20 @@ pub fn create_window(app: &mut tauri::App) -> Result<bool, Box<dyn std::error::E
     let window = tauri::WebviewWindowBuilder::new(
         app,
         "setup",
-        tauri::WebviewUrl::App("index.html?window=setup".into()),
+        tauri::WebviewUrl::App(
+            if uninstall_requested() {
+                "index.html?window=setup&mode=uninstall"
+            } else {
+                "index.html?window=setup"
+            }
+            .into(),
+        ),
     )
-    .title("VoxBridge 安装")
+    .title(if uninstall_requested() {
+        "VoxBridge 卸载"
+    } else {
+        "VoxBridge 安装"
+    })
     .inner_size(900.0, 640.0)
     .min_inner_size(820.0, 580.0)
     .resizable(true)
@@ -35,7 +52,11 @@ pub fn create_window(app: &mut tauri::App) -> Result<bool, Box<dyn std::error::E
     .decorations(false)
     .background_color(tauri::window::Color(30, 30, 30, 255));
     #[cfg(target_os = "windows")]
-    let window = window.data_directory(std::env::temp_dir().join("VoxBridgeSetup-Webview"));
+    let window = window.data_directory(std::env::temp_dir().join(if uninstall_requested() {
+        "VoxBridgeUninstall-Webview"
+    } else {
+        "VoxBridgeSetup-Webview"
+    }));
     let window = window.build()?;
     let handle = app.handle().clone();
     window.on_window_event(move |event| {
@@ -127,6 +148,9 @@ pub async fn setup_install(
     desktop_shortcut: bool,
 ) -> Result<serde_json::Value, String> {
     ensure_setup()?;
+    if uninstall_requested() {
+        return Err("当前为卸载界面。".into());
+    }
     validate_path(&path)?;
     let state = app.state::<SetupState>();
     if state.busy.swap(true, Ordering::SeqCst) {
@@ -232,13 +256,117 @@ pub fn setup_finish(app: tauri::AppHandle, open: bool) -> Result<(), String> {
         .map_err(|_| "无法读取安装结果。")?
         .clone()
         .ok_or("安装尚未完成。")?;
-    if open {
+    if open && !uninstall_requested() {
         std::process::Command::new(folder.join("voxbridge.exe"))
             .spawn()
             .map_err(|_| "无法打开 VoxBridge，请从开始菜单启动。")?;
     }
     app.exit(0);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn setup_uninstall(
+    app: tauri::AppHandle,
+    remove_data: bool,
+    remove_driver: bool,
+) -> Result<(), String> {
+    if !uninstall_requested() {
+        return Err("卸载界面未启动。".into());
+    }
+    let state = app.state::<SetupState>();
+    if state.busy.swap(true, Ordering::SeqCst) {
+        return Err("卸载正在进行中。".into());
+    }
+    let task_app = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        uninstall(&task_app, remove_data, remove_driver)
+    })
+    .await
+    .map_err(|_| "卸载任务未完成。".to_string())
+    .and_then(|r| r);
+    state.busy.store(false, Ordering::SeqCst);
+    result
+}
+
+fn uninstall(app: &tauri::AppHandle, remove_data: bool, remove_driver: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let path = std::env::args()
+            .find_map(|arg| {
+                arg.strip_prefix("--voxbridge-uninstall-root=")
+                    .map(str::to_owned)
+            })
+            .ok_or("请从系统设置或原安装目录打开卸载程序。")?;
+        let path = path.trim_end_matches(['\\', '/']);
+        validate_path(path)?;
+        let registered = powershell(
+            r#"[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); if(Test-Path 'HKCU:\Software\voxbridge\VoxBridge'){[Console]::Write((Get-Item 'HKCU:\Software\voxbridge\VoxBridge').GetValue(''))}"#,
+        )?;
+        if !path.eq_ignore_ascii_case(registered.trim_end_matches(['\\', '/'])) {
+            return Err("卸载位置与已安装应用不一致，操作已停止。".into());
+        }
+        let folder = PathBuf::from(path);
+        let payload = std::env::current_exe()
+            .map_err(|_| "无法读取卸载文件。")?
+            .with_file_name("uninstall-payload.exe");
+        if !payload.is_file() || !folder.join("uninstall.exe").is_file() {
+            return Err("卸载文件不完整，请重新安装后再卸载。".into());
+        }
+        // Refuse rather than force-ending an app that may contain live work.
+        let executable = folder.join("voxbridge.exe");
+        let escaped = executable.to_string_lossy().replace('\'', "''");
+        let running = powershell(&format!("$p='{escaped}'; if(Get-Process voxbridge -ErrorAction SilentlyContinue | Where-Object {{$_.Path -eq $p}}){{'running'}}"))?;
+        if !running.is_empty() {
+            return Err("请先在 VoxBridge 中选择退出应用，再重试卸载；最小化不会退出。".into());
+        }
+        if remove_driver {
+            let helper = folder.join("virtual-microphone/Manage-Virtual-Microphone.ps1");
+            if !helper.is_file() {
+                return Err("找不到驱动管理器，请取消驱动选项后重试。".into());
+            }
+            let status = std::process::Command::new("powershell.exe")
+                .args([
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-WindowStyle",
+                    "Hidden",
+                    "-File",
+                ])
+                .arg(helper)
+                .creation_flags(0x08000000)
+                .status()
+                .map_err(|_| "无法打开驱动管理器。")?;
+            if !status.success() {
+                return Err("驱动管理器未完成，请重试或取消驱动选项。".into());
+            }
+        }
+        let mut command = std::process::Command::new(payload);
+        command.arg("/S");
+        if remove_data {
+            command.arg("/DELETEAPPDATA");
+        }
+        let status = command
+            .raw_arg(format!("_?={path}"))
+            .creation_flags(0x08000000)
+            .status()
+            .map_err(|_| "无法启动卸载任务。")?;
+        if !status.success() || executable.exists() {
+            return Err("卸载未完成，请关闭占用文件的程序后重试。".into());
+        }
+        *app.state::<SetupState>()
+            .installed
+            .lock()
+            .map_err(|_| "无法保存卸载结果。")? = Some(folder);
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (app, remove_data, remove_driver);
+        Err("此卸载器仅适用于 Windows。".into())
+    }
 }
 
 #[cfg(test)]

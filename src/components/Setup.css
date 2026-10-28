@@ -6,6 +6,17 @@
   background: var(--side);
   color: var(--text);
 }
+.uninstall-path {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.uninstall-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .setup-shell > .window-chrome {
   grid-column: 1/-1;
   padding-left: 22px;

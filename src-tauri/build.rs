@@ -29,6 +29,7 @@ fn main() {
             "setup_choose_folder",
             "setup_install",
             "setup_finish",
+            "setup_uninstall",
             "runtime_info",
             "private_preset",
             "set_main_close_behavior",

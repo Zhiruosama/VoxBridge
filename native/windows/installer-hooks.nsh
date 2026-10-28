@@ -70,6 +70,12 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
+  ; Only the explicit UI choice opts into Tauri's existing data-removal path.
+  ${GetOptions} $CMDLINE "/DELETEAPPDATA" $0
+  ${IfNot} ${Errors}
+  ${AndIf} $UpdateMode <> 1
+    StrCpy $DeleteAppDataCheckboxState 1
+  ${EndIf}
   ; Never remove a shared driver automatically, or open its setup during updates.
   ${If} $UpdateMode <> 1
   ${AndIf} $PassiveMode <> 1
