@@ -6,12 +6,15 @@ body{font:16px system-ui;background:#202024;color:#eee;padding:28px;margin:0}tex
 <h2>VoxBridge · 输入法测试</h2>
 <p>只在本机测试键盘输入，不读取配置、不发送文字。</p>
 <textarea aria-label="输入法测试" placeholder="点击后输入拼音"></textarea>
-<button id="reset">结束输入</button><button id="finish">完成测试</button>
+<button id="pinyin">系统拼音</button><button id="abc">ABC</button><button id="reset">结束输入</button><button id="finish">完成测试</button>
 <p id="state">候选词应显示在光标旁边</p>
 <script type="module">
 import { invoke } from '@tauri-apps/api/core';
 const editor=document.querySelector('textarea');
 editor.addEventListener('focus',()=>invoke('set_overlay_text_input',{active:true}).catch(e=>{document.querySelector('#state').textContent=String(e)}));
-document.querySelector('#reset').onclick=()=>invoke('set_overlay_text_input',{active:false});
-document.querySelector('#finish').onclick=()=>invoke('finish_ime_probe');
+for(const id of ['pinyin','abc']) document.querySelector('#'+id).onmousedown=e=>e.preventDefault();
+document.querySelector('#pinyin').onclick=async()=>{editor.focus();document.querySelector('#state').textContent=await invoke('set_overlay_text_input',{active:true,testAction:'pinyin'});editor.focus()};
+document.querySelector('#abc').onclick=async()=>{editor.focus();document.querySelector('#state').textContent=await invoke('set_overlay_text_input',{active:true,testAction:'abc'});editor.focus()};
+document.querySelector('#reset').onclick=()=>{editor.blur();return invoke('set_overlay_text_input',{active:false})};
+document.querySelector('#finish').onclick=()=>invoke('set_overlay_text_input',{active:false,testAction:'finish'});
 </script>

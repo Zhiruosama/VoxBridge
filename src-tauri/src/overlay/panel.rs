@@ -1,10 +1,10 @@
-//! A real nonactivating NSPanel. Never change TaoWindow's Objective-C class or
+//! Native subtitle display and input panels. Never change TaoWindow's Objective-C class or
 //! superclass: its allocation layout and event implementation belong to Tao.
 use objc2::{define_class, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSApplication, NSBackingStoreType, NSColor, NSEvent, NSEventType, NSFloatingWindowLevel,
-    NSPanel, NSStatusWindowLevel, NSTextInputContext, NSView, NSWindow, NSWindowDelegate,
-    NSWindowOcclusionState, NSWindowStyleMask, NSWorkspace,
+    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSEvent,
+    NSEventType, NSFloatingWindowLevel, NSPanel, NSStatusWindowLevel, NSTextInputContext, NSView,
+    NSWindow, NSWindowDelegate, NSWindowOcclusionState, NSWindowStyleMask, NSWorkspace,
     NSWorkspaceActiveSpaceDidChangeNotification,
 };
 use objc2_foundation::{
@@ -19,6 +19,9 @@ use tauri::Manager;
 
 #[path = "panel/content.rs"]
 mod content;
+#[cfg(debug_assertions)]
+#[path = "panel/regression.rs"]
+pub(crate) mod regression;
 
 define_class!(
     #[unsafe(super(NSPanel))]
@@ -37,7 +40,7 @@ define_class!(
             if event.r#type() == NSEventType::LeftMouseDown {
                 // A WKWebView can keep DOM focus across Spaces. Clicking its
                 // already-focused editor does not emit another DOM focus event.
-                queue_text_focus(self.windowNumber());
+                queue_text_click(self.windowNumber());
             }
         }
     }
@@ -56,8 +59,17 @@ define_class!(
         #[unsafe(method(activeSpaceChanged:))]
         fn active_space_changed(&self, _: &NSNotification) {
             PANEL.with(|state| {
-                if let Ok(current) = state.try_borrow() {
-                    for item in current.values() { record_visibility(&item.panel, &item._delegate.ivars().log); }
+                if let Ok(mut current) = state.try_borrow_mut() {
+                    for item in current.values_mut() {
+                        // Restore the all-Spaces presentation without activating
+                        // anything on the new desktop. The next explicit click
+                        // creates an editor anchored to that desktop.
+                        if item.editing.get() && item.passive_panel.is_some() && !item.panel.isOnActiveSpace() {
+                            item.focus_epoch.set(item.focus_epoch.get().wrapping_add(1));
+                            end_editing(item, true);
+                        }
+                        record_visibility(&item.panel, &item._delegate.ivars().log);
+                    }
                 }
             });
         }
@@ -85,6 +97,8 @@ struct FloatingPanel {
     _delegate: Retained<PanelDelegate>,
     editing: Cell<bool>,
     focus_epoch: Cell<u64>,
+    passive_panel: Option<Retained<SubtitlePanel>>,
+    activation_policy: Option<NSApplicationActivationPolicy>,
     drag: Option<PanelDrag>,
     resize: Option<PanelResize>,
 }
@@ -120,6 +134,9 @@ fn record_visibility(window: &NSWindow, path: &std::path::Path) {
         "windowNumber": window.windowNumber(), "visible": window.isVisible(),
         "onActiveSpace": window.isOnActiveSpace(),
         "unoccluded": window.occlusionState().contains(NSWindowOcclusionState::Visible),
+        "activationPolicy": MainThreadMarker::new().map(|mtm| NSApplication::sharedApplication(mtm).activationPolicy().0),
+        "styleMask": window.styleMask().0,
+        "collectionBehavior": window.collectionBehavior().0,
         "level": window.level(), "panel": true, "key": window.isKeyWindow(),
         "currentInputContext": MainThreadMarker::new().is_some_and(|mtm| NSTextInputContext::currentInputContext(mtm).is_some()),
         "inputContext": window.firstResponder().and_then(|r| r.downcast::<NSView>().ok()).is_some_and(|view| view.inputContext().is_some()),
@@ -188,6 +205,8 @@ pub(super) fn prepare(window: &tauri::WebviewWindow, reveal: bool) -> Result<(),
                 _delegate: delegate,
                 editing: Cell::new(false),
                 focus_epoch: Cell::new(0),
+                passive_panel: None,
+                activation_policy: None,
                 drag: None,
                 resize: None,
             });
@@ -204,9 +223,44 @@ pub(super) fn prepare(window: &tauri::WebviewWindow, reveal: bool) -> Result<(),
 // Explicit text entry is different from passive captions. A nonactivating
 // status-level panel may receive keys while the IME remains bound to another
 // frontmost app, and can also cover the candidate popup. Keep the same panel
-// and Spaces flags, but give editing ordinary floating level and real activation.
+// for passive display. Explicit editing uses an activating companion anchored
+// to the current Space, below the system candidate level.
+fn queue_text_click(number: isize) {
+    dispatch2::DispatchQueue::main().exec_async(move || {
+        let label = PANEL.with(|state| {
+            state
+                .borrow()
+                .iter()
+                .find(|(_, item)| {
+                    item.panel.windowNumber() == number
+                        && item.editing.get()
+                        && item.panel.isVisible()
+                })
+                .map(|(label, _)| label.clone())
+        });
+        if let Some(label) = label {
+            let _ = text_input(&label, true);
+        }
+    });
+}
+
 fn queue_text_focus(number: isize) {
     dispatch2::DispatchQueue::main().exec_async(move || {
+        let resume = PANEL.with(|state| {
+            state
+                .borrow()
+                .iter()
+                .find(|(_, item)| {
+                    item.panel.windowNumber() == number
+                        && item.editing.get()
+                        && item.passive_panel.is_none()
+                })
+                .map(|(label, _)| label.clone())
+        });
+        if let Some(label) = resume {
+            let _ = text_input(&label, true);
+            return;
+        }
         let epoch = PANEL.with(|state| {
             state
                 .borrow()
@@ -276,11 +330,89 @@ fn finish_text_focus(number: isize, epoch: u64, attempt: u8) {
     record_visibility(&panel, &log);
 }
 
+// Do not toggle NonactivatingPanel on an existing NSPanel. AppKit's style-mask
+// setter can leave the WindowServer activation tag behind. An editing panel is
+// allocated with an activating style from the outset; Tao's hidden host is untouched.
+fn begin_editing(item: &mut FloatingPanel) -> Result<(), String> {
+    let mtm = MainThreadMarker::new().ok_or("字幕窗必须在主线程显示。")?;
+    let app = NSApplication::sharedApplication(mtm);
+    let previous = app.activationPolicy();
+    if !app.setActivationPolicy(NSApplicationActivationPolicy::Accessory) {
+        return Err("无法准备悬浮窗输入法。".into());
+    }
+    let allocated = SubtitlePanel::alloc(mtm).set_ivars(());
+    let editor: Retained<SubtitlePanel> = unsafe {
+        objc2::msg_send![super(allocated),
+            initWithContentRect: item.panel.frame(),
+            styleMask: NSWindowStyleMask::Borderless | NSWindowStyleMask::Resizable,
+            backing: NSBackingStoreType::Buffered, defer: false
+        ]
+    };
+    unsafe {
+        editor.setReleasedWhenClosed(false);
+    }
+    editor.setTitle(&item.panel.title());
+    editor.setCollectionBehavior(
+        objc2_app_kit::NSWindowCollectionBehavior::MoveToActiveSpace
+            | objc2_app_kit::NSWindowCollectionBehavior::FullScreenAuxiliary,
+    );
+    editor.setHidesOnDeactivate(false);
+    editor.setFloatingPanel(true);
+    editor.setBecomesKeyOnlyIfNeeded(false);
+    editor.setLevel(NSFloatingWindowLevel);
+    editor.setOpaque(false);
+    editor.setBackgroundColor(Some(&NSColor::clearColor()));
+    editor.setHasShadow(false);
+    editor.setContentMinSize(item.panel.contentMinSize());
+    let responder = item.panel.firstResponder();
+    if let Err(error) = content::transfer(&item.panel, &editor) {
+        app.setActivationPolicy(previous);
+        return Err(error.into());
+    }
+    editor.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(
+        &*item._delegate,
+    )));
+    let passive = std::mem::replace(&mut item.panel, editor);
+    passive.orderOut(None);
+    item.passive_panel = Some(passive);
+    item.activation_policy = Some(previous);
+    item.panel.orderFrontRegardless();
+    item.panel.makeKeyWindow();
+    if let Some(responder) = responder {
+        item.panel.makeFirstResponder(Some(&responder));
+    }
+    Ok(())
+}
+fn end_editing(item: &mut FloatingPanel, reveal: bool) {
+    if let Some(passive) = item.passive_panel.take() {
+        let responder = item.panel.firstResponder();
+        passive.setFrame_display(item.panel.frame(), false);
+        if content::transfer(&item.panel, &passive).is_ok() {
+            let editor = std::mem::replace(&mut item.panel, passive);
+            editor.setDelegate(None);
+            editor.orderOut(None);
+            if let Some(responder) = responder {
+                item.panel.makeFirstResponder(Some(&responder));
+            }
+        } else {
+            item.passive_panel = Some(passive);
+        }
+    }
+    if let Some(previous) = item.activation_policy.take() {
+        if let Some(mtm) = MainThreadMarker::new() {
+            NSApplication::sharedApplication(mtm).setActivationPolicy(previous);
+        }
+    }
+    item.panel.setLevel(NSStatusWindowLevel);
+    if reveal {
+        item.panel.orderFrontRegardless();
+    }
+}
 pub(super) fn text_input(label: &str, active: bool) -> Result<(), String> {
     MainThreadMarker::new().ok_or("字幕窗必须在主线程显示。")?;
     PANEL.with(|state| {
-        let current = state.borrow();
-        let Some(item) = current.get(label) else {
+        let mut current = state.borrow_mut();
+        let Some(item) = current.get_mut(label) else {
             return if active {
                 Err("字幕窗尚未打开。".into())
             } else {
@@ -290,23 +422,27 @@ pub(super) fn text_input(label: &str, active: bool) -> Result<(), String> {
         if active && !item.panel.isVisible() {
             return Err("字幕窗尚未显示。".into());
         }
+        if active && item.passive_panel.is_none() {
+            begin_editing(item)?;
+        }
         item.editing.set(active);
         item.focus_epoch.set(item.focus_epoch.get().wrapping_add(1));
         if active {
-            item.panel.setLevel(NSFloatingWindowLevel);
             item.panel.makeKeyWindow();
             queue_text_focus(item.panel.windowNumber());
         } else {
-            item.panel.setLevel(NSStatusWindowLevel);
+            end_editing(item, item.panel.isVisible());
         }
         record_visibility(&item.panel, &item._delegate.ivars().log);
         Ok(())
     })
 }
+
 pub(super) fn hide(label: &str) {
     PANEL.with(|state| {
         if let Some(item) = state.borrow_mut().get_mut(label) {
             item.editing.set(false);
+            end_editing(item, false);
             item.focus_epoch.set(item.focus_epoch.get().wrapping_add(1));
             item.panel.setLevel(NSStatusWindowLevel);
             item.drag = None;
