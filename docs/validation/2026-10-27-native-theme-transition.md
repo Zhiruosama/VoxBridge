@@ -54,3 +54,9 @@ Mac 主窗口现使用 `TitleBarStyle::Overlay`，由同一个 WebView 绘制顶
 用户截图显示三个原生按钮贴到窗口上边缘。Tao 的 `inset_traffic_lights` 用按钮高度加 Y 值设置标题栏容器高度，Y 并非按钮距顶部的直接边距。原来的 Y=10 实际得到顶部 1px、中心 8px，与 32px WebView 顶栏不对齐；改为 Y=18 后，原生测量三个按钮均为顶部 9px、高度 14px、中心 16px，与标题垂直居中。横向位置和主题过渡不变。
 
 `VOXBRIDGE_CHROME_LAYOUT_ONLY=1 cargo run --manifest-path src-tauri/Cargo.toml --example native-theme-regression` 使用隐藏的 about:blank 原生窗口测量实际按钮坐标，不弹窗、不读取用户配置。此模式不依赖 Vite，也不代替之前的主题颜色回归。本轮未启动可见测试窗口，Mac 打包与签名检查通过。
+
+## 2026-10-28：主窗口顶栏拖动权限
+
+自绘 Mac 顶栏使用 Tauri 的 `data-tauri-drag-region` 脚本。该脚本调用 `plugin:window|start_dragging`，双击调用 `internal_toggle_maximize`；原先只在 Windows 专用 capability 中授权，Mac 顶栏虽然声明了拖动区域，实际请求会被 ACL 拒绝。
+
+新增仅适用于 macOS 的 main-window capability，只开放这两项顶栏操作。保留系统原生按钮，不扩展悬浮窗或设置安装器权限。281 项前端测试通过，包含双平台标题栏权限范围检查；打包生成的 capabilities 已包含 Mac 专用权限，Mac 构建与签名检查通过。本轮未打开可见测试窗口，真实拖动留待用户重启体验。
