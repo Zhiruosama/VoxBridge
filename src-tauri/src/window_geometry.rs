@@ -6,9 +6,9 @@ mod mac {
         MainThreadOnly,
     };
     use objc2_app_kit::{
-        NSAutoresizingMaskOptions as Mask, NSEvent, NSEventMask, NSView, NSWindow,
-        NSWindowDidChangeBackingPropertiesNotification, NSWindowDidResizeNotification,
-        NSWindowStyleMask,
+        NSAnimatablePropertyContainer, NSAnimationContext, NSAutoresizingMaskOptions as Mask,
+        NSEvent, NSEventMask, NSView, NSWindow, NSWindowDidChangeBackingPropertiesNotification,
+        NSWindowDidResizeNotification, NSWindowStyleMask,
     };
     use objc2_foundation::{
         NSNotification, NSNotificationCenter, NSObject, NSObjectProtocol, NSRect,
@@ -17,7 +17,6 @@ mod mac {
         cell::{Cell, RefCell},
         collections::BTreeMap,
         ptr::NonNull,
-        time::{Duration, Instant},
     };
 
     pub struct State {
@@ -25,43 +24,12 @@ mod mac {
         view: Retained<NSView>,
         restore: Cell<Option<NSRect>>,
         label: String,
-        animation: Cell<Option<FrameAnimation>>,
+        animation: Cell<Option<NSRect>>,
         generation: Cell<u64>,
         // Retain the local monitor for the lifetime of the main window.
         monitor: RefCell<Option<Retained<AnyObject>>>,
         #[cfg(debug_assertions)]
         resize_events: Cell<usize>,
-    }
-    #[derive(Clone, Copy)]
-    struct FrameAnimation {
-        from: NSRect,
-        to: NSRect,
-        started: Instant,
-    }
-    const ZOOM_DURATION: Duration = Duration::from_millis(420);
-    fn animation_frame(from: NSRect, to: NSRect, progress: f64) -> NSRect {
-        let t = progress.clamp(0.0, 1.0);
-        let eased = t * t * (3.0 - 2.0 * t);
-        let blend = |a: f64, b: f64| a + (b - a) * eased;
-        NSRect::new(
-            objc2_foundation::NSPoint::new(
-                blend(from.origin.x, to.origin.x),
-                blend(from.origin.y, to.origin.y),
-            ),
-            objc2_foundation::NSSize::new(
-                blend(from.size.width, to.size.width),
-                blend(from.size.height, to.size.height),
-            ),
-        )
-    }
-    fn schedule_frame(label: String, generation: u64) {
-        let when = dispatch2::DispatchTime::try_from(Duration::from_millis(16)).unwrap();
-        let _ = dispatch2::DispatchQueue::main().after(when, move || {
-            let observer = OBSERVERS.with(|items| items.borrow().get(&label).cloned());
-            if let Some(observer) = observer {
-                observer.animate_frame(generation);
-            }
-        });
     }
     define_class!(
         #[unsafe(super(NSObject))]
@@ -107,7 +75,7 @@ mod mac {
             let near = |a: f64, b: f64| (a - b).abs() < 2.0;
             // Reverse an in-flight zoom from its current frame rather than
             // letting the older animation overwrite a newer double click.
-            let destination = state.animation.get().map_or(current, |a| a.to);
+            let destination = state.animation.get().unwrap_or(current);
             let filled = near(destination.origin.x, maximum.origin.x)
                 && near(destination.origin.y, maximum.origin.y)
                 && near(destination.size.width, maximum.size.width)
@@ -130,42 +98,25 @@ mod mac {
             let target = visible_restore(target, maximum);
             let generation = state.generation.get().wrapping_add(1);
             state.generation.set(generation);
-            state.animation.set(Some(FrameAnimation {
-                from: current,
-                to: target,
-                started: Instant::now(),
-            }));
-            // Return to the normal event loop between frames: WKWebView must
-            // be able to commit its resized page, not only the native bounds.
-            schedule_frame(state.label.clone(), generation);
-        }
-        fn animate_frame(&self, generation: u64) {
-            let state = self.ivars();
-            if state.generation.get() != generation {
-                return;
-            }
-            let Some(animation) = state.animation.get() else {
-                return;
-            };
-            if state
-                .window
-                .styleMask()
-                .contains(NSWindowStyleMask::FullScreen)
-            {
-                state.animation.set(None);
-                return;
-            }
-            let progress = animation.started.elapsed().as_secs_f64() / ZOOM_DURATION.as_secs_f64();
-            state.window.setFrame_display(
-                animation_frame(animation.from, animation.to, progress),
-                true,
-            );
-            self.fit();
-            if progress >= 1.0 {
-                state.animation.set(None);
-            } else {
-                schedule_frame(state.label.clone(), generation);
-            }
+            state.animation.set(Some(target));
+            let native = state.window.clone();
+            let changes = block2::RcBlock::new(move |_: NonNull<NSAnimationContext>| {
+                // AppKit owns timing, interpolation and frame scheduling. Use
+                // its asynchronous animator proxy rather than a custom timer
+                // or the synchronous setFrame:display:animate: resize path.
+                native.animator().setFrame_display(target, true);
+            });
+            let label = state.label.clone();
+            let completed = block2::RcBlock::new(move || {
+                let observer = OBSERVERS.with(|items| items.borrow().get(&label).cloned());
+                if let Some(observer) = observer {
+                    if observer.ivars().generation.get() == generation {
+                        observer.ivars().animation.set(None);
+                        observer.fit();
+                    }
+                }
+            });
+            NSAnimationContext::runAnimationGroup_completionHandler(&changes, Some(&completed));
         }
     }
     // y is measured down from the top of the native frame, in logical points.
@@ -189,21 +140,6 @@ mod mac {
     mod tests {
         use super::*;
         use objc2_foundation::{NSPoint, NSSize};
-        #[test]
-        fn zoom_frame_has_exact_endpoints_and_smooth_intermediate_sizes() {
-            let from = NSRect::new(NSPoint::new(-1200.0, 400.0), NSSize::new(1000.0, 700.0));
-            let to = NSRect::new(NSPoint::new(-2560.0, 60.0), NSSize::new(2560.0, 1350.0));
-            assert_eq!(animation_frame(from, to, -1.0), from);
-            assert_eq!(animation_frame(from, to, 2.0), to);
-            let first = animation_frame(from, to, 0.1);
-            let middle = animation_frame(from, to, 0.5);
-            let last = animation_frame(from, to, 0.9);
-            assert!(from.size.width < first.size.width);
-            assert!(first.size.width < middle.size.width);
-            assert!(middle.size.width < last.size.width);
-            assert!(last.size.width < to.size.width);
-            assert_eq!(animation_frame(to, from, 0.5), middle);
-        }
         #[test]
         fn native_titlebar_gesture_excludes_controls_content_and_other_windows() {
             assert!(is_titlebar_double_click(1, 1, 2, 700.0, 12.0));
@@ -332,7 +268,7 @@ mod mac {
             Ok(result)
         })
         .await?;
-        tokio::time::sleep(Duration::from_millis(160)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(160)).await;
         inspect(&window, move |o| {
             let state = o.ivars();
             assert_ne!(state.window.frame(), initial);
@@ -347,7 +283,7 @@ mod mac {
             Ok(())
         })
         .await?;
-        tokio::time::sleep(Duration::from_millis(400)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
         inspect(&window, |o| {
             let state = o.ivars();
             assert_eq!(
@@ -362,7 +298,7 @@ mod mac {
             Ok(())
         })
         .await?;
-        tokio::time::sleep(Duration::from_millis(550)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(550)).await;
         inspect(&window, move |o| {
             let state = o.ivars();
             assert_eq!(state.window.frame(), initial);
