@@ -6,16 +6,10 @@ mod geometry;
 #[tauri::command(rename = "zoom_main_window")]
 async fn zoom_probe(window: tauri::WebviewWindow, check: Option<bool>) -> Result<String, String> {
     if check.unwrap_or(false) {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        window
-            .run_on_main_thread(move || {
-                #[cfg(debug_assertions)]
-                let _ = tx.send(geometry::regression("main"));
-                #[cfg(not(debug_assertions))]
-                let _ = tx.send(Err("debug only".into()));
-            })
-            .map_err(|e| e.to_string())?;
-        return rx.await.map_err(|e| e.to_string())?;
+        #[cfg(debug_assertions)]
+        return geometry::regression(window).await;
+        #[cfg(not(debug_assertions))]
+        return Err("debug only".into());
     }
     geometry::zoom_main_window(window)
         .await
