@@ -1,4 +1,21 @@
 fn main() {
+    // Public builds embed null; private values remain in ignored build output.
+    println!("cargo:rerun-if-env-changed=VOXBRIDGE_PRIVATE_PRESET");
+    let preset =
+        std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("private-preset.json");
+    if let Some(source) = std::env::var_os("VOXBRIDGE_PRIVATE_PRESET") {
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "Private presets are local builds only"
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            std::path::Path::new(&source).display()
+        );
+        std::fs::copy(source, preset).expect("Unable to stage private preset");
+    } else {
+        std::fs::write(preset, b"null").expect("Unable to stage empty preset");
+    }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         // Tauri embeds its Windows manifest in the application binary only.
         // Native GUI regression examples also need Common Controls v6 before
@@ -13,6 +30,7 @@ fn main() {
             "setup_install",
             "setup_finish",
             "runtime_info",
+            "private_preset",
             "set_main_close_behavior",
             "zoom_main_window",
             "record_diagnostic",

@@ -99,9 +99,9 @@ describe('provider profiles', () => {
     expect(loadSettings().audio.sendDeviceId).toBe('windows-output:62');
   });
   it('migrates and bounds workspace caption spacing independently of overlay line height', () => {
-    expect(parseSettings({ ...defaults, captionSpacing: undefined }).captionSpacing).toBe(26);
+    expect(parseSettings({ ...defaults, captionSpacing: undefined }).captionSpacing).toBe(15);
     for (const value of [null, '20', NaN, Infinity]) {
-      expect(parseSettings({ ...defaults, captionSpacing: value }).captionSpacing).toBe(26);
+      expect(parseSettings({ ...defaults, captionSpacing: value }).captionSpacing).toBe(15);
     }
     expect(parseSettings({ ...defaults, captionSpacing: -10 }).captionSpacing).toBe(8);
     expect(parseSettings({ ...defaults, captionSpacing: 1000 }).captionSpacing).toBe(64);
@@ -412,10 +412,10 @@ describe('translation style prompt', () => {
   });
 });
 
-it('defaults both caption groups to white when upgrading older settings', () => {
+it('uses the shared caption palette when older settings omit colors', () => {
   const old = { ...defaults, captionColors: undefined };
   expect(parseSettings(old).captionColors).toEqual({
-    recognition: '#ffffff',
+    recognition: '#ffe082',
     expression: '#ffffff',
   });
 });
@@ -433,7 +433,20 @@ it('rejects malformed caption color values rather than injecting CSS', () => {
     ...defaults,
     captionColors: { recognition: 'url(https://example.com)', expression: '#fff; color:red' },
   });
-  expect(loaded.captionColors).toEqual({ recognition: '#ffffff', expression: '#ffffff' });
+  expect(loaded.captionColors).toEqual({ recognition: '#ffe082', expression: '#ffffff' });
+});
+
+it('new appearance defaults never replace explicitly saved appearance', () => {
+  const saved = {
+    ...structuredClone(defaults),
+    theme: 'light',
+    captionSpacing: 26,
+    captionFontSize: 24,
+    captionColors: { recognition: '#ffffff', expression: '#80deea' },
+    subtitle: { ...defaults.subtitle, fontSize: 22, backgroundOpacity: 0.82, lineHeight: 1.65 },
+  };
+  const restored = parseSettings(JSON.parse(JSON.stringify(saved)));
+  expect(restored).toMatchObject(saved);
 });
 
 it('preserves microphone choice and defaults voice input to editable dictation', () => {

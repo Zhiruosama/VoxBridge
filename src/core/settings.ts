@@ -22,7 +22,7 @@ export const defaults: Settings = {
   automaticUpdates: false,
   captionLayout: 'sentence',
   captionColors: { ...captionColorDefaults },
-  captionSpacing: 26,
+  captionSpacing: 15,
   textTranslationOpacity: textPanelOpacity(undefined),
   textOverlay: { ...textOverlayAppearanceDefaults },
   captionFontSize: 17,

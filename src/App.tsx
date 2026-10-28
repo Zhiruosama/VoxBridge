@@ -124,13 +124,13 @@ const languages = [
 ];
 type Page = 'workspace' | 'text' | 'settings' | 'diagnostics';
 
-export default function App() {
+export default function App({ bootstrapError = '' }: { bootstrapError?: string }) {
   useUiLanguage();
   useTextSelection();
   useEffect(watchFrontendErrors, []);
   const [initial] = useState(() => {
     try {
-      return { settings: loadSettings(), error: '' };
+      return { settings: loadSettings(), error: bootstrapError };
     } catch {
       return {
         settings: structuredClone(defaults),

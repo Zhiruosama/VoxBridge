@@ -3,13 +3,13 @@ import type { OverlaySnapshot, Session, SubtitleAppearance } from './types';
 
 export const subtitleColors = ['#ffffff', '#ffe082', '#a5d6a7', '#80deea', '#ffcc80', '#f8bbd0'];
 export const subtitleDefaults: SubtitleAppearance = {
-  fontSize: 22,
-  backgroundOpacity: 0.82,
+  fontSize: 16,
+  backgroundOpacity: 0.59,
   mode: 'continuous',
   content: 'translation',
   colorMode: 'workspace',
   textColor: '#ffffff',
-  lineHeight: 1.65,
+  lineHeight: 1.3,
 };
 export const overlayHistoryLimit = 160;
 export const overlayCharacterBudget = 48000;

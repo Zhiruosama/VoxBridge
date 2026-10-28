@@ -75,6 +75,7 @@ describe('native command permission integration', () => {
       'process:allow-restart',
       'allow-open-audio-settings',
       'allow-microphone-access',
+      'allow-private-preset',
     ]) {
       expect(main.permissions).toContain(permission);
       expect(subtitle.permissions).not.toContain(permission);

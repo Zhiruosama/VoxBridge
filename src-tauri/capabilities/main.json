@@ -54,6 +54,7 @@
     "allow-focus-main",
     "allow-stop-overlay-listening",
     "allow-set-main-close-behavior",
+    "allow-private-preset",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
     "allow-publish-text-overlay",

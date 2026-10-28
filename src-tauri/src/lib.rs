@@ -13,6 +13,7 @@ mod overlay;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod pcm;
 mod platform;
+mod private_preset;
 mod providers;
 mod recovery;
 mod setup;
@@ -117,6 +118,7 @@ pub fn run() {
             setup::setup_install,
             setup::setup_finish,
             runtime_info,
+            private_preset::private_preset,
             window_behavior::set_main_close_behavior,
             window_geometry::zoom_main_window,
             diagnostics::record_diagnostic,
