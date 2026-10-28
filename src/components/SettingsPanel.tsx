@@ -308,7 +308,7 @@ export default function SettingsPanel({
                     options={[
                       {
                         value: 'hide',
-                        label: platform === 'windows' ? '最小化到任务栏' : '隐藏到后台',
+                        label: platform === 'windows' ? '最小化到系统托盘' : '隐藏到后台',
                       },
                       { value: 'quit', label: '退出应用' },
                     ]}

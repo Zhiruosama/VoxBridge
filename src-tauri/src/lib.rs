@@ -23,6 +23,8 @@ mod text_overlay;
 mod update_tests;
 mod window_behavior;
 mod window_geometry;
+#[cfg(target_os = "windows")]
+mod windows_tray;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,6 +86,9 @@ pub fn run() {
                 // Hiding/minimizing must not suspend those tasks after a few minutes.
                 .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
             let main = builder.build()?;
+            #[cfg(target_os = "windows")]
+            // If tray initialization fails, keep a taskbar recovery route.
+            let _ = windows_tray::initialize(app.handle());
             #[cfg(target_os = "macos")]
             window_geometry::install(&main)?;
             #[cfg(not(target_os = "macos"))]

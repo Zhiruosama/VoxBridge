@@ -896,6 +896,7 @@
   "关闭主窗口时": "When closing the main window",
   "隐藏到后台": "Hide in background",
   "最小化到任务栏": "Minimize to taskbar",
+  "最小化到系统托盘": "Minimize to system tray",
   "退出应用": "Quit app",
   "无法应用窗口关闭设置，请重试。": "Could not apply the window close setting. Please try again.",
   "字幕显示方式": "Caption display",
