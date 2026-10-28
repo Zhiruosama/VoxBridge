@@ -964,5 +964,6 @@
   "设置尚未保存，请保存或放弃更改后再更新。": "Save or discard your settings changes before updating.",
   "输入内容暂存失败，更新未开始。请复制保存输入内容后重试。": "Could not preserve your text. The update has not started. Copy and save your input, then retry.",
   "尚未添加预设": "No presets yet",
-  "名称": "Name"
+  "名称": "Name",
+  "无法准备悬浮窗输入法，请收起输入框后重试。": "Could not prepare text input. Close the floating input box and try again."
 }

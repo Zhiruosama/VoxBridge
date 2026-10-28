@@ -135,6 +135,7 @@ pub fn run() {
             overlay::hide_overlay,
             overlay::drag_overlay,
             overlay::resize_overlay,
+            overlay::set_overlay_text_input,
             overlay::focus_main,
             overlay::stop_overlay_listening,
             credentials::credential_status,

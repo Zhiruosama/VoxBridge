@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { listen } from '@tauri-apps/api/event';
 import { ArrowUp, Keyboard, Mic, Square, X } from 'lucide-react';
-import { overlayVoiceAction, readOverlayVoice } from '../bridge';
+import { overlayVoiceAction, readOverlayVoice, setOverlayTextInput } from '../bridge';
 import {
   newerOverlayVoice,
   overlayVoiceDefaults,
@@ -54,7 +54,19 @@ export default function OverlayVoiceControls({
     if (voice.error) restoreSubmitted();
   }, [voice.error]);
   useEffect(() => {
-    if (textOpen) editorRef.current?.focus();
+    if (!textOpen) return;
+    let active = true;
+    void setOverlayTextInput(true)
+      .then(() => {
+        if (active) editorRef.current?.focus();
+      })
+      .catch(() => {
+        if (active) setError('无法准备悬浮窗输入法，请收起输入框后重试。');
+      });
+    return () => {
+      active = false;
+      void setOverlayTextInput(false).catch(() => {});
+    };
   }, [textOpen]);
   useEffect(() => {
     let disposed = false;
@@ -128,11 +140,17 @@ export default function OverlayVoiceControls({
               maxLength={2000}
               rows={2}
               placeholder={t('输入要说的话…')}
+              onFocus={() =>
+                void setOverlayTextInput(true).catch(() =>
+                  setError('无法准备悬浮窗输入法，请收起输入框后重试。'),
+                )
+              }
               onChange={(event) => {
                 draftRevision.current++;
                 setDraft(event.target.value);
               }}
               onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
                 if (event.key === 'Escape') {
                   event.preventDefault();
                   setTextOpen(false);

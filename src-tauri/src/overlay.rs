@@ -256,6 +256,31 @@ pub(crate) async fn hide_subtitle_window(window: tauri::WebviewWindow) -> Result
 }
 
 #[tauri::command]
+pub async fn set_overlay_text_input(
+    window: tauri::WebviewWindow,
+    active: bool,
+) -> Result<(), String> {
+    if window.label() != "subtitle" {
+        return Err("此操作仅限字幕窗。".into());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(panel::text_input("subtitle", active));
+            })
+            .map_err(|_| "无法准备悬浮窗输入法。")?;
+        rx.await.map_err(|_| "字幕窗已关闭。".to_string())?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = active;
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub async fn drag_overlay(
     window: tauri::WebviewWindow,
     id: String,
@@ -542,6 +567,7 @@ mod tests {
             "core:event:allow-unlisten",
             "allow-drag-overlay",
             "allow-resize-overlay",
+            "allow-set-overlay-text-input",
             "allow-read-overlay-voice",
             "allow-overlay-voice-action",
             "allow-read-overlay",

@@ -63,6 +63,7 @@ fn main() {
             "hide_overlay",
             "drag_overlay",
             "resize_overlay",
+            "set_overlay_text_input",
             "focus_main",
             "stop_overlay_listening",
         ]),

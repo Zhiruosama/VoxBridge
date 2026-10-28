@@ -2,9 +2,9 @@
 //! superclass: its allocation layout and event implementation belong to Tao.
 use objc2::{define_class, rc::Retained, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSBackingStoreType, NSColor, NSEvent, NSPanel, NSStatusWindowLevel, NSWindow, NSWindowDelegate,
-    NSWindowOcclusionState, NSWindowStyleMask, NSWorkspace,
-    NSWorkspaceActiveSpaceDidChangeNotification,
+    NSApplication, NSBackingStoreType, NSColor, NSEvent, NSFloatingWindowLevel, NSPanel,
+    NSStatusWindowLevel, NSView, NSWindow, NSWindowDelegate, NSWindowOcclusionState,
+    NSWindowStyleMask, NSWorkspace, NSWorkspaceActiveSpaceDidChangeNotification,
 };
 use objc2_foundation::{
     NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
@@ -98,7 +98,9 @@ fn record_visibility(window: &NSWindow, path: &std::path::Path) {
         "windowNumber": window.windowNumber(), "visible": window.isVisible(),
         "onActiveSpace": window.isOnActiveSpace(),
         "unoccluded": window.occlusionState().contains(NSWindowOcclusionState::Visible),
-        "level": window.level(), "panel": true,
+        "level": window.level(), "panel": true, "key": window.isKeyWindow(),
+        "inputContext": window.firstResponder().and_then(|r| r.downcast::<NSView>().ok()).is_some_and(|view| view.inputContext().is_some()),
+        "frontmost": NSWorkspace::sharedWorkspace().frontmostApplication().is_some_and(|app| app.processIdentifier() == std::process::id() as i32),
         "frame": { "x": window.frame().origin.x, "y": window.frame().origin.y, "width": window.frame().size.width, "height": window.frame().size.height },
     });
     let _ = std::fs::write(path, value.to_string());
@@ -169,6 +171,53 @@ pub(super) fn prepare(window: &tauri::WebviewWindow, reveal: bool) -> Result<(),
         if reveal {
             item.panel.orderFrontRegardless();
             item.panel.makeKeyWindow();
+        }
+        record_visibility(&item.panel, &item._delegate.ivars().log);
+        Ok(())
+    })
+}
+// Explicit text entry is different from passive captions. A nonactivating
+// status-level panel may receive keys while the IME remains bound to another
+// frontmost app, and can also cover the candidate popup. Keep the same panel
+// and Spaces flags, but give editing ordinary floating level and real activation.
+pub(super) fn text_input(label: &str, active: bool) -> Result<(), String> {
+    let mtm = MainThreadMarker::new().ok_or("字幕窗必须在主线程显示。")?;
+    PANEL.with(|state| {
+        let current = state.borrow();
+        let Some(item) = current.get(label) else {
+            return if active {
+                Err("字幕窗尚未打开。".into())
+            } else {
+                Ok(())
+            };
+        };
+        if active {
+            if !item.panel.isVisible() {
+                return Err("字幕窗尚未显示。".into());
+            }
+            item.panel.setLevel(NSFloatingWindowLevel);
+            item.panel.makeKeyWindow();
+            // Activate only on an explicit editor focus, never on caption updates
+            // or Space notifications. Do not order the main window to the front.
+            let frontmost = NSWorkspace::sharedWorkspace().frontmostApplication();
+            if !frontmost.is_some_and(|app| app.processIdentifier() == std::process::id() as i32) {
+                #[allow(deprecated)]
+                NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
+            }
+            item.panel.makeKeyWindow();
+            if let Some(view) = item
+                .panel
+                .firstResponder()
+                .and_then(|r| r.downcast::<NSView>().ok())
+            {
+                if let Some(context) = view.inputContext() {
+                    // Let AppKit own marked text; only invalidate the caret's
+                    // screen position after cross-display/Space focus changes.
+                    context.invalidateCharacterCoordinates();
+                }
+            }
+        } else {
+            item.panel.setLevel(NSStatusWindowLevel);
         }
         record_visibility(&item.panel, &item._delegate.ivars().log);
         Ok(())

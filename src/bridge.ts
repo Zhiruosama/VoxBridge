@@ -218,6 +218,10 @@ export async function resizeOverlay(
   await invoke('resize_overlay', { id, phase, direction });
 }
 
+export async function setOverlayTextInput(active: boolean): Promise<void> {
+  if (desktop) await invoke('set_overlay_text_input', { active });
+}
+
 export async function dragOverlay(
   id: string,
   phase: 'begin' | 'move' | 'end',
