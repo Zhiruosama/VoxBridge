@@ -48,3 +48,9 @@ Mac 主窗口现使用 `TitleBarStyle::Overlay`，由同一个 WebView 绘制顶
 - 原生窗口缩放按钮操作正常；点击系统全屏按钮后进入全屏，使用 Control + Command + F 退出后关闭、最小化与全屏按钮恢复。
 
 自动验证仍使用上面的 `native-theme-regression` 命令；设置 `VOXBRIDGE_THEME_VISUAL=1` 可将窗口保留 60 秒，方便观察。旧的原生逐帧插值及逐变量页面过渡代码和对应测试已移除，主题通知、初始化、减少动态效果、取消和 Windows 共用过渡仍有测试覆盖。
+
+## 2026-10-28：窗口按钮贴顶
+
+用户截图显示三个原生按钮贴到窗口上边缘。Tao 的 `inset_traffic_lights` 用按钮高度加 Y 值设置标题栏容器高度，Y 并非按钮距顶部的直接边距。原来的 Y=10 实际得到顶部 1px、中心 8px，与 32px WebView 顶栏不对齐；改为 Y=18 后，原生测量三个按钮均为顶部 9px、高度 14px、中心 16px，与标题垂直居中。横向位置和主题过渡不变。
+
+`VOXBRIDGE_CHROME_LAYOUT_ONLY=1 cargo run --manifest-path src-tauri/Cargo.toml --example native-theme-regression` 使用隐藏的 about:blank 原生窗口测量实际按钮坐标，不弹窗、不读取用户配置。此模式不依赖 Vite，也不代替之前的主题颜色回归。本轮未启动可见测试窗口，Mac 打包与签名检查通过。

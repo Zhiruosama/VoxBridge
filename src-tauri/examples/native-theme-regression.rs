@@ -8,16 +8,34 @@ fn main() {
     use tauri::{Listener, Manager};
     let mut context = tauri::generate_context!();
     context.config_mut().identifier = "dev.voxbridge.native-theme-regression".into();
-    tauri::Builder::default().setup(|app| {
+    let layout_only = std::env::var_os("VOXBRIDGE_CHROME_LAYOUT_ONLY").is_some();
+    tauri::Builder::default().setup(move |app| {
         tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(
-            "http://127.0.0.1:1420/src-tauri/examples/native-theme-regression.html".parse()?))
+            if layout_only { "about:blank" } else { "http://127.0.0.1:1420/src-tauri/examples/native-theme-regression.html" }.parse()?))
             .title("Native theme regression")
-            .visible(true).focused(false).inner_size(700.0, 480.0)
+            .visible(!layout_only).focused(false).inner_size(700.0, 480.0)
             .decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true)
-            .traffic_light_position(tauri::LogicalPosition::new(12.0,10.0))
+            .traffic_light_position(tauri::LogicalPosition::new(12.0,18.0))
             .background_color(tauri::utils::config::Color(24, 24, 24, 255))
             .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled)
             .build()?;
+        if layout_only {
+            let window = app.get_webview_window("main").unwrap();
+            let native = unsafe { &*window.ns_window()?.cast::<NSWindow>() };
+            assert!(!native.isVisible());
+            for button in [objc2_app_kit::NSWindowButton::CloseButton, objc2_app_kit::NSWindowButton::MiniaturizeButton, objc2_app_kit::NSWindowButton::ZoomButton] {
+                let button = native.standardWindowButton(button).unwrap();
+                let frame = button.convertRect_toView(button.bounds(), None);
+                let top = native.frame().size.height - frame.origin.y - frame.size.height;
+                let center = top + frame.size.height / 2.0;
+                println!("Traffic light: top={top}, height={}, center={center}", frame.size.height);
+                assert!(top >= 6.0, "traffic light touches the top edge");
+                assert!((center - 16.0).abs() <= 0.5, "traffic light is not centered in the 32px DOM header");
+            }
+            println!("PASS: hidden native traffic-light geometry");
+            app.handle().exit(0);
+            return Ok(());
+        }
         let samples = Arc::new(Mutex::new((0usize, true, false, false)));
         let stats = samples.clone();
         app.listen("theme-probe-color", move |event| {

@@ -75,7 +75,9 @@ pub fn run() {
                 .decorations(true)
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .hidden_title(true)
-                .traffic_light_position(tauri::LogicalPosition::new(12.0, 10.0))
+                // Tao treats Y as extra titlebar-container height, not a
+                // top margin. 10 places the controls against the top edge.
+                .traffic_light_position(tauri::LogicalPosition::new(12.0, 18.0))
                 // The main WebView owns queue scheduling and listening state.
                 // Hiding/minimizing must not suspend those tasks after a few minutes.
                 .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
