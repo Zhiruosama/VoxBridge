@@ -1,3 +1,4 @@
+import MacWindowChrome from './components/MacWindowChrome';
 import { clearUpdateDrafts, readUpdateDrafts, saveUpdateDrafts } from './core/update-drafts';
 import UpdatePrompt from './components/UpdatePrompt';
 import TextTranslation from './components/TextTranslation';
@@ -543,7 +544,9 @@ export default function App() {
       .then(setRuntime)
       .catch((e) => notify(String(e)));
   }, [notify]);
-  useTheme(settings.theme, desktop && runtime?.platform === 'macos');
+  const macFrame =
+    desktop && (runtime ? runtime.platform === 'macos' : /Mac/.test(navigator.platform));
+  useTheme(settings.theme, macFrame);
   useEffect(() => {
     if (runtime?.platform !== 'macos') return;
     void setMainCloseBehavior(savedSettings.mainWindowCloseBehavior).catch(() =>
@@ -997,7 +1000,7 @@ export default function App() {
   return (
     <div
       ref={sidebarLayout.shellRef}
-      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'} ${runtime?.platform === 'windows' ? 'has-window-chrome' : ''}`}
+      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'} ${runtime?.platform === 'windows' ? 'has-window-chrome' : macFrame ? 'has-mac-chrome' : ''}`}
       style={
         {
           '--sidebar-width': `${sidebarLayout.width}px`,
@@ -1008,6 +1011,7 @@ export default function App() {
       <a className="skip-link" href="#main-content">
         {t('跳到主内容')}
       </a>
+      {macFrame && <MacWindowChrome />}
       {runtime?.platform === 'windows' && (
         <WindowChrome
           sidebar={sidebar}

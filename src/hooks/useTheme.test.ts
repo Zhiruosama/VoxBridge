@@ -18,16 +18,6 @@ vi.mock('react', () => ({
 }));
 vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => state.window }));
 vi.mock('../diagnostics', () => ({ recordDiagnostic: vi.fn() }));
-vi.mock('../core/theme-surface', () => ({
-  ThemeSurface: class {
-    constructor(private root: { dataset: { theme: string } }) {}
-    prepare(next: string) {
-      this.root.dataset.theme = next;
-      return vi.fn();
-    }
-    finish() {}
-  },
-}));
 
 function environment(matches: boolean, initial = 'dark') {
   const listeners = new Set<() => void>();
@@ -69,7 +59,7 @@ it('does not let a native Mac theme notification cancel an explicit theme animat
   useTheme('light', true);
   await vi.waitFor(() => expect(state.window.setBackgroundColor).toHaveBeenCalledOnce());
   expect(surface.root.dataset.theme).toBe('light');
-  expect(surface.start).not.toHaveBeenCalled();
+  expect(surface.start).toHaveBeenCalledOnce();
   expect(surface.listeners.size).toBe(0);
   expect(surface.transition.skipTransition).not.toHaveBeenCalled();
   expect(state.window.setTheme).toHaveBeenCalledExactlyOnceWith('light');
@@ -80,12 +70,12 @@ it('follows real system changes and ignores redundant notifications during a tra
   useTheme('system', true);
   await vi.waitFor(() => expect(state.window.setBackgroundColor).toHaveBeenCalledOnce());
   expect(surface.listeners.size).toBe(1);
-  expect(surface.start).not.toHaveBeenCalled();
+  expect(surface.start).toHaveBeenCalledOnce();
   expect(surface.transition.skipTransition).not.toHaveBeenCalled();
   surface.media.matches = false;
   surface.listeners.forEach((callback) => callback());
   expect(surface.root.dataset.theme).toBe('dark');
-  expect(surface.start).not.toHaveBeenCalled();
+  expect(surface.start).toHaveBeenCalledTimes(2);
 });
 
 it('keeps the DOM snapshot transition on Windows without native calls', () => {
