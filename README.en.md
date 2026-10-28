@@ -50,3 +50,9 @@ Saved keys persist across restarts. Cloud providers may charge for requests and 
 | Fix audio, permissions or service errors | [Troubleshooting](docs/guides/troubleshooting.md) |
 
 Development, architecture and historical records are organized in the [documentation center (中文)](docs/README.md).
+
+## License
+
+VoxBridge's own code is licensed under [PolyForm Noncommercial](LICENSE), permitting noncommercial use, modification and distribution under its terms. Commercial use requires separate permission. This is a source-available project, not an open-source license permitting commercial use.
+
+Third-party components retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).

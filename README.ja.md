@@ -50,3 +50,9 @@ Mac アプリは Developer ID 署名・公証未実施、Windows アプリは Au
 | 音声・権限・サービスの不具合 | [トラブルシューティング](docs/guides/troubleshooting.md) |
 
 開発、アーキテクチャ、過去の記録は[ドキュメント一覧（中国語）](docs/README.md)にまとめています。
+
+## ライセンス
+
+VoxBridge 独自のコードは [PolyForm Noncommercial](LICENSE) を採用し、その条件に従った非商用の利用・改変・再配布を認めています。商用利用には別途許諾が必要です。ソースコード公開（source-available）のプロジェクトであり、自由な商用利用を認めるオープンソースライセンスではありません。
+
+サードパーティのコンポーネントにはそれぞれのライセンスが適用されます。[第三者ライセンスの説明](THIRD_PARTY_NOTICES.md)を参照してください。

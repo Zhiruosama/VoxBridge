@@ -79,6 +79,11 @@
       "infoPlist": "Info.plist",
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"
+    },
+    "license": "PolyForm-Noncommercial-1.0.0",
+    "resources": {
+      "../LICENSE": "licenses/VoxBridge-LICENSE.txt",
+      "../THIRD_PARTY_NOTICES.md": "licenses/THIRD_PARTY_NOTICES.md"
     }
   },
   "plugins": {

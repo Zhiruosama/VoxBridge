@@ -50,3 +50,9 @@ Mac 应用尚未完成 Developer ID 签名和公证，Windows 应用尚未做 Au
 | 遇到无声、报错或权限问题 | [常见问题与排错](docs/guides/troubleshooting.md) |
 
 开发、架构和历史记录统一从[文档中心](docs/README.md)进入。
+
+## 许可
+
+VoxBridge 自有代码采用 [PolyForm Noncommercial](LICENSE)，允许依照许可进行非商业使用、修改和分发；商业用途需要另行取得授权。项目属于源码公开（source-available），不是允许自由商用的开源许可。
+
+第三方组件保留各自许可，详见[第三方许可说明](THIRD_PARTY_NOTICES.md)。

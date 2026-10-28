@@ -18,6 +18,10 @@
 
 平台和辅助说明：[Windows 安装、更新与卸载](windows-installation.md) · [诊断日志](diagnostics.md) · [使用指南总览](user-guide.md)
 
+## 许可
+
+项目自有代码采用非商业许可，详见[LICENSE](../LICENSE)与[第三方许可说明](../THIRD_PARTY_NOTICES.md)。商业用途需要另行取得授权。
+
 ## 开发和贡献
 
 普通使用者无需阅读这一部分。
