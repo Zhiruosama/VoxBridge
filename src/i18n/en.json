@@ -895,6 +895,7 @@
   "语音生成测试通过，未播放或发送。": "Speech generation passed. No audio was played or sent.",
   "关闭主窗口时": "When closing the main window",
   "隐藏到后台": "Hide in background",
+  "最小化到任务栏": "Minimize to taskbar",
   "退出应用": "Quit app",
   "无法应用窗口关闭设置，请重试。": "Could not apply the window close setting. Please try again.",
   "字幕显示方式": "Caption display",

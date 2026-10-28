@@ -300,13 +300,16 @@ export default function SettingsPanel({
                   ]}
                 />
               </SettingRow>
-              {platform === 'macos' && (
+              {(platform === 'macos' || platform === 'windows') && (
                 <SettingRow title={t('关闭主窗口时')}>
                   <Select
                     label={t('关闭主窗口时')}
                     value={draft.mainWindowCloseBehavior}
                     options={[
-                      { value: 'hide', label: '隐藏到后台' },
+                      {
+                        value: 'hide',
+                        label: platform === 'windows' ? '最小化到任务栏' : '隐藏到后台',
+                      },
                       { value: 'quit', label: '退出应用' },
                     ]}
                     onChange={(value) =>

@@ -560,7 +560,7 @@ export default function App() {
     desktop && (runtime ? runtime.platform === 'macos' : /Mac/.test(navigator.platform));
   useTheme(settings.theme, macFrame);
   useEffect(() => {
-    if (runtime?.platform !== 'macos') return;
+    if (!runtime || !['macos', 'windows'].includes(runtime.platform)) return;
     void setMainCloseBehavior(savedSettings.mainWindowCloseBehavior).catch(() =>
       notify(t('无法应用窗口关闭设置，请重试。')),
     );

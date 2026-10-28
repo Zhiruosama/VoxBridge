@@ -1,4 +1,4 @@
-//! Main-window close policy. Hiding keeps the WebView and its running tasks alive.
+//! Keep the main WebView alive: hide on macOS, minimize to the taskbar on Windows.
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(serde::Deserialize)]
@@ -17,6 +17,9 @@ impl Default for WindowBehavior {
 impl WindowBehavior {
     pub fn should_hide(&self, platform: &str, label: &str) -> bool {
         platform == "macos" && label == "main" && self.0.load(Ordering::SeqCst)
+    }
+    pub fn should_minimize(&self, platform: &str, label: &str) -> bool {
+        platform == "windows" && label == "main" && self.0.load(Ordering::SeqCst)
     }
 }
 
@@ -40,5 +43,21 @@ mod tests {
         policy.0.store(false, Ordering::SeqCst);
         assert!(!policy.should_hide("macos", "main"));
         assert!(serde_json::from_str::<CloseBehavior>("\"minimize\"").is_err());
+    }
+    #[test]
+    fn windows_background_close_minimizes_only_main_and_quit_remains_explicit() {
+        let policy = WindowBehavior::default();
+        assert!(policy.should_minimize("windows", "main"));
+        for (platform, label) in [
+            ("macos", "main"),
+            ("linux", "main"),
+            ("windows", "subtitle"),
+            ("windows", "text-overlay"),
+            ("windows", "setup"),
+        ] {
+            assert!(!policy.should_minimize(platform, label));
+        }
+        policy.0.store(false, Ordering::SeqCst);
+        assert!(!policy.should_minimize("windows", "main"));
     }
 }

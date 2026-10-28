@@ -182,6 +182,15 @@ pub fn run() {
                     if window
                         .app_handle()
                         .state::<window_behavior::WindowBehavior>()
+                        .should_minimize(std::env::consts::OS, window.label())
+                    {
+                        api.prevent_close();
+                        let _ = window.minimize();
+                        return;
+                    }
+                    if window
+                        .app_handle()
+                        .state::<window_behavior::WindowBehavior>()
                         .should_hide(std::env::consts::OS, window.label())
                     {
                         api.prevent_close();
