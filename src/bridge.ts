@@ -60,6 +60,25 @@ export async function translate(
   if (!desktop) throw new Error('真实翻译需要桌面版，密钥和请求由本机后端处理。');
   return invoke('translate', { profile, text, source, target, requestId });
 }
+export async function translateSpeech(
+  profile: ProviderProfile,
+  text: string,
+  source: string,
+  target: string,
+  requestId: string,
+  context: import('./core/speech-plan').ConversationTurn[],
+): Promise<import('./core/speech-plan').SpeechPlan> {
+  if (!desktop) throw new Error('真实翻译需要桌面版。');
+  const result = await invoke<string>('translate', {
+    profile,
+    text,
+    source,
+    target,
+    requestId,
+    speechContext: context,
+  });
+  return JSON.parse(result);
+}
 export async function cancelTranslation(requestId: string) {
   if (desktop) await invoke('cancel_translation', { requestId });
 }

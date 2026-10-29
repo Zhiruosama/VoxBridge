@@ -569,6 +569,27 @@ export default function SettingsPanel({
                   }
                 />
               </SettingRow>
+              <SettingRow
+                title={t('上下文语气')}
+                description={t(
+                  'MiniMax 译文语音参考最近一分钟对话调整语气；上下文随翻译请求发送，不保存到磁盘。手动情绪优先。',
+                )}
+              >
+                <Select
+                  label={t('上下文语气')}
+                  value={draft.composer.contextualSpeech ? 'on' : 'off'}
+                  options={[
+                    { value: 'off', label: '关闭' },
+                    { value: 'on', label: '开启' },
+                  ]}
+                  onChange={(value) =>
+                    setDraft({
+                      ...draft,
+                      composer: { ...draft.composer, contextualSpeech: value === 'on' },
+                    })
+                  }
+                />
+              </SettingRow>
               <SettingRow title={t('默认语音输出')}>
                 <Select
                   label={t('默认语音输出')}

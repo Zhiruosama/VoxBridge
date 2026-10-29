@@ -1,3 +1,4 @@
+import { SpeechConversation } from './core/speech-plan';
 import MacWindowChrome from './components/MacWindowChrome';
 import { automaticUpdateBlocker } from './core/app-update';
 import { clearUpdateDrafts, readUpdateDrafts, saveUpdateDrafts } from './core/update-drafts';
@@ -102,6 +103,7 @@ import {
   stopSpeech,
   setSpeechMonitoring,
   translate,
+  translateSpeech,
 } from './bridge';
 
 import { captureSourceKey, captureSourceLabel } from './core/capture-sources';
@@ -198,6 +200,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
   const dismissNotice = useCallback(() => {
     setNotice((current) => ({ ...current, message: '' }));
   }, []);
+  const conversation = useRef(new SpeechConversation());
   const [session, setSession] = useState<Session>({ id: null, segments: [] });
   const [captureSources, setCaptureSources] = useState<CaptureSource[]>([]);
   const [captureSourceId, setCaptureSourceId] = useState('');
@@ -241,6 +244,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
       new ComposerController({
         detectLanguage: detectTextLanguage,
         translate,
+        translateSpeech,
         speak,
         cancelTranslation,
         stopSpeech,
@@ -274,6 +278,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
       new SendQueue({
         detectLanguage: detectTextLanguage,
         translate,
+        translateSpeech,
         speak,
         cancelTranslation,
         stopSpeech,
@@ -643,6 +648,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     if (listenStoppingRef.current && !acceptDuringDrain(event)) return;
     if (!listenEpochRef.current.accept(event)) return;
     if (event.type === 'transcript') {
+      if (event.final) conversation.current.remember(event.segmentId, 'remote', event.text);
       setSession((state) => applyTranscript(state, event));
     } else if (event.type === 'translation') {
       setSession((state) =>
@@ -711,6 +717,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     setRecognitionMetrics(null);
     setListenHealth('waiting');
     setListenError('');
+    conversation.current.clear();
     setSession({ id, segments: [] });
     try {
       await startListening(
@@ -804,6 +811,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     const id = crypto.randomUUID();
     const source = sourceOverride ?? text;
     const submittedSettings = structuredClone(settings);
+    const contextSnapshot = conversation.current.snapshot();
     const sourceRevision = draftRevisionRef.current;
     let clearedRevision: number | null = null;
     const restoreSubmittedDraft = () => {
@@ -828,6 +836,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           id,
           text: source,
           settings: submittedSettings,
+          conversation: contextSnapshot,
           detection,
           action,
           route,
@@ -849,6 +858,11 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
             }
           },
           phase: (phase) => {
+            if (phase === 'playing' && action === 'speak' && route === 'send') {
+              const spokenSource =
+                sendQueue.snapshot().items.find((item) => item.id === id)?.text ?? source;
+              conversation.current.remember(id, 'self', spokenSource);
+            }
             if (mountedRef.current) setComposerPhase(phase);
           },
           translation: (translated: string, queuedSource?: string) => {
