@@ -27,6 +27,8 @@
 
 ## 文字输入与翻译
 
+- [Mac 悬浮窗 Enter 发送与接收确认](2026-10-29-overlay-send.md) — 2026-10-29
+
 - [Windows 首次使用虚拟麦克风的配置阻塞](2026-10-27-windows-first-run-speech.md) — 2026-10-27
 
 - [剪贴板翻译与独立小窗](2026-10-27-clipboard-translation.md) — 2026-10-27
@@ -49,6 +51,8 @@
 - [Voice input controls and one-minute recordings](2026-10-24-voice-input-controls.md) — 2026-10-24
 
 ## 界面与悬浮窗口
+
+- [Windows 更新后的 Mac 同步检查](2026-10-29-macos-sync.md) — 2026-10-29
 
 - [Mac 主窗口缩放与内容尺寸](2026-10-28-main-window-zoom.md) — 2026-10-28
 

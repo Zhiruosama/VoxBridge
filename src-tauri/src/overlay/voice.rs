@@ -16,7 +16,15 @@ pub struct VoiceSnapshot {
     error: String,
     draft: String,
     #[serde(default)]
+    submission: Option<Submission>,
+    #[serde(default)]
     queue: QueueSnapshot,
+}
+#[derive(Clone, Deserialize, Serialize)]
+struct Submission {
+    id: String,
+    accepted: bool,
+    error: String,
 }
 #[derive(Clone, Default, Deserialize, Serialize)]
 struct QueueSnapshot {
@@ -49,6 +57,7 @@ impl Default for VoiceSnapshot {
             speed: 1.0,
             error: String::new(),
             draft: String::new(),
+            submission: None,
             queue: QueueSnapshot::default(),
         }
     }
@@ -63,16 +72,38 @@ pub enum VoiceRequest {
     Cancel,
     Stop,
     Discard,
-    Send { text: String },
-    Speed { speed: f64 },
-    SubtitleContent { bilingual: bool },
+    Send {
+        text: String,
+        #[serde(default, rename = "requestId")]
+        request_id: Option<String>,
+    },
+    Speed {
+        speed: f64,
+    },
+    SubtitleContent {
+        bilingual: bool,
+    },
     QueuePause,
     QueueResume,
-    QueueCancel { id: String },
-    QueueRetry { id: String },
-    QueueEdit { id: String, text: String },
+    QueueCancel {
+        id: String,
+    },
+    QueueRetry {
+        id: String,
+    },
+    QueueEdit {
+        id: String,
+        text: String,
+    },
 }
 fn validate(state: &VoiceSnapshot) -> Result<(), String> {
+    if state
+        .submission
+        .as_ref()
+        .is_some_and(|value| !valid_submission_id(&value.id) || value.error.chars().count() > 400)
+    {
+        return Err("悬浮窗发送确认无效。".into());
+    }
     if state.queue.items.len() > 10
         || state.queue.items.iter().any(|item| {
             item.target_language.chars().count() > 32
@@ -114,6 +145,9 @@ fn validate(state: &VoiceSnapshot) -> Result<(), String> {
     }
     Ok(())
 }
+fn valid_submission_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 128 && id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+}
 fn validate_request(label: &str, request: &VoiceRequest) -> Result<(), String> {
     if label != "subtitle" {
         return Err("此操作仅限字幕窗。".into());
@@ -138,8 +172,13 @@ fn validate_request(label: &str, request: &VoiceRequest) -> Result<(), String> {
             return Err("语速应在 0.5–2.0 倍之间。".into());
         }
     }
-    if let VoiceRequest::Send { text } = request {
-        if text.trim().is_empty() || text.chars().count() > 2000 {
+    if let VoiceRequest::Send { text, request_id } = request {
+        if text.trim().is_empty()
+            || text.chars().count() > 2000
+            || request_id
+                .as_ref()
+                .is_some_and(|id| !valid_submission_id(id))
+        {
             return Err("请输入 1–2000 字的内容。".into());
         }
     }
@@ -189,6 +228,41 @@ pub fn overlay_voice_action(
 mod tests {
     use super::*;
     #[test]
+    fn send_acknowledgement_round_trip_keeps_request_identity_and_bounds() {
+        let request: VoiceRequest = serde_json::from_value(serde_json::json!({
+            "action": "send", "text": "你好", "requestId": "send-test-1"
+        }))
+        .unwrap();
+        assert!(
+            matches!(&request, VoiceRequest::Send { request_id: Some(id), .. } if id == "send-test-1")
+        );
+        assert_eq!(
+            serde_json::to_value(request).unwrap()["requestId"],
+            "send-test-1"
+        );
+        let mut state = VoiceSnapshot {
+            version: 1,
+            submission: Some(Submission {
+                id: "send-test-1".into(),
+                accepted: true,
+                error: String::new(),
+            }),
+            ..Default::default()
+        };
+        assert!(validate(&state).is_ok());
+        let encoded = serde_json::to_value(&state).unwrap();
+        assert_eq!(encoded["submission"]["accepted"], true);
+        state.submission.as_mut().unwrap().error = "错".repeat(401);
+        assert!(validate(&state).is_err());
+        for id in ["", "invalid/id"] {
+            let request = VoiceRequest::Send {
+                text: "你好".into(),
+                request_id: Some(id.into()),
+            };
+            assert!(validate_request("subtitle", &request).is_err());
+        }
+    }
+    #[test]
     fn only_subtitle_can_request_a_boolean_content_toggle() {
         for bilingual in [true, false] {
             let value = serde_json::json!({"action":"subtitleContent", "bilingual":bilingual});
@@ -207,12 +281,20 @@ mod tests {
         assert!(validate_request("main", &VoiceRequest::Start).is_err());
         assert!(validate_request("subtitle", &VoiceRequest::Start).is_ok());
         for text in [String::new(), " ".into(), "a".repeat(2001)] {
-            assert!(validate_request("subtitle", &VoiceRequest::Send { text }).is_err());
+            assert!(validate_request(
+                "subtitle",
+                &VoiceRequest::Send {
+                    text,
+                    request_id: None
+                }
+            )
+            .is_err());
         }
         assert!(validate_request(
             "subtitle",
             &VoiceRequest::Send {
-                text: "你好".into()
+                text: "你好".into(),
+                request_id: None
             }
         )
         .is_ok());

@@ -979,5 +979,7 @@
   "输入内容暂存失败，更新未开始。请复制保存输入内容后重试。": "Could not preserve your text. The update has not started. Copy and save your input, then retry.",
   "尚未添加预设": "No presets yet",
   "名称": "Name",
-  "无法准备悬浮窗输入法，请收起输入框后重试。": "Could not prepare text input. Close the floating input box and try again."
+  "无法准备悬浮窗输入法，请收起输入框后重试。": "Could not prepare text input. Close the floating input box and try again.",
+  "剪贴板监听正在进行，请停止监听后再自动更新。": "Clipboard watching is active. Stop watching before automatic installation.",
+  "当前操作尚未结束，请稍后重试发送。": "The current operation is still running. Please try sending again shortly."
 }

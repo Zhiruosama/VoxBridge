@@ -4,6 +4,7 @@ import {
   overlayVoiceDefaults,
   reconcileOverlayDraft,
   restoreOverlayDraft,
+  acknowledgeOverlayDraft,
 } from './overlay-voice';
 it('keeps newer recording state when a delayed idle read arrives', () => {
   const current = { ...overlayVoiceDefaults, version: 4, phase: 'recording' as const, level: 0.8 };
@@ -31,4 +32,13 @@ it('restores failed submissions only when the next draft has not been edited', (
 it('keeps an empty ready editor through the delayed echo and completion of a sent message', () => {
   expect(reconcileOverlayDraft('', '', '已发送', '已发送')).toBe('');
   expect(reconcileOverlayDraft('', '已发送', '', '已发送')).toBe('');
+});
+it('clears only an accepted submission and preserves edits made while awaiting acceptance', () => {
+  const submitted = { text: '第一条', revision: 2 };
+  expect(acknowledgeOverlayDraft('第一条', 2, submitted, true)).toBe('');
+  expect(acknowledgeOverlayDraft('第一条', 2, submitted, false)).toBe('第一条');
+  for (const accepted of [true, false]) {
+    expect(acknowledgeOverlayDraft('第二条', 3, submitted, accepted)).toBe('第二条');
+    expect(acknowledgeOverlayDraft('', 4, submitted, accepted)).toBe('');
+  }
 });
