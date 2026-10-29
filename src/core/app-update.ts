@@ -9,6 +9,16 @@ export interface AppUpdate {
   install: () => Promise<void>;
   close: () => Promise<void>;
 }
+
+/** A clipboard session is active even before its first copied text arrives. */
+export function automaticUpdateBlocker(
+  watchingClipboard: boolean,
+  ...drafts: string[]
+): false | string {
+  if (watchingClipboard) return '剪贴板监听正在进行，请停止监听后再自动更新。';
+  if (drafts.some((draft) => draft.trim())) return '仍有输入草稿，处理完成后将自动更新。';
+  return false;
+}
 export type UpdateView = {
   startupPrompt: boolean;
   automatic: boolean;

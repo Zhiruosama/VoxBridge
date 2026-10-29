@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { AppUpdates } from './app-update';
+import { AppUpdates, automaticUpdateBlocker } from './app-update';
 afterEach(() => vi.useRealTimers());
 
 function fixture() {
@@ -15,6 +15,48 @@ function fixture() {
   controller.blocked = () => false;
   return { controller, check, update, restart };
 }
+it('waits for a clipboard session even with no draft and resets the countdown when watching resumes', async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  let watching = true;
+  let input = '';
+  f.controller.blocked = (automatic) =>
+    automatic ? automaticUpdateBlocker(watching, '', '', input) : false;
+  f.controller.setAutomatic(true);
+  await f.controller.checkAtStartup();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.controller.snapshot().status).toBe('waiting');
+  expect(f.update.install).not.toHaveBeenCalled();
+  watching = false;
+  await vi.advanceTimersByTimeAsync(4000);
+  watching = true;
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(f.controller.snapshot().status).toBe('waiting');
+  expect(f.update.install).not.toHaveBeenCalled();
+  watching = false;
+  input = 'copied while listening';
+  await vi.advanceTimersByTimeAsync(6000);
+  expect(f.controller.snapshot().status).toBe('waiting');
+  input = '  ';
+  await vi.advanceTimersByTimeAsync(5250);
+  expect(f.update.install).toHaveBeenCalledOnce();
+  expect(f.update.download).toHaveBeenCalledOnce();
+});
+it('lets an explicit update snapshot drafts and stop clipboard watching before installation', async () => {
+  const f = fixture();
+  let watching = true;
+  f.controller.blocked = (automatic) =>
+    automatic ? automaticUpdateBlocker(watching, 'main', 'overlay', 'translation') : false;
+  f.controller.beforeInstall = () => {
+    watching = false;
+  };
+  f.update.install.mockImplementation(async () => {
+    expect(watching).toBe(false);
+  });
+  await f.controller.checkAtStartup();
+  await f.controller.install();
+  expect(f.update.install).toHaveBeenCalledOnce();
+});
 it('checks once during overlapping checks and releases the previous native resource', async () => {
   const f = fixture();
   await Promise.all([f.controller.check(), f.controller.check()]);

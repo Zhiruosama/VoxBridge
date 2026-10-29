@@ -1,4 +1,5 @@
 import MacWindowChrome from './components/MacWindowChrome';
+import { automaticUpdateBlocker } from './core/app-update';
 import { clearUpdateDrafts, readUpdateDrafts, saveUpdateDrafts } from './core/update-drafts';
 import UpdatePrompt from './components/UpdatePrompt';
 import TextTranslation from './components/TextTranslation';
@@ -250,15 +251,12 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
   const [queueView, setQueueView] = useState<QueueView>({ paused: false, items: [] });
   const [unsavedKey, setUnsavedKey] = useState(false);
   const updateBlocked = useRef<boolean | string>(true);
-  const automaticUpdateHasDrafts = useRef(false);
+  const automaticUpdateBlocked = useRef<false | string>(false);
   const prepareUpdate = useRef(() => {});
   useEffect(() => {
     if (!desktop) return;
     appUpdates.blocked = (automatic) =>
-      updateBlocked.current ||
-      (automatic && automaticUpdateHasDrafts.current
-        ? '仍有输入草稿，处理完成后将自动更新。'
-        : false);
+      updateBlocked.current || (automatic ? automaticUpdateBlocked.current : false);
     appUpdates.setAutomatic(initial.settings.automaticUpdates);
     appUpdates.beforeInstall = () => prepareUpdate.current();
     appUpdates.installFailed = clearUpdateDrafts;
@@ -322,8 +320,11 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
   }
   const [overlayDraft, setOverlayDraft] = useState(updateDrafts?.overlay ?? '');
-  automaticUpdateHasDrafts.current = Boolean(
-    text.trim() || overlayDraft.trim() || textTranslation.getSnapshot().input.trim(),
+  automaticUpdateBlocked.current = automaticUpdateBlocker(
+    textTools.watching,
+    text,
+    overlayDraft,
+    textTranslation.getSnapshot().input,
   );
   updateBlocked.current = settingsBusy
     ? '设置正在保存，请完成后再更新。'
