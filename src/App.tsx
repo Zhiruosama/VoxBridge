@@ -320,6 +320,8 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
   }
   const [overlayDraft, setOverlayDraft] = useState(updateDrafts?.overlay ?? '');
+  const [overlaySubmission, setOverlaySubmission] =
+    useState<import('./core/types').OverlayVoiceState['submission']>(null);
   automaticUpdateBlocked.current = automaticUpdateBlocker(
     textTools.watching,
     text,
@@ -440,6 +442,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
       queue: queueView,
       error: Array.from(overlayVoiceError).slice(0, 400).join(''),
       draft: overlayDraft,
+      submission: overlaySubmission,
     }).catch(() => {});
   }, [
     voice,
@@ -453,6 +456,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     overlayVoiceReady,
     overlayVoiceError,
     overlayDraft,
+    overlaySubmission,
   ]);
   useEffect(() => {
     if (!desktop) return;
@@ -511,11 +515,22 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     }
     if (page !== 'workspace') {
       setOverlayVoiceError('请先在主窗口保存设置并返回字幕页。');
+      if (request.action === 'send' && request.requestId)
+        setOverlaySubmission({
+          id: request.requestId,
+          accepted: false,
+          error: '请先在主窗口保存设置并返回字幕页。',
+        });
       return;
     }
     if (request.action === 'speed') {
       if (Number.isFinite(request.speed) && request.speed >= 0.5 && request.speed <= 2)
         persist(updateSpeechProfile(settings, { speed: request.speed }), true);
+      return;
+    }
+    if (request.action === 'send') {
+      setOverlayVoiceError('');
+      void sendOverlaySource(request.text, request.requestId);
       return;
     }
     if (voiceRef.current || composer.busy) return;
@@ -525,10 +540,6 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
         return;
       }
       void beginVoice('overlay');
-    } else if (request.action === 'send') {
-      setOverlayDraft(request.text);
-      setOverlayVoiceError('');
-      void sendOverlaySource(request.text);
     } else if (request.action === 'discard') {
       setOverlayDraft('');
       setOverlayVoiceError('');
@@ -780,10 +791,13 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     options?: {
       preserveDraft: boolean;
       onError: (message: string) => void;
-      onComplete: () => void;
+      onAccepted?: () => void;
     },
   ) {
-    if (voiceRef.current || composer.busy || (action === 'translate' && sendQueue.busy)) return;
+    if (voiceRef.current || composer.busy || (action === 'translate' && sendQueue.busy)) {
+      options?.onError('当前操作尚未结束，请稍后重试发送。');
+      return;
+    }
     if (!desktop) {
       notify('请通过桌面应用使用翻译和语音输出。');
       return;
@@ -823,6 +837,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
         {
           notice: notify,
           accepted: () => {
+            options?.onAccepted?.();
             if (options?.preserveDraft) setOverlayDraft('');
             if (
               !options?.preserveDraft &&
@@ -850,8 +865,8 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           },
         },
       );
+      if (outcome === 'busy') options?.onError('当前操作尚未结束，请稍后重试发送。');
       if (outcome === 'stopped' && action !== 'speak') restoreSubmittedDraft();
-      if (outcome === 'completed' && mountedRef.current) options?.onComplete();
     } catch (error) {
       restoreSubmittedDraft();
       if (mountedRef.current) {
@@ -867,11 +882,23 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     }
   }
 
-  async function sendOverlaySource(source: string) {
+  async function sendOverlaySource(source: string, requestId?: string) {
+    let accepted = false;
     await runComposer('speak', settings.composer.route, source, {
       preserveDraft: true,
-      onError: setOverlayVoiceError,
-      onComplete: () => setOverlayDraft(''),
+      onAccepted: () => {
+        accepted = true;
+        if (requestId) setOverlaySubmission({ id: requestId, accepted: true, error: '' });
+      },
+      onError: (error) => {
+        setOverlayVoiceError(error);
+        if (requestId && !accepted)
+          setOverlaySubmission({
+            id: requestId,
+            accepted: false,
+            error: Array.from(error).slice(0, 400).join(''),
+          });
+      },
     });
   }
 

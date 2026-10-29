@@ -3,7 +3,7 @@ import SendQueueControls from './SendQueueControls';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { listen } from '@tauri-apps/api/event';
-import { ArrowUp, Keyboard, Mic, Square, X } from 'lucide-react';
+import { ArrowUp, Keyboard, LoaderCircle, Mic, Square, X } from 'lucide-react';
 import { overlayVoiceAction, readOverlayVoice, setOverlayTextInput } from '../bridge';
 import {
   newerOverlayVoice,
@@ -11,7 +11,9 @@ import {
   overlayVoiceLabels,
   reconcileOverlayDraft,
   restoreOverlayDraft,
+  acknowledgeOverlayDraft,
 } from '../core/overlay-voice';
+import { composerKeyAction } from '../core/composer';
 import type { OverlayVoiceRequest, OverlayVoiceState } from '../core/types';
 import VoiceActivity from './VoiceActivity';
 import SpeechSpeedPicker from './SpeechSpeedPicker';
@@ -26,14 +28,16 @@ export default function OverlayVoiceControls({
   const [voice, setVoice] = useState(overlayVoiceDefaults);
   const [ready, setReady] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [draft, setDraft] = useState('');
   const [textOpen, setTextOpen] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const composingRef = useRef(false);
   const remoteDraftRef = useRef('');
   const sentRef = useRef<string | null>(null);
   const draftRevision = useRef(0);
-  const submittedRef = useRef<{ text: string; revision: number } | null>(null);
+  const submittedRef = useRef<{ id: string; text: string; revision: number } | null>(null);
   useEffect(() => {
     const previous = remoteDraftRef.current;
     remoteDraftRef.current = voice.draft;
@@ -42,7 +46,6 @@ export default function OverlayVoiceControls({
     setDraft((current) => reconcileOverlayDraft(current, previous, voice.draft, sent));
     if (!voice.draft && previous === sent) {
       sentRef.current = null;
-      submittedRef.current = null;
     }
   }, [voice.draft]);
   function restoreSubmitted() {
@@ -51,8 +54,27 @@ export default function OverlayVoiceControls({
       setDraft((current) => restoreOverlayDraft(current, draftRevision.current, submitted));
   }
   useEffect(() => {
-    if (voice.error) restoreSubmitted();
-  }, [voice.error]);
+    const submitted = submittedRef.current;
+    const acknowledgement = voice.submission;
+    if (!submitted || acknowledgement?.id !== submitted.id) return;
+    setDraft((current) =>
+      acknowledgeOverlayDraft(current, draftRevision.current, submitted, acknowledgement.accepted),
+    );
+    setError(acknowledgement.accepted ? '' : acknowledgement.error);
+    submittedRef.current = null;
+    setSending(false);
+  }, [voice.submission]);
+  useEffect(() => {
+    if (!sending) return;
+    // Read back acknowledgements as well as subscribing: a hidden WebView may
+    // miss an event while AppKit transfers it between input/display panels.
+    const timer = setInterval(() => {
+      void readOverlayVoice()
+        .then((state) => setVoice((current) => newerOverlayVoice(current, state)))
+        .catch(() => {});
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [sending]);
   useEffect(() => {
     if (!textOpen) return;
     let active = true;
@@ -95,9 +117,12 @@ export default function OverlayVoiceControls({
   }, []);
   async function request(value: OverlayVoiceRequest) {
     if (value.action === 'send') {
+      if (submittedRef.current) return;
+      const id = crypto.randomUUID();
+      value = { ...value, requestId: id };
       sentRef.current = value.text;
-      submittedRef.current = { text: value.text, revision: ++draftRevision.current };
-      setDraft('');
+      submittedRef.current = { id, text: value.text, revision: draftRevision.current };
+      setSending(true);
       editorRef.current?.focus();
     }
     setRequesting(true);
@@ -109,6 +134,7 @@ export default function OverlayVoiceControls({
         restoreSubmitted();
         sentRef.current = null;
         submittedRef.current = null;
+        setSending(false);
       }
       setError(String(failure));
     } finally {
@@ -120,7 +146,7 @@ export default function OverlayVoiceControls({
   const capturing = ['starting', 'recording', 'recognizing', 'cancelling'].includes(voice.phase);
   const showDraft = textOpen;
   const length = Array.from(draft).length;
-  const disabled = !ready || !voice.enabled || requesting;
+  const disabled = !ready || !voice.enabled || requesting || sending;
   return (
     <footer className="overlay-voice-footer" aria-label={t('悬浮窗语音输入')}>
       {(error || voice.error) && (
@@ -149,20 +175,39 @@ export default function OverlayVoiceControls({
                 draftRevision.current++;
                 setDraft(event.target.value);
               }}
+              onCompositionStart={() => {
+                composingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                composingRef.current = false;
+              }}
+              onBlur={() => {
+                composingRef.current = false;
+              }}
               onKeyDown={(event) => {
-                if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+                if (
+                  composingRef.current ||
+                  event.nativeEvent.isComposing ||
+                  event.nativeEvent.keyCode === 229
+                )
+                  return;
                 if (event.key === 'Escape') {
                   event.preventDefault();
                   setTextOpen(false);
                 } else if (
                   event.key === 'Enter' &&
-                  !event.shiftKey &&
-                  !event.nativeEvent.isComposing &&
-                  event.nativeEvent.keyCode !== 229
+                  composerKeyAction(event.nativeEvent, 'speak') !== 'newline'
                 ) {
                   event.preventDefault();
-                  if (!capturing && !disabled && draft.trim() && length <= 2000)
-                    void request({ action: 'send', text: draft });
+                  const text = event.currentTarget.value;
+                  if (
+                    !event.repeat &&
+                    !capturing &&
+                    !disabled &&
+                    text.trim() &&
+                    Array.from(text).length <= 2000
+                  )
+                    void request({ action: 'send', text });
                 }
               }}
             />
@@ -206,9 +251,15 @@ export default function OverlayVoiceControls({
               aria-label={t('发送悬浮窗语音')}
               aria-description={t('生成语音并输出 · {0}', t(voice.targetLanguage))}
               disabled={disabled || capturing || !draft.trim() || length > 2000}
-              onClick={() => void request({ action: 'send', text: draft })}
+              onClick={() =>
+                void request({ action: 'send', text: editorRef.current?.value ?? draft })
+              }
             >
-              <ArrowUp size={18} />
+              {sending ? (
+                <LoaderCircle size={18} className="status-spinner" />
+              ) : (
+                <ArrowUp size={18} />
+              )}
             </button>
           </>
         )}

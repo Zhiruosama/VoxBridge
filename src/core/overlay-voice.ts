@@ -47,3 +47,13 @@ export function restoreOverlayDraft(
 ) {
   return revision === submitted.revision ? submitted.text : local;
 }
+
+export function acknowledgeOverlayDraft(
+  local: string,
+  revision: number,
+  submitted: { text: string; revision: number },
+  accepted: boolean,
+) {
+  if (revision !== submitted.revision) return local;
+  return accepted ? '' : submitted.text;
+}

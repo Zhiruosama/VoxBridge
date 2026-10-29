@@ -255,10 +255,11 @@ export interface OverlayVoiceState {
   queue: import('./send-queue').QueueView;
   error: string;
   draft: string;
+  submission?: { id: string; accepted: boolean; error: string } | null;
 }
 export type OverlayVoiceRequest =
   | { action: 'start' | 'finish' | 'cancel' | 'stop' | 'discard' }
-  | { action: 'send'; text: string }
+  | { action: 'send'; text: string; requestId?: string }
   | { action: 'subtitleContent'; bilingual: boolean }
   | { action: 'speed'; speed: number }
   | import('./send-queue').QueueAction;
