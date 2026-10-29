@@ -1,3 +1,4 @@
+import { plannedSpeech, type SpeechPlan, type ConversationTurn } from './speech-plan';
 import { profileFor, validateProfile } from './settings';
 import type { ComposerSettings, Settings, SpeechProgress } from './types';
 
@@ -34,6 +35,14 @@ export function composerKeyAction(
 }
 
 type Dependencies = {
+  translateSpeech?: (
+    profile: Settings['profiles'][number],
+    text: string,
+    source: string,
+    target: string,
+    id: string,
+    context: ConversationTurn[],
+  ) => Promise<SpeechPlan>;
   detectLanguage?: (text: string) => Promise<string | null>;
   translate: (
     profile: Settings['profiles'][number],
@@ -80,6 +89,7 @@ export class ComposerController {
       listening?: boolean;
       route?: ComposerSettings['route'];
       output?: ComposerSettings['output'];
+      conversation?: ConversationTurn[];
       detection?: { language: string | null };
     },
     callbacks: {
@@ -91,6 +101,7 @@ export class ComposerController {
   ): Promise<'completed' | 'stopped' | 'busy'> {
     if (this.operation) return 'busy';
     const settings = structuredClone(input.settings);
+    const conversation = structuredClone(input.conversation ?? []);
     const direction = composerLanguages(settings, input.listening ?? false);
     const text = input.text.trim();
     const output = input.output ?? settings.composer.output;
@@ -122,6 +133,12 @@ export class ComposerController {
     try {
       callbacks.accepted?.();
       let content = text;
+      let plan: SpeechPlan | undefined;
+      const contextual =
+        input.action === 'speak' &&
+        settings.composer.contextualSpeech === true &&
+        speechProfile.adapter === 'minimax_tts_ws' &&
+        !!this.dependencies.translateSpeech;
       let detected: string | null = null;
       if (input.detection) {
         detected = input.detection.language;
@@ -131,17 +148,28 @@ export class ComposerController {
         if (operation.cancelled) return 'stopped';
       }
       if (needsTranslation) {
-        if (detected !== direction.target) {
+        if (detected !== direction.target || contextual) {
           const invalid = validateProfile(translationProfile);
           if (invalid) throw new Error(`${invalid} 请到设置页完善文字翻译服务。`);
           callbacks.phase('translating');
-          content = await this.dependencies.translate(
-            translationProfile,
-            text,
-            direction.source,
-            direction.target,
-            operation.id,
-          );
+          if (contextual) {
+            plan = await this.dependencies.translateSpeech!(
+              translationProfile,
+              text,
+              direction.source,
+              direction.target,
+              operation.id,
+              conversation,
+            );
+            content = plan.translation;
+          } else
+            content = await this.dependencies.translate(
+              translationProfile,
+              text,
+              direction.source,
+              direction.target,
+              operation.id,
+            );
           if (operation.cancelled) return 'stopped';
           if (!content.trim()) throw new Error('翻译服务返回空内容，请重试。');
         }
@@ -156,7 +184,7 @@ export class ComposerController {
         if (operation.cancelled) return 'stopped';
         await this.dependencies.speak(
           {
-            ...speechProfile,
+            ...plannedSpeech(speechProfile, plan),
             language: needsTranslation ? direction.target : (detected ?? undefined),
           },
           content,

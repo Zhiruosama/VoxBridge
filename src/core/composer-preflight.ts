@@ -30,7 +30,12 @@ export async function preflightComposer(
   if (action === 'translate' || settings.composer.output === 'translation') {
     const detected = await deps.detect(text);
     detection = { language: detected };
-    if (detected !== settings.targetLanguage) {
+    if (
+      detected !== settings.targetLanguage ||
+      (action === 'speak' &&
+        settings.composer.contextualSpeech === true &&
+        profileFor(settings, 'tts').adapter === 'minimax_tts_ws')
+    ) {
       const invalid = validateProfile(profileFor(settings, 'translation'));
       if (invalid)
         throw new ComposerSetupError(`${invalid} 请到设置页完善文字翻译服务。`, 'translation');

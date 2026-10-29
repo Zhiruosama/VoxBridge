@@ -1381,6 +1381,12 @@ nav button[aria-current='page'] {
 .preference-copy {
   min-width: 0;
 }
+.preference-copy p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
 .preference-copy h3 {
   font-size: 14px;
   font-weight: 550;
