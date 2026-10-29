@@ -4,10 +4,10 @@ import { appUpdates } from '../app-updates';
 import { t, useUiLanguage } from '../i18n';
 import UpdateProgress, { updateMessage } from './UpdateProgress';
 
-export default function UpdatePrompt({ suspended = false }: { suspended?: boolean }) {
+export default function UpdatePrompt() {
   useUiLanguage();
-  const view = useSyncExternalStore(appUpdates.subscribe, appUpdates.snapshot);
-  const visible = view.startupPrompt && !suspended;
+  const view = useSyncExternalStore(appUpdates.subscribe, appUpdates.snapshot, appUpdates.snapshot);
+  const visible = view.startupPrompt;
   const [present, setPresent] = useState(visible);
   useEffect(() => {
     if (visible) {
@@ -27,6 +27,8 @@ export default function UpdatePrompt({ suspended = false }: { suspended?: boolea
       <div
         className={`toast update-reminder${visible ? '' : ' is-leaving'}`}
         role="status"
+        aria-live="polite"
+        aria-atomic="true"
         inert={!visible}
       >
         {working ? (
@@ -35,6 +37,7 @@ export default function UpdatePrompt({ suspended = false }: { suspended?: boolea
           <Download size={15} aria-hidden="true" />
         )}
         <div className="update-reminder-copy">
+          <strong>{view.version ? `VoxBridge ${view.version}` : t('软件更新')}</strong>
           <span key={view.status} className="update-phase-copy">
             {updateMessage(view)}
           </span>

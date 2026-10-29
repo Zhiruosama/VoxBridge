@@ -16,8 +16,16 @@ pub struct SetupState {
 
 pub fn requested() -> bool {
     cfg!(target_os = "windows")
-        && std::env::args()
-            .any(|arg| matches!(arg.as_str(), "--voxbridge-setup" | "--voxbridge-uninstall"))
+        && std::env::args().any(|arg| {
+            matches!(
+                arg.as_str(),
+                "--voxbridge-setup" | "--voxbridge-uninstall" | "--voxbridge-update"
+            )
+        })
+}
+
+fn update_requested() -> bool {
+    cfg!(target_os = "windows") && std::env::args().any(|arg| arg == "--voxbridge-update")
 }
 
 fn uninstall_requested() -> bool {
@@ -34,6 +42,8 @@ pub fn create_window(app: &mut tauri::App) -> Result<bool, Box<dyn std::error::E
         tauri::WebviewUrl::App(
             if uninstall_requested() {
                 "index.html?window=setup&mode=uninstall"
+            } else if update_requested() {
+                "index.html?window=setup&mode=update"
             } else {
                 "index.html?window=setup"
             }
@@ -42,6 +52,8 @@ pub fn create_window(app: &mut tauri::App) -> Result<bool, Box<dyn std::error::E
     )
     .title(if uninstall_requested() {
         "VoxBridge 卸载"
+    } else if update_requested() {
+        "VoxBridge 更新"
     } else {
         "VoxBridge 安装"
     })
@@ -148,8 +160,8 @@ pub async fn setup_install(
     desktop_shortcut: bool,
 ) -> Result<serde_json::Value, String> {
     ensure_setup()?;
-    if uninstall_requested() {
-        return Err("当前为卸载界面。".into());
+    if uninstall_requested() || update_requested() {
+        return Err("当前不是普通安装界面。".into());
     }
     validate_path(&path)?;
     let state = app.state::<SetupState>();
@@ -289,6 +301,117 @@ pub async fn setup_uninstall(
     result
 }
 
+fn update_arguments(bytes: &[u8]) -> Result<(bool, Option<String>), String> {
+    if bytes.len() > 65536 || bytes.len() % 2 != 0 {
+        return Err("更新参数无效。".into());
+    }
+    let words: Vec<u16> = bytes
+        .chunks_exact(2)
+        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .collect();
+    let raw = String::from_utf16(&words).map_err(|_| "更新参数无效。")?;
+    let raw = raw.trim_start_matches('\u{feff}');
+    if raw.chars().any(char::is_control) {
+        return Err("更新参数无效。".into());
+    }
+    let (head, tail) = raw
+        .split_once("/ARGS")
+        .map_or((raw, None), |(head, tail)| (head, Some(tail)));
+    let flags: Vec<_> = head.split_whitespace().collect();
+    if !flags.contains(&"/UPDATE")
+        || flags
+            .iter()
+            .any(|flag| !matches!(*flag, "/UPDATE" | "/P" | "/S" | "/R"))
+    {
+        return Err("更新参数无效。".into());
+    }
+    Ok((
+        flags.contains(&"/R"),
+        tail.filter(|tail| !tail.trim().is_empty())
+            .map(|tail| format!("/ARGS{tail}")),
+    ))
+}
+
+#[tauri::command]
+pub async fn setup_update(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    if !update_requested() {
+        return Err("更新界面未启动。".into());
+    }
+    let state = app.state::<SetupState>();
+    if state.busy.swap(true, Ordering::SeqCst) {
+        return Err("更新正在进行中。".into());
+    }
+    let task_app = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || update(&task_app))
+        .await
+        .map_err(|_| "更新任务未完成，请重试。".to_string())
+        .and_then(|result| result);
+    state.busy.store(false, Ordering::SeqCst);
+    result
+}
+
+fn update(app: &tauri::AppHandle) -> Result<serde_json::Value, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let directory = std::env::current_exe()
+            .map_err(|_| "无法读取更新文件。")?
+            .parent()
+            .ok_or("无法读取更新文件。")?
+            .to_path_buf();
+        let payload = directory.join("setup-payload.exe");
+        if !payload.is_file() {
+            return Err("更新文件不完整，请重新下载。".into());
+        }
+        let raw =
+            std::fs::read(directory.join("update-args.txt")).map_err(|_| "无法读取更新参数。")?;
+        let (restart, arguments) = update_arguments(&raw)?;
+        let path = powershell(
+            r#"[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); if(Test-Path 'HKCU:\Software\voxbridge\VoxBridge'){[Console]::Write((Get-Item 'HKCU:\Software\voxbridge\VoxBridge').GetValue(''))}"#,
+        )?;
+        let path = path.trim_end_matches(['\\', '/']);
+        validate_path(path)?;
+        let folder = PathBuf::from(path);
+        let executable = folder.join("voxbridge.exe");
+        if !executable.is_file() {
+            return Err("原安装位置不可用，请使用安装包修复。".into());
+        }
+        let escaped = executable.to_string_lossy().replace('\'', "''");
+        let process_check = format!("$p='{escaped}'; if(Get-Process voxbridge -ErrorAction SilentlyContinue | Where-Object {{-not $_.Path -or $_.Path -eq $p}}){{'running'}}");
+        if !powershell(&process_check)?.is_empty() {
+            return Err("VoxBridge 已重新打开，请先从托盘退出应用，再重试更新。".into());
+        }
+        let mut command = std::process::Command::new(payload);
+        // The shared GUI owns progress. Do not forward /P to the native wizard.
+        command.args(["/S", "/UPDATE", "/NODESKTOP"]);
+        if restart {
+            command.arg("/R");
+        }
+        if let Some(arguments) = arguments {
+            command.raw_arg(arguments);
+        }
+        let status = command
+            .raw_arg(format!("/D={path}"))
+            .creation_flags(0x08000000)
+            .status()
+            .map_err(|_| "无法启动更新任务。")?;
+        if !status.success() || !executable.is_file() {
+            return Err("更新未完成，请重试。原有配置不会被清除。".into());
+        }
+        *app.state::<SetupState>()
+            .installed
+            .lock()
+            .map_err(|_| "无法保存更新结果。")? = Some(folder);
+        let restarted = restart && !powershell(&process_check)?.is_empty();
+        Ok(serde_json::json!({"restarted":restarted}))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Err("此更新界面仅适用于 Windows。".into())
+    }
+}
+
 fn uninstall(app: &tauri::AppHandle, remove_data: bool, remove_driver: bool) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -380,6 +503,35 @@ fn uninstall(app: &tauri::AppHandle, remove_data: bool, remove_driver: bool) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn updater_arguments_keep_restart_and_user_args_without_forwarding_arbitrary_flags() {
+        let encode = |text: &str| {
+            text.encode_utf16()
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            update_arguments(&encode("/P /UPDATE /R /ARGS")).unwrap(),
+            (true, None)
+        );
+        assert_eq!(
+            update_arguments(&encode("/P /UPDATE /R /ARGS \"hello world\"")).unwrap(),
+            (true, Some("/ARGS \"hello world\"".into()))
+        );
+        assert_eq!(
+            update_arguments(&encode("/S /UPDATE")).unwrap(),
+            (false, None)
+        );
+        for input in [
+            "/P",
+            "/UPDATE /DELETEAPPDATA",
+            "/UPDATE /D=C:\\Windows",
+            "/UPDATE\n/R",
+        ] {
+            assert!(update_arguments(&encode(input)).is_err());
+        }
+        assert!(update_arguments(&[0]).is_err());
+    }
     #[test]
     fn install_paths_accept_spaces_but_reject_roots_and_argument_injection() {
         for path in [

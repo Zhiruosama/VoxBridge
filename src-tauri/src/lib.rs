@@ -123,6 +123,7 @@ pub fn run() {
             setup::setup_install,
             setup::setup_finish,
             setup::setup_uninstall,
+            setup::setup_update,
             runtime_info,
             private_preset::private_preset,
             window_behavior::set_main_close_behavior,

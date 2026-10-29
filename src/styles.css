@@ -3208,8 +3208,35 @@ input[type='range']:focus-visible::-moz-range-thumb {
 .update-reminder-positioner {
   position: fixed;
 }
+.app-notice-stack {
+  position: fixed;
+  z-index: 150;
+  top: 64px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.app-notice-stack > .toast-positioner {
+  position: static;
+  width: 100%;
+}
 .update-reminder {
   max-width: min(560px, 100%);
+  animation: update-notice-in 220ms ease both;
+}
+@keyframes update-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .update-reminder-copy {
   flex: 1;
@@ -3283,6 +3310,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .update-reminder,
   .update-reminder.is-leaving,
   .update-phase-copy,
   .update-progress.is-indeterminate > span {

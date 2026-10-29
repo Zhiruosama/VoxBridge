@@ -1,6 +1,5 @@
 import MacWindowChrome from './components/MacWindowChrome';
 import { clearUpdateDrafts, readUpdateDrafts, saveUpdateDrafts } from './core/update-drafts';
-import UpdatePrompt from './components/UpdatePrompt';
 import TextTranslation from './components/TextTranslation';
 import { useTextTools } from './hooks/useTextTools';
 import { TextTranslationController } from './core/text-translation';
@@ -48,7 +47,7 @@ import SettingsPanel, { type SettingsSection } from './components/SettingsPanel'
 import { appUpdates } from './app-updates';
 import Diagnostics from './components/Diagnostics';
 import Select from './components/Select';
-import Toast from './components/Toast';
+import AppNotices from './components/AppNotices';
 import ListeningStatus, {
   ListeningNotice,
   type ListeningProgress,
@@ -1178,26 +1177,6 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
             </button>
           )}
         </header>
-        {notice.message && (
-          <Toast
-            key={notice.id}
-            message={notice.message}
-            onClose={dismissNotice}
-            onConfigure={
-              notice.section
-                ? () => {
-                    if (
-                      openSettings(
-                        notice.section!,
-                        notice.section === 'general' ? 'audio-heading' : '',
-                      )
-                    )
-                      dismissNotice();
-                  }
-                : undefined
-            }
-          />
-        )}
         <main
           key={page}
           id="main-content"
@@ -1608,7 +1587,21 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           )}
         </main>
       </div>
-      <UpdatePrompt suspended={Boolean(notice)} />
+      <AppNotices
+        noticeId={notice.id}
+        message={notice.message}
+        onClose={dismissNotice}
+        onConfigure={
+          notice.section
+            ? () => {
+                if (
+                  openSettings(notice.section!, notice.section === 'general' ? 'audio-heading' : '')
+                )
+                  dismissNotice();
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

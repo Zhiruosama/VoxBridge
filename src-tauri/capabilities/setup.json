@@ -15,6 +15,7 @@
     "allow-setup-choose-folder",
     "allow-setup-install",
     "allow-setup-finish",
-    "allow-setup-uninstall"
+    "allow-setup-uninstall",
+    "allow-setup-update"
   ]
 }

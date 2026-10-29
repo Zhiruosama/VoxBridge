@@ -30,6 +30,7 @@ fn main() {
             "setup_install",
             "setup_finish",
             "setup_uninstall",
+            "setup_update",
             "runtime_info",
             "private_preset",
             "set_main_close_behavior",

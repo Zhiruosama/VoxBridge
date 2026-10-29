@@ -11,14 +11,20 @@ OutFile "${SETUP_OUTPUT}"
 !include x64.nsh
 Var SetupArgs
 Var SetupResult
+Var SetupUpdate
 
 Function .onInit
   ${GetParameters} $SetupArgs
-  ; Preserve updater /S and /P behavior; never show setup during background updates.
+  StrCpy $SetupUpdate 0
+  ; Explicit /S stays unattended. Passive app updates get the shared update UI.
   IfSilent unattended 0
   ${GetOptions} $SetupArgs "/P" $0
   ${IfNot} ${Errors}
-    Goto unattended
+    ${GetOptions} $SetupArgs "/UPDATE" $0
+    ${If} ${Errors}
+      Goto unattended
+    ${EndIf}
+    StrCpy $SetupUpdate 1
   ${EndIf}
   SetSilent silent
   InitPluginsDir
@@ -41,7 +47,14 @@ Function .onInit
     ExecWait '"$PLUGINSDIR\setup-payload.exe" $SetupArgs' $SetupResult
   ${Else}
     File /oname=voxbridge-setup-ui.exe "${SETUP_UI}"
-    ExecWait '"$PLUGINSDIR\voxbridge-setup-ui.exe" --voxbridge-setup' $SetupResult
+    ${If} $SetupUpdate = 1
+      FileOpen $0 "$PLUGINSDIR\update-args.txt" w
+      FileWriteUTF16LE $0 "$SetupArgs"
+      FileClose $0
+      ExecWait '"$PLUGINSDIR\voxbridge-setup-ui.exe" --voxbridge-update' $SetupResult
+    ${Else}
+      ExecWait '"$PLUGINSDIR\voxbridge-setup-ui.exe" --voxbridge-setup' $SetupResult
+    ${EndIf}
   ${EndIf}
   ${If} ${Errors}
     StrCpy $SetupResult 2
