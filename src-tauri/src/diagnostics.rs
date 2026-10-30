@@ -55,6 +55,13 @@ const KINDS: &[&str] = &[
     "startup", "shutdown", "panic", "start", "finish", "error", "state", "recovery",
 ];
 const PHASES: &[&str] = &[
+    "overlay_enter_composing",
+    "overlay_enter_not_ready",
+    "overlay_enter_disabled",
+    "overlay_enter_pending",
+    "overlay_enter_busy",
+    "overlay_enter_empty",
+    "overlay_enter_send",
     "queued",
     "preparing",
     "detecting",
