@@ -29,6 +29,9 @@ const payload = join(staging, 'payload.exe');
 const wrapper = join(staging, 'VoxBridge-bootstrap.exe');
 copyFileSync(output, payload);
 const compiler = join(process.env.LOCALAPPDATA, 'tauri/NSIS/makensis.exe');
+// GNU builds load WebView2 dynamically; the bootstrap UI runs outside the
+// installed app directory and must carry the loader beside its executable.
+const webviewLoader = join(targetDir, 'WebView2Loader.dll');
 execFileSync(
   compiler,
   [
@@ -37,6 +40,7 @@ execFileSync(
     `/DSETUP_PAYLOAD=${payload}`,
     `/DSETUP_OUTPUT=${wrapper}`,
     `/DSETUP_ICON=${join(root, 'src-tauri/icons/icon.ico')}`,
+    ...(existsSync(webviewLoader) ? [`/DSETUP_WEBVIEW2_LOADER=${webviewLoader}`] : []),
     join(root, 'native/windows/setup-wrapper.nsi'),
   ],
   { cwd: root, stdio: 'inherit' },
