@@ -18,14 +18,14 @@ pub fn initialize(app: &tauri::AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(
         app,
         "voxbridge-open",
-        "打开 VoxBridge / Open",
+        "打开 VoxBridge / Open / Открыть",
         true,
         None::<&str>,
     )?;
     let quit = MenuItem::with_id(
         app,
         "voxbridge-quit",
-        "退出 VoxBridge / Quit",
+        "退出 VoxBridge / Quit / Выйти",
         true,
         None::<&str>,
     )?;

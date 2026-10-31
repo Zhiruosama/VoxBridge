@@ -98,10 +98,13 @@
         color: #62626a;
       }
       .startup-en,
-      html[data-language='en'] .startup-zh {
+      .startup-ru,
+      html[data-language='en'] .startup-zh,
+      html[data-language='ru'] .startup-zh {
         display: none;
       }
-      html[data-language='en'] .startup-en {
+      html[data-language='en'] .startup-en,
+      html[data-language='ru'] .startup-ru {
         display: inline;
       }
       .startup-retry {
@@ -158,10 +161,12 @@
       <div class="startup-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
       <div class="startup-brand">VoxBridge</div>
       <div class="startup-caption" id="startup-caption">
-        <span class="startup-zh">正在启动…</span><span class="startup-en">Starting…</span>
+        <span class="startup-zh">正在启动…</span><span class="startup-en">Starting…</span
+        ><span class="startup-ru">Запуск…</span>
       </div>
       <button class="startup-retry" id="startup-retry" type="button" hidden>
-        <span class="startup-zh">重新加载</span><span class="startup-en">Reload</span>
+        <span class="startup-zh">重新加载</span><span class="startup-en">Reload</span
+        ><span class="startup-ru">Перезагрузить</span>
       </button>
     </div>
     <script type="module" src="/src/main.tsx"></script>

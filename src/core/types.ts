@@ -3,6 +3,7 @@ export type Adapter =
   | 'openai_chat_completions'
   | 'minimax_tts_ws'
   | 'openai_audio_speech'
+  | 'openai_audio_transcriptions'
   | 'qwen_chat_asr'
   | 'qwen_dashscope_asr'
   | 'pending_asr';
@@ -55,7 +56,7 @@ export interface SubtitleAppearance {
 }
 export interface OverlaySnapshot extends SubtitleAppearance {
   captionLayout?: import('./caption-layout').CaptionLayout;
-  uiLanguage?: 'zh-CN' | 'en';
+  uiLanguage?: 'zh-CN' | 'en' | 'ru';
   version: number;
   sessionId: string | null;
   phase: 'idle' | 'starting' | 'running' | 'recovering' | 'stopping';
@@ -78,7 +79,7 @@ export interface ComposerSettings {
   route: 'preview' | 'send';
 }
 export interface Settings {
-  uiLanguage: 'zh-CN' | 'en';
+  uiLanguage: 'zh-CN' | 'en' | 'ru';
   schemaVersion: 1;
   profiles: ProviderProfile[];
   active: Record<Stage, string>;

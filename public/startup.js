@@ -16,7 +16,9 @@
     theme === 'light' || (theme === 'system' && matchMedia('(prefers-color-scheme: light)').matches)
       ? 'light'
       : 'dark';
-  root.dataset.language = settings?.uiLanguage === 'en' ? 'en' : 'zh-CN';
+  root.dataset.language = ['en', 'ru'].includes(settings?.uiLanguage)
+    ? settings.uiLanguage
+    : 'zh-CN';
   root.lang = root.dataset.language;
   const slowStartup = setTimeout(() => {
     const caption = document.getElementById('startup-caption');
@@ -25,7 +27,10 @@
     caption.textContent =
       root.dataset.language === 'en'
         ? 'Startup is taking longer than expected. Try reloading.'
-        : '启动时间较长，请尝试重新加载。';
+        : root.dataset.language === 'ru'
+          ? 'Запуск занимает больше времени, чем обычно. Попробуйте перезагрузить.'
+          : '启动时间较长，请尝试重新加载。';
+    if (root.dataset.language === 'ru') retry.textContent = 'Перезагрузить';
     retry.hidden = false;
     retry.addEventListener('click', () => location.reload());
   }, 12000);

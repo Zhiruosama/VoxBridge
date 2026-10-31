@@ -40,6 +40,9 @@ Function .onInit
   ${If} $0 == ""
     ExecWait '"$PLUGINSDIR\setup-payload.exe" $SetupArgs' $SetupResult
   ${Else}
+    !ifdef SETUP_WEBVIEW2_LOADER
+      File /oname=WebView2Loader.dll "${SETUP_WEBVIEW2_LOADER}"
+    !endif
     File /oname=voxbridge-setup-ui.exe "${SETUP_UI}"
     ExecWait '"$PLUGINSDIR\voxbridge-setup-ui.exe" --voxbridge-setup' $SetupResult
   ${EndIf}

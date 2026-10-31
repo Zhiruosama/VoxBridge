@@ -8,6 +8,7 @@ function boot({
   subtitle = false,
   textOverlay = false,
   brokenSettings = false,
+  language = 'en',
 } = {}) {
   const frames = [];
   const events = new EventTarget();
@@ -37,7 +38,7 @@ function boot({
     localStorage: {
       getItem: () => {
         if (brokenSettings) throw new Error('Unavailable');
-        return '{"theme":"light","uiLanguage":"en"}';
+        return JSON.stringify({ theme: 'light', uiLanguage: language });
       },
     },
     matchMedia: (query) => ({ matches: query.includes('reduced-motion') && reduced }),
@@ -53,6 +54,13 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe('startup handoff', () => {
+  it('shows Russian recovery copy before the main bundle loads', () => {
+    const state = boot({ language: 'ru' });
+    expect(state.root.lang).toBe('ru');
+    vi.advanceTimersByTime(12000);
+    expect(state.caption.textContent).toContain('Попробуйте перезагрузить');
+    expect(state.retry.textContent).toBe('Перезагрузить');
+  });
   it('paints the committed UI before fading and ignores bubbling wave animation events', () => {
     const state = boot();
     state.events.dispatchEvent(new Event('voxbridge:ready'));

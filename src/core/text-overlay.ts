@@ -36,7 +36,7 @@ export function parseTextOverlayAppearance(value: unknown): TextOverlayAppearanc
 export interface TextOverlaySnapshot {
   appearance: TextOverlayAppearance;
   version: number;
-  uiLanguage: 'zh-CN' | 'en';
+  uiLanguage: 'zh-CN' | 'en' | 'ru';
   result: string;
   target: string;
   busy: boolean;

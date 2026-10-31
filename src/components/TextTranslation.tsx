@@ -5,6 +5,7 @@ import { textSplitRatio, textSplitStorageKey } from '../core/text-translation-la
 import { ArrowRight, Check, Copy, LoaderCircle, Settings2, X } from 'lucide-react';
 import { textTranslationSubmitKey, type TextTranslationController } from '../core/text-translation';
 import { profileFor } from '../core/settings';
+import { usesBuiltinProfileName } from '../core/provider-presets';
 import type { Settings } from '../core/types';
 import { t } from '../i18n';
 import Select from './Select';
@@ -307,7 +308,7 @@ export default function TextTranslation({
                 {t(elapsed >= 10 ? '服务响应较慢，可取消后重试。' : '翻译中…')} · {elapsed}s
               </span>
             ) : (
-              <span>{profile.name}</span>
+              <span>{usesBuiltinProfileName(profile) ? t(profile.name) : profile.name}</span>
             )}
             {copyError && <span>{t('复制失败，请手动选择译文复制。')}</span>}
           </div>

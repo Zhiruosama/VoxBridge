@@ -19,7 +19,7 @@ export function speechProvider(profile: ProviderProfile): string {
     if (profile.stage === 'translation' && new URL(profile.baseUrl).hostname === 'api.deepseek.com')
       return 'DeepSeek';
     if (
-      profile.adapter === 'openai_audio_speech' &&
+      ['openai_audio_speech', 'openai_audio_transcriptions'].includes(profile.adapter) &&
       new URL(profile.baseUrl).hostname === 'api.openai.com'
     )
       return 'OpenAI';
@@ -32,15 +32,17 @@ export function speechProvider(profile: ProviderProfile): string {
 export function modelOptions(profile: ProviderProfile): SpeechOption[] {
   const provider = speechProvider(profile);
   const ids =
-    profile.stage === 'tts' && provider === 'MiniMax'
-      ? ['speech-2.8-turbo', 'speech-2.8-hd']
-      : profile.adapter === 'qwen_dashscope_asr'
-        ? ['qwen-audio-3.0-asr-flash-streaming']
-        : profile.adapter === 'qwen_chat_asr'
-          ? ['qwen3-asr-flash']
-          : provider === 'OpenAI'
-            ? ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']
-            : [];
+    profile.adapter === 'openai_audio_transcriptions'
+      ? ['whisper-1', 'gpt-4o-transcribe', 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe-diarize']
+      : profile.stage === 'tts' && provider === 'MiniMax'
+        ? ['speech-2.8-turbo', 'speech-2.8-hd']
+        : profile.adapter === 'qwen_dashscope_asr'
+          ? ['qwen-audio-3.0-asr-flash-streaming']
+          : profile.adapter === 'qwen_chat_asr'
+            ? ['qwen3-asr-flash']
+            : provider === 'OpenAI'
+              ? ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']
+              : [];
   return withCurrent(
     mergePresets(
       profile,
@@ -84,7 +86,7 @@ export function voiceOptions(profile: ProviderProfile): SpeechOption[] {
       label,
       group: `MiniMax · ${language}`,
     }));
-  else if (provider === 'OpenAI') {
+  else if (provider === 'OpenAI' && profile.stage === 'tts') {
     const common = ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer'];
     const ids = profile.modelId.startsWith('gpt-4o-mini-tts')
       ? [...common, 'ballad', 'verse', 'marin', 'cedar']

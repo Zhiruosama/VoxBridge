@@ -9,7 +9,7 @@
 | 设置页 | 用途 | 已接入的接口 |
 | --- | --- | --- |
 | 文字翻译 | 翻译输入文字和识别字幕 | OpenAI 兼容 Chat Completions，含 DeepSeek 预设 |
-| 语音识别 | 监听应用声音、识别麦克风录音 | Qwen 实时 WebSocket、Qwen HTTP 短音频 |
+| 语音识别 | 监听应用声音、识别麦克风录音 | Qwen 实时 WebSocket、Qwen HTTP 短音频、OpenAI Audio Transcriptions |
 | 语音合成 | 将文字生成声音 | MiniMax WebSocket、OpenAI 兼容 Speech |
 
 预设只是填表帮助，不代表所有厂商、模型或语言都兼容。相同 API Key 也不意味着接口协议相同。开发者扩展服务时可参考[协议边界](../08-provider-configuration.md)。
@@ -24,6 +24,16 @@
 配置和密钥是分别保存的。修改密钥后先保存，再测试服务；保存后重启无需重复输入或加载模板。空白配置不会自动切换到其他已有配置。
 
 ## 确认服务可用
+
+### OpenAI 语音识别
+
+在「语音识别 → 新增配置」选择「OpenAI 语音识别」，保存自己的 API Key。地址填写 `https://api.openai.com/v1`，接口类型选择「OpenAI 兼容语音识别」。模型可选 `whisper-1`、`gpt-4o-transcribe`、`gpt-4o-mini-transcribe`、`gpt-4o-transcribe-diarize`，也可以手动输入兼容模型 ID。
+
+程序自动追加 `/audio/transcriptions`，使用 multipart 上传 WAV。此路径支持录音、分段字幕和短音频验证，不使用 OpenAI Realtime WebSocket。诊断文件仍限制为 0.1–30 秒、16 kHz 单声道 PCM16 WAV、最大 1 MB。所有模型读取 JSON 的 `text`；diarize 模型使用 `chunking_strategy=auto`，当前界面不展示或保存说话人标签。模型是否可用取决于账号权限与供应商。
+
+[Русская инструкция](../ru/guides/services.md#распознавание-речи-openai)
+
+### 测试连接
 
 - **文字翻译 → 测试连接**：发送一句短文本，检查当前服务、模型及已保存密钥能否完成翻译。
 - **语音合成 → 测试连接**：生成一句短测试音频并清理，不播放，也不发送到虚拟麦克风。

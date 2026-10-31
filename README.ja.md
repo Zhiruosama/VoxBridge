@@ -1,6 +1,6 @@
 # VoxBridge
 
-[简体中文](README.md) · [English](README.en.md) · **日本語**
+[简体中文](README.md) · [English](README.en.md) · **日本語** · [Русский](README.ru.md)
 
 [ダウンロード](https://github.com/Zhiruosama/VoxBridge/releases) · [はじめに（中国語）](docs/guides/getting-started.md) · [ドキュメント（中国語）](docs/README.md) · [不具合の報告](https://github.com/Zhiruosama/VoxBridge/issues)
 
