@@ -694,7 +694,9 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     if (
       !source ||
       invalid ||
-      !['qwen_chat_asr', 'qwen_dashscope_asr'].includes(asrProfile.adapter)
+      !['qwen_chat_asr', 'qwen_dashscope_asr', 'openai_audio_transcriptions'].includes(
+        asrProfile.adapter,
+      )
     ) {
       setListenError(invalid || '请刷新并选择监听应用，配置语音识别与文字翻译服务。');
       if (invalid) notify(invalid, validateProfile(asrProfile) ? 'asr' : 'translation');

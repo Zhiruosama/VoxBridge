@@ -11,6 +11,143 @@ fn profile(base_url: String) -> AsrProfile {
     }
 }
 
+fn openai_profile(base_url: String, model: &str) -> AsrProfile {
+    AsrProfile {
+        adapter: "openai_audio_transcriptions".into(),
+        model_id: model.into(),
+        ..profile(base_url)
+    }
+}
+
+#[test]
+fn openai_endpoint_preserves_prefix_and_rejects_invalid_configuration() {
+    assert_eq!(
+        endpoint(&openai_profile(
+            "https://api.openai.com/v1/".into(),
+            "whisper-1"
+        ))
+        .unwrap()
+        .as_str(),
+        "https://api.openai.com/v1/audio/transcriptions"
+    );
+    for address in [
+        "http://example.com/v1",
+        "https://user:secret@example.com/v1",
+        "https://example.com/v1?key=secret",
+        "https://example.com/v1#fragment",
+        "https://example.com/v1/audio/transcriptions",
+        "https://example.com/v1/chat/completions",
+    ] {
+        assert!(endpoint(&openai_profile(address.into(), "whisper-1")).is_err());
+    }
+    let mut invalid = openai_profile("https://api.openai.com/v1".into(), " ");
+    assert!(endpoint(&invalid).is_err());
+    invalid.model_id = "whisper-1".into();
+    invalid.stage = "tts".into();
+    assert!(endpoint(&invalid).is_err());
+}
+
+#[tokio::test]
+async fn openai_models_upload_wav_as_multipart_and_read_text() {
+    for model in [
+        "whisper-1",
+        "gpt-4o-transcribe",
+        "gpt-4o-mini-transcribe",
+        "gpt-4o-transcribe-diarize",
+    ] {
+        let (address, server) = server("200 OK", "{\"text\":\" Привет! \"}".as_bytes().to_vec());
+        let audio = wav();
+        let result = recognize(
+            &openai_profile(address, model),
+            &audio,
+            "test-key",
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.text, "Привет!");
+        assert_eq!(result.audio_seconds, 0.1);
+        let received = server.join().unwrap();
+        let end = received.windows(4).position(|b| b == b"\r\n\r\n").unwrap();
+        let headers = String::from_utf8_lossy(&received[..end]).to_lowercase();
+        assert!(headers.starts_with("post /compatible-mode/v1/audio/transcriptions "));
+        assert!(headers.contains("authorization: bearer test-key"));
+        assert!(headers.contains("content-type: multipart/form-data; boundary="));
+        let body = &received[end + 4..];
+        let text = String::from_utf8_lossy(body);
+        assert!(text.contains("name=\"file\"; filename=\"audio.wav\""));
+        assert!(text.contains("Content-Type: audio/wav"));
+        assert!(body.windows(audio.len()).any(|part| part == audio));
+        assert!(text.contains(&format!("name=\"model\"\r\n\r\n{model}\r\n")));
+        assert!(text.contains("name=\"response_format\"\r\n\r\njson\r\n"));
+        assert_eq!(
+            text.contains("name=\"chunking_strategy\"\r\n\r\nauto\r\n"),
+            model == "gpt-4o-transcribe-diarize"
+        );
+        assert!(!text.contains("name=\"prompt\""));
+        assert!(!text.contains("name=\"stream\""));
+    }
+}
+
+#[test]
+fn openai_responses_are_bounded_and_do_not_expose_provider_errors() {
+    assert!(openai::parse_response(br#"{"text":""}"#, 0.1)
+        .unwrap()
+        .text
+        .is_empty());
+    for body in [
+        b"not-json".as_slice(),
+        br#"{}"#,
+        br#"{"text":123}"#,
+        br#"{"error":{"message":"private-secret"},"text":"private"}"#,
+    ] {
+        let error = openai::parse_response(body, 0.1).err().unwrap();
+        assert!(!error.contains("private"));
+    }
+    let long = serde_json::to_vec(&json!({"text":"x".repeat(6001)})).unwrap();
+    assert!(openai::parse_response(&long, 0.1).is_err());
+}
+
+#[tokio::test]
+async fn openai_http_errors_and_cancellation_are_safe() {
+    for status in [
+        "401 Unauthorized",
+        "429 Too Many Requests",
+        "503 Service Unavailable",
+    ] {
+        let (address, server) = server(
+            status,
+            br#"{"error":{"message":"private-secret"}}"#.to_vec(),
+        );
+        let error = recognize(
+            &openai_profile(address, "whisper-1"),
+            &wav(),
+            "test-key",
+            &CancellationToken::new(),
+        )
+        .await
+        .err()
+        .unwrap();
+        assert!(error.contains(&status[..3]));
+        assert!(!error.contains("private"));
+        server.join().unwrap();
+    }
+    let token = CancellationToken::new();
+    token.cancel();
+    assert_eq!(
+        recognize(
+            &openai_profile("http://127.0.0.1:1/v1".into(), "whisper-1"),
+            &wav(),
+            "test-key",
+            &token
+        )
+        .await
+        .err()
+        .unwrap(),
+        STOPPED
+    );
+}
+
 pub(crate) fn wav() -> Vec<u8> {
     let data = vec![0_u8; 3200];
     let mut wav = Vec::new();

@@ -45,7 +45,7 @@ export function overlaySnapshot(
   appearance: SubtitleAppearance,
   version: number,
   captionColors = captionColorDefaults,
-  uiLanguage: 'zh-CN' | 'en' = 'zh-CN',
+  uiLanguage: 'zh-CN' | 'en' | 'ru' = 'zh-CN',
   captionLayout: import('./caption-layout').CaptionLayout = 'sentence',
 ): OverlaySnapshot {
   const parsed = parseSubtitleAppearance(appearance);

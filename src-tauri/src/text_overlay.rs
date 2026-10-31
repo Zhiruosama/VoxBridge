@@ -63,7 +63,7 @@ fn validate(snapshot: &TextSnapshot) -> Result<(), String> {
             .all(u8::is_ascii_hexdigit)
         || snapshot.version == 0
         || snapshot.version > 9_007_199_254_740_991
-        || !matches!(snapshot.ui_language.as_str(), "zh-CN" | "en")
+        || !matches!(snapshot.ui_language.as_str(), "zh-CN" | "en" | "ru")
         || snapshot.result.chars().count() > 12000
         || snapshot.target.chars().count() > 32
         || snapshot.error.chars().count() > 400
@@ -155,6 +155,8 @@ mod tests {
             ui_language: "zh-CN".into(),
             ..Default::default()
         };
+        assert!(validate(&s).is_ok());
+        s.ui_language = "ru".into();
         assert!(validate(&s).is_ok());
         s.appearance.font_size = f64::NAN;
         assert!(validate(&s).is_err());

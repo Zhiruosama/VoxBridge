@@ -36,6 +36,34 @@ describe('provider-specific speech choices', () => {
     );
   });
   it('keeps ASR models specific to the implemented wire protocol', () => {
+    const openai = profileFor(
+      applyProviderPreset(structuredClone(defaults), 'provider-openai-asr'),
+      'asr',
+    );
+    expect(modelOptions(openai).map((option) => option.value)).toEqual([
+      'whisper-1',
+      'gpt-4o-transcribe',
+      'gpt-4o-mini-transcribe',
+      'gpt-4o-transcribe-diarize',
+    ]);
+    expect(voiceOptions(openai)).toEqual([]);
+    const custom = {
+      ...openai,
+      modelId: 'custom-asr',
+      modelPresets: [{ name: 'My ASR', value: 'custom-asr', adapter: openai.adapter }],
+    };
+    expect(
+      modelOptions(
+        profileFor(
+          parseSettings({
+            ...structuredClone(defaults),
+            profiles: [custom, ...defaults.profiles.slice(1)],
+            active: { ...defaults.active, asr: custom.id },
+          }),
+          'asr',
+        ),
+      )[0],
+    ).toMatchObject({ value: 'custom-asr', label: 'My ASR' });
     const settings = applyProviderPreset(structuredClone(defaults), 'provider-qwen-realtime');
     expect(modelOptions(profileFor(settings, 'asr')).map((option) => option.value)).toEqual([
       'qwen-audio-3.0-asr-flash-streaming',

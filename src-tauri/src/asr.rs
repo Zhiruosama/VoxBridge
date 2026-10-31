@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 const MAX_WAV: usize = 1_000_000;
 const MAX_RESPONSE: usize = 256 * 1024;
 const STOPPED: &str = "语音识别已停止。";
+mod openai;
 pub(crate) mod realtime;
 
 #[derive(Clone, Deserialize)]
@@ -40,8 +41,13 @@ pub(crate) fn endpoint(profile: &AsrProfile) -> Result<url::Url, String> {
     if profile.adapter == "qwen_dashscope_asr" {
         return realtime::endpoint(profile);
     }
-    if profile.stage != "asr" || profile.adapter != "qwen_chat_asr" {
-        return Err("此配置不支持 Qwen HTTP 分段语音识别。".into());
+    if profile.stage != "asr"
+        || !matches!(
+            profile.adapter.as_str(),
+            "qwen_chat_asr" | "openai_audio_transcriptions"
+        )
+    {
+        return Err("此配置不支持 HTTP 分段语音识别。".into());
     }
     if profile.model_id.trim().is_empty() || profile.model_id.len() > 200 {
         return Err("请输入有效的 ASR 模型 ID。".into());
@@ -63,7 +69,15 @@ pub(crate) fn endpoint(profile: &AsrProfile) -> Result<url::Url, String> {
     if path.ends_with("/chat/completions") {
         return Err("请填写 ASR API 根地址，不包含 /chat/completions。".into());
     }
-    url.set_path(&format!("{path}/chat/completions"));
+    if path.ends_with("/audio/transcriptions") {
+        return Err("请填写 ASR API 根地址，不包含 /audio/transcriptions。".into());
+    }
+    let suffix = if profile.adapter == "openai_audio_transcriptions" {
+        "audio/transcriptions"
+    } else {
+        "chat/completions"
+    };
+    url.set_path(&format!("{path}/{suffix}"));
     Ok(url)
 }
 
@@ -164,8 +178,11 @@ pub(crate) async fn recognize(
     key: &str,
     token: &CancellationToken,
 ) -> Result<Transcript, String> {
-    if profile.adapter != "qwen_chat_asr" {
-        return Err("文件转写需要 Qwen HTTP 短音频配置。".into());
+    if !matches!(
+        profile.adapter.as_str(),
+        "qwen_chat_asr" | "openai_audio_transcriptions"
+    ) {
+        return Err("文件转写需要 HTTP 语音识别配置。".into());
     }
     let url = endpoint(profile)?;
     let seconds = validate_wav(audio)?;
@@ -179,14 +196,19 @@ pub(crate) async fn recognize(
                 .timeout(Duration::from_secs(30))
                 .build()
                 .map_err(|_| "无法初始化 ASR 连接。")?;
-            let body = json!({
-                "model": profile.model_id,
-                "stream": false,
-                "messages": [{"role":"user","content":[{
-                    "type":"input_audio", "input_audio":{"data":format!("data:audio/wav;base64,{}", STANDARD.encode(audio))}
-                }]}]
-            });
-            let mut response = client.post(url).bearer_auth(key).json(&body).send().await
+            let request = client.post(url).bearer_auth(key);
+            let request = if profile.adapter == "openai_audio_transcriptions" {
+                request.multipart(openai::form(profile, audio)?)
+            } else {
+                request.json(&json!({
+                    "model": profile.model_id,
+                    "stream": false,
+                    "messages": [{"role":"user","content":[{
+                        "type":"input_audio", "input_audio":{"data":format!("data:audio/wav;base64,{}", STANDARD.encode(audio))}
+                    }]}]
+                }))
+            };
+            let mut response = request.send().await
                 .map_err(|error| if error.is_timeout() { "ASR 请求超时。" } else { "无法连接 ASR 服务，请检查地址与网络。" })?;
             if !response.status().is_success() {
                 return Err(status_error(response.status().as_u16()));
@@ -198,7 +220,11 @@ pub(crate) async fn recognize(
                 }
                 bytes.extend_from_slice(&chunk);
             }
-            parse_response(&bytes, seconds)
+            if profile.adapter == "openai_audio_transcriptions" {
+                openai::parse_response(&bytes, seconds)
+            } else {
+                parse_response(&bytes, seconds)
+            }
         } => result,
     }
 }
