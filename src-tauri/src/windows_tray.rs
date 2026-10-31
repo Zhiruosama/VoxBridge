@@ -6,12 +6,7 @@ use tauri::{
 };
 
 pub fn show_main(app: &tauri::AppHandle) -> tauri::Result<()> {
-    if let Some(main) = app.get_webview_window("main") {
-        main.show()?;
-        main.unminimize()?;
-        main.set_focus()?;
-    }
-    Ok(())
+    crate::window_behavior::show_main(app)
 }
 
 pub fn initialize(app: &tauri::AppHandle) -> tauri::Result<()> {

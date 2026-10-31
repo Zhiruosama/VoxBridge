@@ -48,7 +48,15 @@ fn runtime_info() -> RuntimeInfo {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+    // Maintenance runs from a temporary copy and must not compete for the app lock.
+    // Register before all plugins that could touch settings or audio resources.
+    if !setup::requested() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            let _ = window_behavior::show_main(app);
+        }));
+    }
+    builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -232,13 +240,7 @@ pub fn run() {
         .run(|app, event| {
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
-                use tauri::Manager;
-                if let Some(main) = app.get_webview_window("main") {
-                    let _ = main
-                        .show()
-                        .and_then(|_| main.unminimize())
-                        .and_then(|_| main.set_focus());
-                }
+                let _ = window_behavior::show_main(app);
             }
             if matches!(
                 event,
