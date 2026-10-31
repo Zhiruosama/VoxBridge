@@ -14,6 +14,7 @@ import {
   acknowledgeOverlayDraft,
 } from '../core/overlay-voice';
 import { composerKeyAction } from '../core/composer';
+import { recordDiagnostic } from '../diagnostics';
 import type { OverlayVoiceRequest, OverlayVoiceState } from '../core/types';
 import VoiceActivity from './VoiceActivity';
 import SpeechSpeedPicker from './SpeechSpeedPicker';
@@ -33,7 +34,6 @@ export default function OverlayVoiceControls({
   const [draft, setDraft] = useState('');
   const [textOpen, setTextOpen] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const composingRef = useRef(false);
   const remoteDraftRef = useRef('');
   const sentRef = useRef<string | null>(null);
   const draftRevision = useRef(0);
@@ -65,16 +65,19 @@ export default function OverlayVoiceControls({
     setSending(false);
   }, [voice.submission]);
   useEffect(() => {
-    if (!sending) return;
+    if (!sending && !textOpen) return;
     // Read back acknowledgements as well as subscribing: a hidden WebView may
     // miss an event while AppKit transfers it between input/display panels.
     const timer = setInterval(() => {
       void readOverlayVoice()
-        .then((state) => setVoice((current) => newerOverlayVoice(current, state)))
+        .then((state) => {
+          setVoice((current) => newerOverlayVoice(current, state));
+          setReady(true);
+        })
         .catch(() => {});
     }, 1000);
     return () => clearInterval(timer);
-  }, [sending]);
+  }, [sending, textOpen]);
   useEffect(() => {
     if (!textOpen) return;
     let active = true;
@@ -175,22 +178,19 @@ export default function OverlayVoiceControls({
                 draftRevision.current++;
                 setDraft(event.target.value);
               }}
-              onCompositionStart={() => {
-                composingRef.current = true;
-              }}
-              onCompositionEnd={() => {
-                composingRef.current = false;
-              }}
-              onBlur={() => {
-                composingRef.current = false;
-              }}
               onKeyDown={(event) => {
-                if (
-                  composingRef.current ||
-                  event.nativeEvent.isComposing ||
-                  event.nativeEvent.keyCode === 229
-                )
+                // AppKit can move this WKWebView between panels while composing.
+                // A cached compositionstart flag can then outlive compositionend.
+                // Use the current key event (including WebKit's 229 IME marker).
+                if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                  if (event.key === 'Enter')
+                    recordDiagnostic({
+                      operation: 'frontend',
+                      kind: 'state',
+                      phase: 'overlay_enter_composing',
+                    });
                   return;
+                }
                 if (event.key === 'Escape') {
                   event.preventDefault();
                   setTextOpen(false);
@@ -199,15 +199,21 @@ export default function OverlayVoiceControls({
                   composerKeyAction(event.nativeEvent, 'speak') !== 'newline'
                 ) {
                   event.preventDefault();
+                  if (event.repeat) return;
                   const text = event.currentTarget.value;
-                  if (
-                    !event.repeat &&
-                    !capturing &&
-                    !disabled &&
-                    text.trim() &&
-                    Array.from(text).length <= 2000
-                  )
-                    void request({ action: 'send', text });
+                  const phase = !ready
+                    ? 'overlay_enter_not_ready'
+                    : !voice.enabled
+                      ? 'overlay_enter_disabled'
+                      : sending
+                        ? 'overlay_enter_pending'
+                        : requesting || capturing
+                          ? 'overlay_enter_busy'
+                          : !text.trim() || Array.from(text).length > 2000
+                            ? 'overlay_enter_empty'
+                            : 'overlay_enter_send';
+                  recordDiagnostic({ operation: 'frontend', kind: 'state', phase });
+                  if (phase === 'overlay_enter_send') void request({ action: 'send', text });
                 }
               }}
             />
