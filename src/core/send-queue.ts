@@ -129,7 +129,7 @@ export class SendQueue {
     const promise = new Promise<'completed' | 'stopped'>((resolve) =>
       this.jobs.push({
         id: input.id,
-        input: { ...input, settings },
+        input: { ...input, settings, conversation: structuredClone(input.conversation ?? []) },
         callbacks,
         status: 'queued',
         error: '',

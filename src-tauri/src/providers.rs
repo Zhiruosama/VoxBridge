@@ -1,4 +1,5 @@
 mod context;
+mod prosody;
 pub(crate) use context::{ContextWindow, TranslationContext};
 use serde::Deserialize;
 use std::{
@@ -246,6 +247,7 @@ pub async fn translate(
     source: String,
     target: String,
     request_id: String,
+    speech_context: Option<Vec<prosody::ConversationTurn>>,
     requests: tauri::State<'_, Requests>,
 ) -> Result<String, String> {
     if profile.stage != "translation" || profile.adapter != "openai_chat_completions" {
@@ -258,6 +260,9 @@ pub async fn translate(
         return Err("请求参数无效。".into());
     }
     translation_style(profile.translation_prompt.as_deref())?;
+    if let Some(turns) = &speech_context {
+        prosody::validate_context(turns)?;
+    }
     let url = endpoint(&profile.base_url)?;
     let token = requests
         .0
@@ -269,7 +274,7 @@ pub async fn translate(
         _ = token.cancelled() => Err("翻译已停止。".into()),
         result = async {
             let secret = crate::credentials::read_async(&profile.id).await?;
-            request_translation_with_context(url, secret, &profile.model_id, &text, &source, &target, profile.thinking, &TranslationContext::default(), profile.translation_prompt.as_deref()).await
+            request_translation_mode(url, secret, &profile.model_id, &text, &source, &target, profile.thinking, &TranslationContext::default(), profile.translation_prompt.as_deref(), speech_context.as_deref()).await
         } => result,
     };
     requests
@@ -352,6 +357,25 @@ async fn request_translation_with_context(
     context: &TranslationContext,
     prompt: Option<&str>,
 ) -> Result<String, String> {
+    request_translation_mode(
+        url, secret, model, text, source, target, thinking, context, prompt, None,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn request_translation_mode(
+    url: url::Url,
+    secret: String,
+    model: &str,
+    text: &str,
+    source: &str,
+    target: &str,
+    thinking: Option<Thinking>,
+    context: &TranslationContext,
+    prompt: Option<&str>,
+    speech_context: Option<&[prosody::ConversationTurn]>,
+) -> Result<String, String> {
     let style = translation_style(prompt)?;
     let style = if target == "粤语" {
         format!("{style}\nUse natural conversational Cantonese (廣東話) with Cantonese vocabulary and grammar, written in Chinese characters, not Mandarin prose or romanization.")
@@ -371,6 +395,17 @@ async fn request_translation_with_context(
         let prompt = payload["messages"][0]["content"].as_str().unwrap();
         payload["messages"][0]["content"] = serde_json::json!(format!("{prompt}{CONTEXT_RULE}"));
         payload["messages"][1]["content"] = serde_json::json!(context.payload(text));
+    }
+    let mut planning = speech_context.is_some();
+    if let Some(history) = speech_context {
+        payload["response_format"] = serde_json::json!({"type": "json_object"});
+        payload["messages"][0]["content"] = serde_json::json!(format!(
+            "{style}\nTarget language: {target}. {}",
+            prosody::RULE
+        ));
+        payload["messages"][1]["content"] = serde_json::json!(
+            serde_json::json!({"history": history, "currentText": text}).to_string()
+        );
     }
     // This vendor extension is opt-in; generic compatible services receive no extra field.
     if let Some(thinking) = thinking {
@@ -392,6 +427,13 @@ async fn request_translation_with_context(
                 }
             })?;
         if !response.status().is_success() {
+            if planning && matches!(response.status().as_u16(), 400 | 422) {
+                planning = false;
+                payload.as_object_mut().unwrap().remove("response_format");
+                payload["messages"][0]["content"] = serde_json::json!(format!("{style}\nTranslate into {target}. Return only translated content. {CONTEXT_RULE}"));
+                payload["messages"][1]["content"] = serde_json::json!(context.payload(text));
+                continue;
+            }
             return Err(status_message(response.status().as_u16()));
         }
         // Bound response size without logging potentially sensitive server content.
@@ -416,10 +458,27 @@ async fn request_translation_with_context(
             .pointer("/choices/0/message/content")
             .and_then(|v| v.as_str())
             .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .ok_or("未收到有效译文，请检查模型是否支持文本对话。")?;
-        if valid_translation(text, result, target) {
-            return Ok(result.into());
+            .filter(|text| !text.is_empty());
+        let result = match result {
+            Some(result) => result,
+            None if speech_context.is_some() => "",
+            None => return Err("未收到有效译文，请检查模型是否支持文本对话。".into()),
+        };
+        if planning {
+            if let Some(plan) = prosody::normalized_plan(result, text, target) {
+                return Ok(plan);
+            }
+            planning = false;
+            payload.as_object_mut().unwrap().remove("response_format");
+        } else if !result.is_empty()
+            && (speech_context.is_none() || !result.starts_with(['{', '[', '`']))
+            && valid_translation(text, result, target)
+        {
+            return Ok(if speech_context.is_some() {
+                prosody::plain_plan(result)
+            } else {
+                result.into()
+            });
         }
         last_failure = format!(
             "目标：{target}；返回语言识别：{}",

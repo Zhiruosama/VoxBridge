@@ -152,6 +152,7 @@ export function profileFor(settings: Settings, stage: Stage): ProviderProfile {
 function parseComposerSettings(value: unknown): ComposerSettings {
   const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   return {
+    ...(input.contextualSpeech === true ? { contextualSpeech: true } : {}),
     voiceInputMode: input.voiceInputMode === 'send' ? 'send' : 'dictate',
     enterAction: ['speak', 'translate', 'newline'].includes(input.enterAction as string)
       ? (input.enterAction as ComposerSettings['enterAction'])

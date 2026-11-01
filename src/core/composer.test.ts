@@ -447,3 +447,69 @@ it('keeps output language independent from changes in the listening source', () 
   expect(composerLanguages(settings, true)).toEqual({ source: '简体中文', target: '英语' });
   expect(composerLanguages(settings, false)).toEqual({ source: '简体中文', target: '英语' });
 });
+
+it('plans translation and delivery in one call even for same-language speech, leaving text-only translation unchanged', async () => {
+  const { input, dependencies, callbacks } = fixture();
+  input.settings.composer.contextualSpeech = true;
+  input.settings.targetLanguage = '英语';
+  input.settings.profiles[2].adapter = 'minimax_tts_ws';
+  input.settings.profiles[2].modelId = 'speech-2.8-turbo';
+  const translateSpeech = vi.fn(async () => ({
+    translation: 'Hello',
+    speech: { emotion: 'calm', speed_multiplier: 0.96 },
+  }));
+  const controller = new ComposerController({ ...dependencies, translateSpeech });
+  await controller.run(
+    {
+      ...input,
+      detection: { language: '英语' },
+      conversation: [{ role: 'remote', text: 'Hi there!' }],
+    },
+    callbacks,
+  );
+  expect(translateSpeech).toHaveBeenCalledTimes(1);
+  expect(dependencies.translate).not.toHaveBeenCalled();
+  expect(dependencies.speak.mock.calls[0]?.[0].speechOptions?.emotion).toBe('calm');
+  expect(dependencies.speak.mock.calls[0]?.[1]).toBe('Hello');
+  await controller.run({ ...input, id: 'text-only', action: 'translate' }, callbacks);
+  expect(translateSpeech).toHaveBeenCalledTimes(1);
+  expect(dependencies.translate).toHaveBeenCalledTimes(1);
+});
+
+it('does not synthesize a plan that completed after cancellation', async () => {
+  const { input, dependencies, callbacks } = fixture();
+  input.settings.composer.contextualSpeech = true;
+  input.settings.profiles[2].adapter = 'minimax_tts_ws';
+  const pending = deferred<{ translation: string }>();
+  const controller = new ComposerController({
+    ...dependencies,
+    translateSpeech: async () => pending.promise,
+  });
+  const operation = controller.run(input, callbacks);
+  await controller.cancel();
+  pending.resolve({ translation: 'Hello' });
+  expect(await operation).toBe('stopped');
+  expect(dependencies.speak).not.toHaveBeenCalled();
+});
+
+it('freezes context before asynchronous language detection', async () => {
+  const { input, dependencies, callbacks } = fixture();
+  input.settings.composer.contextualSpeech = true;
+  input.settings.profiles[2].adapter = 'minimax_tts_ws';
+  const detection = deferred<string | null>();
+  const translateSpeech = vi.fn(async () => ({ translation: 'Hello' }));
+  const controller = new ComposerController({
+    ...dependencies,
+    detectLanguage: () => detection.promise,
+    translateSpeech,
+  });
+  const conversation = [{ role: 'remote' as const, text: 'original history' }];
+  const operation = controller.run({ ...input, conversation }, callbacks);
+  conversation[0].text = 'future correction';
+  detection.resolve('简体中文');
+  await operation;
+  expect(translateSpeech.mock.calls[0]).toBeDefined();
+  expect((translateSpeech.mock.calls[0] as unknown[])[5]).toEqual([
+    { role: 'remote', text: 'original history' },
+  ]);
+});

@@ -46,6 +46,7 @@ describe('native command permission integration', () => {
       'setup-install',
       'setup-finish',
       'setup-uninstall',
+      'setup-update',
     ]) {
       expect(setup.permissions).toContain(`allow-${command}`);
       expect(main.permissions).not.toContain(`allow-${command}`);

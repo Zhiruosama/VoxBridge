@@ -1,5 +1,16 @@
 //! Keep the main WebView alive. Windows hides only after a tray entry exists.
 use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::Manager;
+
+/// Recover the existing session without recreating its WebView or audio tasks.
+pub fn show_main(app: &tauri::AppHandle) -> tauri::Result<()> {
+    if let Some(main) = app.get_webview_window("main") {
+        main.show()?;
+        main.unminimize()?;
+        main.set_focus()?;
+    }
+    Ok(())
+}
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "lowercase")]

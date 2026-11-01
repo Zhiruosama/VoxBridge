@@ -5,6 +5,7 @@ import SubtitleOverlay from './components/SubtitleOverlay';
 import TextTranslationOverlay from './components/TextTranslationOverlay';
 import Setup from './components/Setup';
 import Uninstall from './components/Uninstall';
+import UpdateSetup from './components/UpdateSetup';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { bootstrapPrivatePreset } from './core/private-preset';
@@ -41,6 +42,8 @@ async function start() {
       ) : setupWindow ? (
         new URLSearchParams(location.search).get('mode') === 'uninstall' ? (
           <Uninstall />
+        ) : new URLSearchParams(location.search).get('mode') === 'update' ? (
+          <UpdateSetup />
         ) : (
           <Setup />
         )

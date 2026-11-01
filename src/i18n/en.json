@@ -987,5 +987,7 @@
   "此配置不支持 HTTP 分段语音识别。": "This configuration does not support HTTP segmented recognition.",
   "文件转写需要 HTTP 语音识别配置。": "File transcription requires an HTTP speech recognition configuration.",
   "请填写 ASR API 根地址，不包含 /audio/transcriptions。": "Enter the ASR API base URL without /audio/transcriptions.",
-  "目标：{0}；返回语言识别：{1}": "Target: {0}; detected language: {1}"
+  "目标：{0}；返回语言识别：{1}": "Target: {0}; detected language: {1}",
+  "上下文语气": "Context-aware delivery",
+  "MiniMax 译文语音参考最近一分钟对话调整语气；上下文随翻译请求发送，不保存到磁盘。手动情绪优先。": "Uses the last minute of conversation to guide MiniMax translated speech. Context is sent with translation requests and kept only in memory. Manual emotion takes priority."
 }
