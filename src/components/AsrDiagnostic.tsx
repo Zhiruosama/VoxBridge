@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FileAudio, FolderOpen, Square } from 'lucide-react';
 import { desktop, stopAsr, transcribeWav } from '../bridge';
 import { profileFor, validateProfile } from '../core/settings';
+import { usesBuiltinProfileName } from '../core/provider-presets';
 import type { Settings, Transcript } from '../core/types';
 import SettingRow from './SettingRow';
 
@@ -13,7 +14,8 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
   const [result, setResult] = useState<Transcript | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const fileDisabled = !desktop || busy || profile.adapter !== 'qwen_chat_asr';
+  const supportsFile = ['qwen_chat_asr', 'openai_audio_transcriptions'].includes(profile.adapter);
+  const fileDisabled = !desktop || busy || !supportsFile;
   const [stopping, setStopping] = useState(false);
   const requestRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
@@ -89,7 +91,9 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
         <SettingRow title={t('当前识别配置')}>
           <div className="asr-profile-summary">
             <div className="asr-profile-heading">
-              <span className="asr-profile-name">{profile.name}</span>
+              <span className="asr-profile-name">
+                {usesBuiltinProfileName(profile) ? t(profile.name) : profile.name}
+              </span>
               <span className="protocol-value">
                 {profile.adapter === 'qwen_dashscope_asr' ? 'WebSocket' : 'HTTP'}
               </span>
@@ -132,10 +136,7 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
               {t(stopping ? '正在停止…' : '停止识别')}
             </button>
           ) : (
-            <button
-              onClick={() => void run()}
-              disabled={!desktop || !file || profile.adapter !== 'qwen_chat_asr'}
-            >
+            <button onClick={() => void run()} disabled={!desktop || !file || !supportsFile}>
               {t('发送音频并识别')}
             </button>
           )}

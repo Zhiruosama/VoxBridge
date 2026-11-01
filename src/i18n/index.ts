@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react';
 import english from './en.json';
+import russian from './ru.json';
 
-export type UiLanguage = 'zh-CN' | 'en';
-const catalog: Record<string, string> = english;
+export type UiLanguage = 'zh-CN' | 'en' | 'ru';
+const catalogs: Record<'en' | 'ru', Record<string, string>> = { en: english, ru: russian };
 const listeners = new Set<() => void>();
 export function parseUiLanguage(value: unknown): UiLanguage {
-  return value === 'en' ? 'en' : 'zh-CN';
+  return value === 'en' || value === 'ru' ? value : 'zh-CN';
 }
 function storedLanguage(): UiLanguage {
   try {
@@ -36,19 +37,25 @@ export function useUiLanguage() {
     () => 'zh-CN' as UiLanguage,
   );
 }
-function englishMessage(key: string): string {
+export function translatedMessage(key: string, locale: 'en' | 'ru'): string {
+  const catalog = catalogs[locale];
   if (Object.hasOwn(catalog, key)) return catalog[key];
-  if (key.startsWith('Error: ')) return `Error: ${englishMessage(key.slice(7))}`;
+  const httpStatus = /^(.*)(（HTTP \d{3}）)$/.exec(key);
+  if (httpStatus) return `${translatedMessage(httpStatus[1], locale)} ${httpStatus[2]}`;
+  if (key.startsWith('Error: '))
+    return `${locale === 'ru' ? 'Ошибка' : 'Error'}: ${translatedMessage(key.slice(7), locale)}`;
   const diagnostic = /^目标：(.+)；返回语言识别：(.+)$/.exec(key);
   if (diagnostic)
-    return `Target: ${englishMessage(diagnostic[1])}; detected language: ${englishMessage(diagnostic[2])}`;
+    return catalog['目标：{0}；返回语言识别：{1}']
+      .replace('{0}', translatedMessage(diagnostic[1], locale))
+      .replace('{1}', translatedMessage(diagnostic[2], locale));
   const parts = key.split(/(?<=。)\s*/).filter(Boolean);
-  if (parts.length > 1) return parts.map(englishMessage).join(' ');
+  if (parts.length > 1) return parts.map((part) => translatedMessage(part, locale)).join(' ');
   return key;
 }
 /** Translate UI copy only. Captions, drafts, provider names and API parameters remain untouched. */
 export function t(key: string | undefined, ...values: (string | number)[]): string {
   if (key === undefined) return '';
-  const message = language === 'en' ? englishMessage(key) : key;
+  const message = language === 'zh-CN' ? key : translatedMessage(key, language);
   return message.replace(/\{(\d+)\}/g, (match, index) => String(values[Number(index)] ?? match));
 }

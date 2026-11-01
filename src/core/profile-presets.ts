@@ -13,6 +13,7 @@ function normalize(value: unknown): ProfilePreset {
     throw new Error('预设 ID 需要 1–200 字节，不能包含换行或控制字符。');
   const adapters: Adapter[] = [
     'qwen_chat_asr',
+    'openai_audio_transcriptions',
     'qwen_dashscope_asr',
     'openai_audio_speech',
     'minimax_tts_ws',

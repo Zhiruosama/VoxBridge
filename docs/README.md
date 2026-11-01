@@ -1,5 +1,7 @@
 # 文档中心
 
+[Русская документация](ru/README.md)
+
 [项目首页](../README.md) · [下载安装](https://github.com/Zhiruosama/VoxBridge/releases) · [反馈问题](https://github.com/Zhiruosama/VoxBridge/issues)
 
 第一次使用，从[开始使用](guides/getting-started.md)读起。已安装的用户可以直接按下面的任务查找，不必从头读完所有文档。

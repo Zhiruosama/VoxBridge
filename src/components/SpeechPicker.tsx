@@ -5,6 +5,7 @@ import { ChevronDown, Volume2 } from 'lucide-react';
 import Select from './Select';
 import SpeechSpeed from './SpeechSpeed';
 import { profileFor } from '../core/settings';
+import { usesBuiltinProfileName } from '../core/provider-presets';
 import {
   modelOptions,
   speechProvider,
@@ -75,7 +76,7 @@ export default function SpeechPicker({
             .map((p) => ({
               value: p.id,
               label: p.name,
-              translate: p.name === '空白配置' && !p.baseUrl,
+              translate: usesBuiltinProfileName(p),
               group: speechProvider(p),
             }))}
           onChange={(id) => onChange({ ...settings, active: { ...settings.active, tts: id } })}

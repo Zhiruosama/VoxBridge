@@ -79,7 +79,8 @@ for (const file of files) {
       problems.push(`${file}: missing heading ${raw}`);
   }
   const userIntro =
-    /^README(?:\.(?:en|ja))?\.md$/.test(file) ||
+    /^README(?:\.(?:en|ja|ru))?\.md$/.test(file) ||
+    file.startsWith('docs/ru/') ||
     [
       'docs/README.md',
       'docs/user-guide.md',
