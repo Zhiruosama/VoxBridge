@@ -36,6 +36,7 @@ import {
   applyProviderPreset,
   providerPresets,
   removeProviderProfile,
+  usesBuiltinProfileName,
 } from '../core/provider-presets';
 import {
   modelOptions,
@@ -282,6 +283,7 @@ export default function SettingsPanel({
                   options={[
                     { value: 'zh-CN', label: '简体中文' },
                     { value: 'en', label: 'English' },
+                    { value: 'ru', label: 'Русский' },
                   ]}
                   onChange={(value) =>
                     setDraft({ ...draft, uiLanguage: value as Settings['uiLanguage'] })
@@ -1030,7 +1032,7 @@ export default function SettingsPanel({
                             .map((p) => ({
                               value: p.id,
                               label: p.name,
-                              translate: p.name === '空白配置' && !p.baseUrl,
+                              translate: usesBuiltinProfileName(p),
                             })),
                         ]}
                       />
@@ -1114,6 +1116,7 @@ export default function SettingsPanel({
                     onChange={(value) => update({ adapter: value as ProviderProfile['adapter'] })}
                     options={[
                       { value: 'pending_asr', label: '未配置协议' },
+                      { value: 'openai_audio_transcriptions', label: 'OpenAI 兼容语音识别' },
                       { value: 'qwen_chat_asr', label: 'Qwen HTTP 短音频' },
                       { value: 'qwen_dashscope_asr', label: 'Qwen 实时识别' },
                     ]}

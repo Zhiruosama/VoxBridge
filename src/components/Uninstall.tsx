@@ -1,3 +1,4 @@
+import { translatedMessage } from '../i18n';
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -9,21 +10,25 @@ export default function Uninstall() {
   const [info, setInfo] = useState<{ path: string; driver: boolean; language: string } | null>(
     null,
   );
-  const [english, setEnglish] = useState(false);
+  const [language, setLanguage] = useState('en');
   const [removeData, setRemoveData] = useState(false);
   const [removeDriver, setRemoveDriver] = useState(false);
   const [phase, setPhase] = useState<'ready' | 'checking' | 'busy' | 'done'>('ready');
   const [error, setError] = useState('');
   const [maximized, setMaximized] = useState(false);
   const busy = phase === 'busy' || phase === 'checking';
-  const text = (zh: string, en: string) => (english ? en : zh);
+  useEffect(() => {
+    document.documentElement.lang = language === 'zh' ? 'zh-CN' : language;
+  }, [language]);
+  const text = (zh: string, en: string) =>
+    language === 'ru' ? translatedMessage(zh, 'ru') : language === 'en' ? en : zh;
   async function inspect() {
     try {
       const next = await invoke<{ path: string; driver: boolean; language: string }>(
         'setup_inspect',
       );
       setInfo(next);
-      setEnglish(next.language !== 'zh');
+      setLanguage(['zh', 'ru'].includes(next.language) ? next.language : 'en');
       setError('');
     } catch {
       setError(
@@ -109,7 +114,7 @@ export default function Uninstall() {
             {maximized ? <Copy size={13} /> : <Square size={13} />}
           </button>
           <button
-            aria-label={text('关闭', 'Close')}
+            aria-label={text('关闭窗口', 'Close')}
             disabled={busy}
             onClick={() => void control('close')}
           >
@@ -146,9 +151,20 @@ export default function Uninstall() {
       </aside>
       <main className="setup-content">
         <div className="setup-language">
-          <button disabled={busy} onClick={() => setEnglish(!english)}>
-            {english ? '简体中文' : 'English'}
-          </button>
+          {[
+            ['zh', '简体中文'],
+            ['en', 'English'],
+            ['ru', 'Русский'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              disabled={busy}
+              aria-pressed={language === value}
+              onClick={() => setLanguage(value)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         {phase === 'ready' || phase === 'checking' ? (
           <>
@@ -254,7 +270,7 @@ export default function Uninstall() {
         )}
         {error && (
           <div className="setup-error" role="alert">
-            {error}
+            {language === 'ru' ? translatedMessage(error, 'ru') : error}
             {!info && <button onClick={() => void inspect()}>{text('重试', 'Retry')}</button>}
           </div>
         )}

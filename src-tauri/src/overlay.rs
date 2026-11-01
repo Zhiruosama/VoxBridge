@@ -91,7 +91,7 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
     if snapshot
         .ui_language
         .as_deref()
-        .is_some_and(|value| !matches!(value, "zh-CN" | "en"))
+        .is_some_and(|value| !matches!(value, "zh-CN" | "en" | "ru"))
         || !matches!(snapshot.caption_layout.as_str(), "sentence" | "paragraph")
         || snapshot.version == 0
         || snapshot.version > 9_007_199_254_740_991
@@ -465,6 +465,8 @@ mod tests {
         assert!(validate(&localized).is_ok());
         let serialized = serde_json::to_value(&localized).unwrap();
         assert_eq!(serialized["uiLanguage"], "en");
+        localized.ui_language = Some("ru".into());
+        assert!(validate(&localized).is_ok());
         localized.ui_language = Some("unsupported".into());
         assert!(validate(&localized).is_err());
         let mut paragraph = snapshot(1);

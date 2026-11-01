@@ -177,7 +177,7 @@ export function parseSettings(value: unknown): Settings {
         ? ['openai_chat_completions']
         : stage === 'tts'
           ? ['minimax_tts_ws', 'openai_audio_speech']
-          : ['pending_asr', 'qwen_chat_asr', 'qwen_dashscope_asr'];
+          : ['pending_asr', 'qwen_chat_asr', 'qwen_dashscope_asr', 'openai_audio_transcriptions'];
     if (!['asr', 'translation', 'tts'].includes(stage) || !adapters.includes(adapter))
       throw new Error('不支持的服务协议。');
     for (const key of ['id', 'name', 'baseUrl', 'modelId', 'voice']) {

@@ -1,8 +1,42 @@
 import { describe, expect, it } from 'vitest';
 import { defaults, parseSettings, profileFor, validateProfile } from './settings';
-import { applyProviderPreset, removeProviderProfile } from './provider-presets';
+import {
+  applyProviderPreset,
+  removeProviderProfile,
+  usesBuiltinProfileName,
+} from './provider-presets';
 
 describe('provider presets', () => {
+  it('localizes stock profile names without changing user-defined names', () => {
+    const p = profileFor(
+      applyProviderPreset(structuredClone(defaults), 'provider-openai-asr'),
+      'asr',
+    );
+    expect(usesBuiltinProfileName(p)).toBe(true);
+    expect(usesBuiltinProfileName({ ...p, name: 'Мой OpenAI' })).toBe(false);
+    expect(usesBuiltinProfileName({ ...p, id: 'my-profile' })).toBe(false);
+  });
+  it('persists an independent OpenAI ASR profile and validates its transport and stage', () => {
+    const settings = applyProviderPreset(structuredClone(defaults), 'provider-openai-asr');
+    const profile = profileFor(parseSettings(JSON.parse(JSON.stringify(settings))), 'asr');
+    expect(profile).toMatchObject({
+      adapter: 'openai_audio_transcriptions',
+      baseUrl: 'https://api.openai.com/v1',
+      modelId: 'whisper-1',
+    });
+    expect(validateProfile(profile)).toBeNull();
+    expect(validateProfile({ ...profile, baseUrl: 'wss://example.com' })).toBeTruthy();
+    expect(validateProfile({ ...profile, baseUrl: 'http://example.com' })).toBeTruthy();
+    expect(validateProfile({ ...profile, baseUrl: 'http://127.0.0.1:9000/v1' })).toBeNull();
+    expect(settings.active.translation).toBe(defaults.active.translation);
+    expect(settings.active.tts).toBe(defaults.active.tts);
+    profileFor(settings, 'asr').modelId = 'custom-model';
+    expect(profileFor(applyProviderPreset(settings, 'provider-openai-asr'), 'asr').modelId).toBe(
+      'custom-model',
+    );
+    settings.profiles[1].adapter = 'openai_audio_transcriptions';
+    expect(() => parseSettings(settings)).toThrow();
+  });
   it('adds separate provider profiles and preserves user changes on reuse', () => {
     const input = structuredClone(defaults);
     const deepseek = applyProviderPreset(input, 'provider-deepseek-flash');

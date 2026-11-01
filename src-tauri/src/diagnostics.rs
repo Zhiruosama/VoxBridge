@@ -163,6 +163,7 @@ fn validate(event: &DiagnosticEvent) -> bool {
                 "minimax_tts_ws",
                 "openai_audio_speech",
                 "qwen_chat_asr",
+                "openai_audio_transcriptions",
                 "qwen_dashscope_asr",
                 "pending_asr",
             ]

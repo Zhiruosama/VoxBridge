@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import ts from 'typescript';
 import english from './en.json';
+import russian from './ru.json';
 import { parseUiLanguage, setUiLanguage, t } from './index';
 import { defaults, parseSettings } from '../core/settings';
 import { overlaySnapshot } from '../core/overlay';
@@ -8,6 +9,83 @@ import { overlaySnapshot } from '../core/overlay';
 afterEach(() => setUiLanguage('zh-CN'));
 
 describe('interface language', () => {
+  it('persists Russian and localizes diagnostics without changing user content or API settings', () => {
+    const original = structuredClone(defaults);
+    const parsed = parseSettings({ ...original, uiLanguage: 'ru' });
+    expect(parsed.uiLanguage).toBe('ru');
+    expect(parsed.profiles).toEqual(original.profiles);
+    expect(parsed.sourceLanguage).toBe(original.sourceLanguage);
+    setUiLanguage('ru');
+    expect(t('设置')).toBe('Настройки');
+    expect(t('OpenAI 语音识别')).toBe('Распознавание речи OpenAI');
+    expect(t('ASR 认证失败或无模型权限，请检查密钥与账号。（HTTP 401）')).toBe(
+      'Ошибка авторизации распознавания или нет доступа к модели. Проверьте ключ и аккаунт. （HTTP 401）',
+    );
+    expect(t('目标：英语；返回语言识别：不确定')).toBe(
+      'Целевой язык: Английский; определённый язык: Не определён',
+    );
+    expect(t('Error: 请输入模型 ID。 请到设置页完善文字翻译服务。')).not.toMatch(/[\u3400-\u9fff]/);
+    expect(t('private-model-id')).toBe('private-model-id');
+    expect(t('选择{0}', 'Мой голос')).toContain('Мой голос');
+    expect(
+      overlaySnapshot(
+        { id: 'test', segments: [] },
+        'running',
+        defaults.subtitle,
+        1,
+        defaults.captionColors,
+        'ru',
+      ).uiLanguage,
+    ).toBe('ru');
+  });
+  it('covers the full English catalog in Russian and preserves every placeholder', () => {
+    const catalog: Record<string, string> = russian;
+    for (const [key, value] of Object.entries(english)) {
+      expect(catalog[key], key).toBeTruthy();
+      expect([...catalog[key].matchAll(/\{\d+\}/g)].map((m) => m[0]).sort(), key).toEqual(
+        [...value.matchAll(/\{\d+\}/g)].map((m) => m[0]).sort(),
+      );
+      expect(catalog[key], key).not.toMatch(/[\u3400-\u9fff]/);
+    }
+  });
+  it('covers installer and uninstaller interface copy in Russian', () => {
+    const files = import.meta.glob<string>(
+      ['../components/Setup.tsx', '../components/Uninstall.tsx'],
+      {
+        query: '?raw',
+        import: 'default',
+        eager: true,
+      },
+    );
+    for (const [file, contents] of Object.entries(files)) {
+      const source = ts.createSourceFile(
+        file,
+        contents,
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX,
+      );
+      function check(argument: ts.Expression) {
+        if (ts.isStringLiteral(argument)) {
+          expect(Object.hasOwn(russian, argument.text), `${file}: ${argument.text}`).toBe(true);
+        } else if (ts.isConditionalExpression(argument)) {
+          check(argument.whenTrue);
+          check(argument.whenFalse);
+        }
+      }
+      function visit(node: ts.Node) {
+        if (
+          ts.isCallExpression(node) &&
+          node.expression.getText(source) === 'text' &&
+          node.arguments[0]
+        ) {
+          check(node.arguments[0]);
+        }
+        ts.forEachChild(node, visit);
+      }
+      visit(source);
+    }
+  });
   it('migrates existing settings to Chinese and preserves all provider language parameters', () => {
     const original = structuredClone(defaults);
     const legacy = { ...original, uiLanguage: undefined };

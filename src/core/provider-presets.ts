@@ -5,6 +5,15 @@ import type { ProviderProfile, Settings } from './types';
 // Public connection settings only. Credentials are held separately by the OS.
 export const providerPresets: ProviderProfile[] = [
   {
+    id: 'provider-openai-asr',
+    name: 'OpenAI 语音识别',
+    stage: 'asr',
+    adapter: 'openai_audio_transcriptions',
+    baseUrl: 'https://api.openai.com/v1',
+    modelId: 'whisper-1',
+    voice: '',
+  },
+  {
     id: 'provider-qwen-realtime',
     name: 'Qwen ASR · 实时',
     stage: 'asr',
@@ -52,6 +61,14 @@ export const providerPresets: ProviderProfile[] = [
     voice: 'male-qn-qingse',
   },
 ];
+
+/** Localize stock labels without translating names supplied by the user. */
+export function usesBuiltinProfileName(profile: ProviderProfile): boolean {
+  return (
+    (profile.name === '空白配置' && !profile.baseUrl) ||
+    providerPresets.some((preset) => preset.id === profile.id && preset.name === profile.name)
+  );
+}
 
 /** Selecting a preset again reuses its profile without overwriting user edits. */
 export function applyProviderPreset(settings: Settings, id: string): Settings {
