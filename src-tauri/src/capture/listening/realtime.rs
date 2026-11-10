@@ -284,17 +284,19 @@ async fn process_stream(
                         if !correction { timings.committed(run_started.elapsed().as_millis() as u64); }
                         let context = if correction { context_window = crate::providers::ContextWindow::default(); crate::providers::TranslationContext::default() }
                             else { context_window.before(&sentence.text) };
-                        match final_tx.try_send(translations::QueuedCaption::new(sentence, context).with_version(version))
-                        {
-                            Ok(()) => {}
-                            Err(mpsc::error::TrySendError::Full(_)) => {
+                        translations::enqueue_caption(
+                            &final_tx,
+                            translations::QueuedCaption::new(sentence, context).with_version(version),
+                            |sentence| {
                                 skipped.fetch_add(1, Ordering::Relaxed);
-                                return Err("字幕翻译积压，请稍后重新监听。".into());
-                            }
-                            Err(mpsc::error::TrySendError::Closed(_)) => {
-                                return Err("字幕翻译任务已结束。".into())
-                            }
-                        }
+                                send(channel, ListeningEvent::TranslationError {
+                                    session_id: request.session_id.clone(),
+                                    generation: request.generation,
+                                    segment_id: segment_id(&request.session_id, request.generation, sentence.id),
+                                    revision: sentence.revision,
+                                })
+                            },
+                        )?;
                     }
                 }
                 if updated {

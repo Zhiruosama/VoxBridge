@@ -124,21 +124,91 @@ fn latency_percentiles_use_bounded_recent_samples() {
 }
 
 #[tokio::test]
-async fn service_configuration_errors_still_stop_listening() {
+async fn service_errors_mark_only_their_caption_and_later_translations_recover() {
+    for error in [
+        "无法连接翻译服务。",
+        "翻译请求超时。",
+        "服务暂时不可用。",
+        "API 密钥无效。",
+        "服务限流或额度不足。",
+    ] {
+        let token = CancellationToken::new();
+        let (tx, rx) = mpsc::channel(4);
+        for id in 1..=4 {
+            tx.send(caption(id).into()).await.unwrap();
+        }
+        drop(tx);
+        let events = Mutex::new(Vec::new());
+        let reports = Mutex::new(Vec::new());
+        translate_chunks(
+            &token,
+            rx,
+            |s, _| async move {
+                if s.id <= 2 {
+                    Err(error.into())
+                } else {
+                    Ok("恢复后的译文".into())
+                }
+            },
+            |s, result| {
+                events.lock().unwrap().push((s.id, result));
+                Ok(())
+            },
+            |report| {
+                reports.lock().unwrap().push(report);
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+        assert!(!token.is_cancelled());
+        let events = events.into_inner().unwrap();
+        assert_eq!(events.len(), 4);
+        for (id, result) in events {
+            assert_eq!(result.is_ok(), id > 2);
+        }
+        let reports = reports.into_inner().unwrap();
+        let report = reports.last().unwrap();
+        assert_eq!((report.completed, report.failed), (4, 2));
+    }
+}
+
+#[tokio::test]
+async fn full_translation_queue_marks_the_skipped_caption_and_admits_later_work() {
+    let (tx, mut rx) = mpsc::channel(1);
+    enqueue_caption(&tx, caption(1).into(), |_| panic!("queue has room")).unwrap();
+    let mut skipped = Vec::new();
+    enqueue_caption(&tx, caption(2).into(), |s| {
+        skipped.push(s.id);
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(skipped, vec![2]);
+    assert_eq!(rx.recv().await.unwrap().sentence.id, 1);
+    enqueue_caption(&tx, caption(3).into(), |_| panic!("queue has recovered")).unwrap();
+    assert_eq!(rx.recv().await.unwrap().sentence.id, 3);
+    drop(rx);
+    assert!(enqueue_caption(&tx, caption(4).into(), |_| panic!(
+        "closed worker must propagate"
+    ))
+    .is_err());
+}
+
+#[tokio::test]
+async fn delivery_failures_still_propagate_to_close_the_session() {
     let token = CancellationToken::new();
     let (tx, rx) = mpsc::channel(1);
     tx.send(caption(1).into()).await.unwrap();
     drop(tx);
-    let error = translate_chunks(
+    let result = translate_chunks(
         &token,
         rx,
-        |_, _| async { Err("API 密钥无效。".into()) },
-        |_, _| panic!("fatal errors must not become per-caption failures"),
+        |_, _| async { Err("service unavailable".into()) },
+        |_, _| Err("字幕界面已关闭。".into()),
         |_| Ok(()),
     )
-    .await
-    .unwrap_err();
-    assert_eq!(error, "API 密钥无效。");
+    .await;
+    assert_eq!(result.unwrap_err(), "字幕界面已关闭。");
 }
 
 #[tokio::test(start_paused = true)]

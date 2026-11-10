@@ -204,7 +204,7 @@ impl SegmentProcessor<'_> {
             .await;
         let text = match text {
             Ok(text) => text,
-            Err(error) if crate::providers::is_invalid_translation(&error) => {
+            Err(_) => {
                 if !token.is_cancelled() {
                     emit(ListeningEvent::TranslationError {
                         session_id: self.session_id.into(),
@@ -215,7 +215,6 @@ impl SegmentProcessor<'_> {
                 }
                 return Ok(());
             }
-            Err(error) => return Err(error),
         };
         if !token.is_cancelled() {
             emit(ListeningEvent::Translation {
@@ -432,6 +431,14 @@ mod tests {
         text: &str,
         count: usize,
     ) -> (String, std::thread::JoinHandle<serde_json::Value>) {
+        http_responses_with_statuses(text, vec![200; count])
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    fn http_responses_with_statuses(
+        text: &str,
+        statuses: Vec<u16>,
+    ) -> (String, std::thread::JoinHandle<serde_json::Value>) {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/v1", listener.local_addr().unwrap());
@@ -440,7 +447,7 @@ mod tests {
                 .to_string();
         let server = std::thread::spawn(move || {
             let mut request = serde_json::Value::Null;
-            for _ in 0..count {
+            for status in statuses {
                 let (mut stream, _) = listener.accept().unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
@@ -466,12 +473,64 @@ mod tests {
                         }
                     }
                 };
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                write!(stream, "HTTP/1.1 {status} Response\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
                 request = serde_json::from_slice(&bytes[end + 4..]).unwrap();
             }
             request
         });
         (url, server)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[tokio::test]
+    async fn http_translation_service_failure_preserves_original_and_next_segment_recovers() {
+        let (asr_url, asr_server) = http_responses("Good morning", 2);
+        let (translation_url, translation_server) =
+            http_responses_with_statuses("早上好", vec![401, 200]);
+        let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":asr_url,"modelId":"test"})).unwrap();
+        let translations = crate::providers::Requests::default();
+        let translation_profile = serde_json::from_value(serde_json::json!({"id":"test-translation","stage":"translation","adapter":"openai_chat_completions","baseUrl":translation_url,"modelId":"test"})).unwrap();
+        let translation = translations
+            .reserve_listening(translation_profile, "session", "test-key".into())
+            .unwrap();
+        let processor = SegmentProcessor {
+            profile: &profile,
+            key: "test-key",
+            translation: &translation,
+            session_id: "session",
+            source: "英语",
+            target: "简体中文",
+            generation: 0,
+            offset_ms: 0,
+        };
+        let token = tokio_util::sync::CancellationToken::new();
+        let mut events = Vec::new();
+        for sequence in 1..=2 {
+            let audio = crate::audio_pipeline::AudioSegment {
+                sequence,
+                start_ms: sequence * 1000,
+                wav: crate::audio_pipeline::encode_wav(&vec![1000; 3200]),
+            };
+            processor
+                .process(audio, &token, |event| {
+                    events.push(serde_json::to_value(event).unwrap());
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            assert!(!token.is_cancelled());
+        }
+        assert_eq!(events.len(), 4);
+        assert_eq!(events[0]["type"], "transcript");
+        assert_eq!(events[0]["text"], "Good morning");
+        assert_eq!(events[1]["type"], "translationError");
+        assert_eq!(events[0]["segmentId"], events[1]["segmentId"]);
+        assert_eq!(events[2]["type"], "transcript");
+        assert_eq!(events[3]["type"], "translation");
+        assert_eq!(events[3]["text"], "早上好");
+        assert_eq!(events[2]["segmentId"], events[3]["segmentId"]);
+        asr_server.join().unwrap();
+        translation_server.join().unwrap();
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]

@@ -30,6 +30,20 @@ impl QueuedCaption {
     }
 }
 
+/// Keep recognition running when slow/unavailable translation fills its bounded queue.
+/// The caller marks only the caption that could not be queued as untranslated.
+pub(super) fn enqueue_caption(
+    queue: &mpsc::Sender<QueuedCaption>,
+    caption: QueuedCaption,
+    overflow: impl FnOnce(Sentence) -> Result<(), String>,
+) -> Result<(), String> {
+    match queue.try_send(caption) {
+        Ok(()) => Ok(()),
+        Err(mpsc::error::TrySendError::Full(caption)) => overflow(caption.sentence),
+        Err(mpsc::error::TrySendError::Closed(_)) => Err("字幕翻译任务已结束。".into()),
+    }
+}
+
 #[derive(Default)]
 struct Measurements {
     samples: VecDeque<[u64; 3]>,
@@ -101,9 +115,8 @@ where
                 // A provider final can supersede a request already in flight. Even a stale
                 // failure must not stop the corrected caption or the listening session.
                 if version.is_some_and(|v| v.load(Ordering::Relaxed) != sentence.revision) { continue; }
-                if let Err(error) = &text {
-                    if !crate::providers::is_invalid_translation(error) { return Err(error.clone()); }
-                }
+                // Translation failures belong to this caption. Network, quota and
+                // authentication errors must not tear down the ASR connection.
                 if !token.is_cancelled() { emit(sentence, text)?; }
             },
             next = queue.recv(), if !closed && pending.len()<3 => {
