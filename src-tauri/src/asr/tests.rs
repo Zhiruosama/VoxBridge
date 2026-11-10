@@ -442,3 +442,61 @@ async fn live_qwen_asr_short_audio() {
         "Qwen ASR live validation failed; credential and upstream response not logged"
     );
 }
+
+#[tokio::test]
+async fn selected_languages_reach_http_providers_and_auto_omits_the_hint() {
+    for (language, code) in [
+        ("英语", Some("en")),
+        ("日语", Some("ja")),
+        ("葡萄牙语", Some("pt")),
+        ("粤语", Some("yue")),
+        ("自动识别", None),
+    ] {
+        for adapter in ["qwen_chat_asr", "openai_audio_transcriptions"] {
+            let response = if adapter == "qwen_chat_asr" {
+                br#"{"choices":[{"finish_reason":"stop","message":{"content":"hello"}}]}"#.to_vec()
+            } else {
+                br#"{"text":"hello"}"#.to_vec()
+            };
+            let (address, server) = server("200 OK", response);
+            let mut config = profile(address);
+            config.adapter = adapter.into();
+            config.model_id = if adapter == "qwen_chat_asr" {
+                "qwen3-asr-flash"
+            } else {
+                "whisper-large-v3-turbo"
+            }
+            .into();
+            recognize_with_language(
+                &config,
+                &wav(),
+                language,
+                "test-key",
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+            let request = server.join().unwrap();
+            let offset = request.windows(4).position(|b| b == b"\r\n\r\n").unwrap() + 4;
+            let body = &request[offset..];
+            if adapter == "qwen_chat_asr" {
+                let body: Value = serde_json::from_slice(body).unwrap();
+                assert_eq!(
+                    body.pointer("/asr_options/language")
+                        .and_then(Value::as_str),
+                    code
+                );
+                if code.is_none() {
+                    assert!(body.get("asr_options").is_none());
+                }
+            } else {
+                let body = String::from_utf8_lossy(body);
+                if let Some(code) = code {
+                    assert!(body.contains(&format!("name=\"language\"\r\n\r\n{code}\r\n")));
+                } else {
+                    assert!(!body.contains("name=\"language\""));
+                }
+            }
+        }
+    }
+}

@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 const MAX_WAV: usize = 1_000_000;
 const MAX_RESPONSE: usize = 256 * 1024;
 const STOPPED: &str = "语音识别已停止。";
+mod language;
 mod openai;
 pub(crate) mod realtime;
 
@@ -172,9 +173,20 @@ fn parse_response(bytes: &[u8], seconds: f64) -> Result<Transcript, String> {
     })
 }
 
+#[cfg(test)]
 pub(crate) async fn recognize(
     profile: &AsrProfile,
     audio: &[u8],
+    key: &str,
+    token: &CancellationToken,
+) -> Result<Transcript, String> {
+    recognize_with_language(profile, audio, "自动识别", key, token).await
+}
+
+pub(crate) async fn recognize_with_language(
+    profile: &AsrProfile,
+    audio: &[u8],
+    language: &str,
     key: &str,
     token: &CancellationToken,
 ) -> Result<Transcript, String> {
@@ -198,15 +210,19 @@ pub(crate) async fn recognize(
                 .map_err(|_| "无法初始化 ASR 连接。")?;
             let request = client.post(url).bearer_auth(key);
             let request = if profile.adapter == "openai_audio_transcriptions" {
-                request.multipart(openai::form(profile, audio)?)
+                request.multipart(openai::form(profile, audio, language)?)
             } else {
-                request.json(&json!({
+                let mut body = json!({
                     "model": profile.model_id,
                     "stream": false,
                     "messages": [{"role":"user","content":[{
                         "type":"input_audio", "input_audio":{"data":format!("data:audio/wav;base64,{}", STANDARD.encode(audio))}
                     }]}]
-                }))
+                });
+                if let Some(code) = language::code(language) {
+                    body["asr_options"] = json!({"language": code});
+                }
+                request.json(&body)
             };
             let mut response = request.send().await
                 .map_err(|error| if error.is_timeout() { "ASR 请求超时。" } else { "无法连接 ASR 服务，请检查地址与网络。" })?;
@@ -315,6 +331,7 @@ pub async fn transcribe_wav(
     profile: AsrProfile,
     audio: Vec<u8>,
     request_id: String,
+    language: Option<String>,
     state: tauri::State<'_, AsrState>,
 ) -> Result<Transcript, String> {
     endpoint(&profile)?;
@@ -324,7 +341,14 @@ pub async fn transcribe_wav(
         _ = job.token.cancelled() => return Err(STOPPED.into()),
         result = crate::credentials::read_async(&profile.id) => result?,
     };
-    recognize(&profile, &audio, &key, &job.token).await
+    recognize_with_language(
+        &profile,
+        &audio,
+        language.as_deref().unwrap_or("自动识别"),
+        &key,
+        &job.token,
+    )
+    .await
 }
 
 #[cfg(test)]

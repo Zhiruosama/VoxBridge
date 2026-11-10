@@ -160,6 +160,7 @@ fn start_message(profile: &AsrProfile, task_id: &str, language: &str) -> Value {
     message
 }
 
+#[cfg(test)]
 pub(crate) async fn recognize_stream(
     profile: &AsrProfile,
     key: &str,

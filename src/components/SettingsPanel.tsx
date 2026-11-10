@@ -1,3 +1,4 @@
+import { asrLanguages, asrLanguageHint } from '../core/asr-language';
 import ServiceCheck from './ServiceCheck';
 import BilingualToggle from './BilingualToggle';
 import SpeechOptionsControls from './SpeechOptionsControls';
@@ -434,26 +435,17 @@ export default function SettingsPanel({
           <section className="preference-section" aria-labelledby="listening-language-heading">
             <h2 id="listening-language-heading">{t('监听字幕')}</h2>
             <div className="preference-card">
-              <SettingRow title={t('识别语言')}>
+              <SettingRow
+                title={t('识别语言')}
+                description={asrLanguageHint(
+                  profileFor(draft, 'asr'),
+                  draft.listening.sourceLanguage,
+                )}
+              >
                 <Select
                   label={t('语音识别语言')}
                   value={draft.listening.sourceLanguage}
-                  options={[
-                    '自动识别',
-                    '简体中文',
-                    '英语',
-                    '日语',
-                    '韩语',
-                    '西班牙语',
-                    '印尼语',
-                    '粤语',
-                    '芬兰语',
-                    '俄语',
-                    '德语',
-                  ].map((language) => ({
-                    value: language,
-                    label: language,
-                  }))}
+                  options={asrLanguages.map((language) => ({ value: language, label: language }))}
                   onChange={(value) =>
                     setDraft({ ...draft, listening: { ...draft.listening, sourceLanguage: value } })
                   }
@@ -488,6 +480,22 @@ export default function SettingsPanel({
           <section className="preference-section" aria-labelledby="composer-heading">
             <h2 id="composer-heading">{t('文字表达')}</h2>
             <div className="preference-card">
+              <SettingRow
+                title={t('录音识别语言')}
+                description={asrLanguageHint(
+                  profileFor(draft, 'asr'),
+                  draft.composer.asrLanguage || '自动识别',
+                )}
+              >
+                <Select
+                  label={t('录音识别语言')}
+                  value={draft.composer.asrLanguage || '自动识别'}
+                  options={asrLanguages.map((language) => ({ value: language, label: language }))}
+                  onChange={(asrLanguage) =>
+                    setDraft({ ...draft, composer: { ...draft.composer, asrLanguage } })
+                  }
+                />
+              </SettingRow>
               <SettingRow title={t('输入语言')}>
                 <Select
                   label={t('文字输入语言')}

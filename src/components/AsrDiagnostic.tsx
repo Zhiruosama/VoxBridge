@@ -1,3 +1,4 @@
+import AsrLanguageSelect from './AsrLanguageSelect';
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { FileAudio, FolderOpen, Square } from 'lucide-react';
@@ -9,6 +10,7 @@ import SettingRow from './SettingRow';
 
 export default function AsrDiagnostic({ settings }: { settings: Settings }) {
   const profile = profileFor(settings, 'asr');
+  const [language, setLanguage] = useState(settings.listening.sourceLanguage);
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<Transcript | null>(null);
@@ -51,7 +53,7 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
     try {
       const audio = new Uint8Array(await file.arrayBuffer());
       if (!mountedRef.current || requestRef.current !== id || stoppedRef.current) return;
-      const transcript = await transcribeWav(profile, audio, id);
+      const transcript = await transcribeWav(profile, audio, id, language);
       if (mountedRef.current && requestRef.current === id && !stoppedRef.current)
         setResult(transcript);
     } catch (error) {
@@ -100,6 +102,14 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
             </div>
             <span className="asr-profile-model">{profile.modelId || t('未配置模型')}</span>
           </div>
+        </SettingRow>
+        <SettingRow title={t('识别语言')}>
+          <AsrLanguageSelect
+            value={language}
+            onChange={setLanguage}
+            profile={profile}
+            disabled={fileDisabled}
+          />
         </SettingRow>
         <SettingRow title={t('测试音频')}>
           <div className="asr-file-picker">

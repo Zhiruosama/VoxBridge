@@ -73,6 +73,7 @@ export interface OverlaySnapshot extends SubtitleAppearance {
   }[];
 }
 export interface ComposerSettings {
+  asrLanguage?: string;
   contextualSpeech?: boolean;
   voiceInputMode?: 'dictate' | 'send';
   enterAction: 'speak' | 'translate' | 'newline';

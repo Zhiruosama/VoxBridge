@@ -2,7 +2,7 @@ use super::{AsrProfile, Transcript};
 use reqwest::multipart::{Form, Part};
 use serde_json::Value;
 
-pub(super) fn form(profile: &AsrProfile, audio: &[u8]) -> Result<Form, String> {
+pub(super) fn form(profile: &AsrProfile, audio: &[u8], language: &str) -> Result<Form, String> {
     let file = Part::bytes(audio.to_vec())
         .file_name("audio.wav")
         .mime_str("audio/wav")
@@ -15,6 +15,9 @@ pub(super) fn form(profile: &AsrProfile, audio: &[u8]) -> Result<Form, String> {
         .text("response_format", "json");
     if profile.model_id == "gpt-4o-transcribe-diarize" {
         form = form.text("chunking_strategy", "auto");
+    }
+    if let Some(code) = super::language::code(language) {
+        form = form.text("language", code);
     }
     Ok(form)
 }

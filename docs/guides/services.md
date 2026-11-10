@@ -25,6 +25,24 @@
 
 ## 确认服务可用
 
+### 识别语言与模型选择
+
+字幕页顶部的「识别语言」用于应用监听，「常规 → 文字表达」里的「录音识别语言」用于麦克风；两者独立保存，主窗口和悬浮窗录音共用后者。开始前选择音频实际使用的语言；多语言混说时保留「自动识别」。运行中的会话保留启动时的设置，停止后再切换。也可在「常规」设置中修改，短音频验证页则可临时指定测试语言。
+
+指定语言会传给识别服务：千问 HTTP 使用 `asr_options.language`，OpenAI 兼容接口使用 `language`，已适配的千问实时 3.0 / 3.1 使用 `language_hints`。这能减少语言误判，但不保证杜绝串语或改善所有音频。千问实时 3.0 不能限定粤语；3.1 仅支持保留方言表达。需要明确指定粤语时可使用千问 HTTP。未适配的自定义实时模型仍自动识别，界面会提示。
+
+截至 2026-11-10 的官方标价（不含活动、税费或汇率换算）：
+
+| 模型 | 音频单价 | 取舍 |
+| --- | --- | --- |
+| 当前 Qwen 3.0 实时 | 北京 ¥1.188/小时 | 保留现有实时流，适合边听边出字幕 |
+| Paraformer realtime v2 | 北京 ¥0.864/小时 | 便宜约 27%，支持语言范围较窄，尚未接入与实测 |
+| Groq Whisper large v3 turbo | $0.04/小时 | 已新增可选 HTTP 预设；每次请求至少按 10 秒计费，短分段会放大实际费用 |
+
+来源：[千问实时价格](https://help.aliyun.com/zh/model-studio/qwen-audio-3-0-asr-flash-streaming)、[Paraformer 价格与语言](https://help.aliyun.com/zh/model-studio/paraformer-realtime-v2)、[Groq 价格与计费限制](https://console.groq.com/docs/speech-to-text)。价格低不代表同等准确率；本项目尚未用相同真实录音比较这些模型，因此保留现有配置，不自动更换供应商。
+
+试用 Groq：在「语音识别 → 新增配置」选择「Groq Whisper · HTTP 短音频」，保存自己的 Groq API Key。预设地址为 `https://api.groq.com/openai/v1`，默认模型为 `whisper-large-v3-turbo`；也可选 `whisper-large-v3`。程序复用 OpenAI 兼容转写接口，支持分段字幕、麦克风和文件验证，不提供逐字实时流。需自行确认所在网络可以访问 Groq。
+
 ### OpenAI 语音识别
 
 在「语音识别 → 新增配置」选择「OpenAI 语音识别」，保存自己的 API Key。地址填写 `https://api.openai.com/v1`，接口类型选择「OpenAI 兼容语音识别」。模型可选 `whisper-1`、`gpt-4o-transcribe`、`gpt-4o-mini-transcribe`、`gpt-4o-transcribe-diarize`，也可以手动输入兼容模型 ID。

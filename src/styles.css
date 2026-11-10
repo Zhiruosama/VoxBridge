@@ -487,6 +487,15 @@ nav button[aria-current='page'] {
   min-width: 0;
   max-width: min(300px, 100%);
 }
+.asr-language-control {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: min(300px, 100%);
+}
+.asr-language-control > .select-trigger {
+  max-width: 100%;
+}
 .source-button {
   border: 0;
   padding: 4px 0;

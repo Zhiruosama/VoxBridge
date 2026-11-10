@@ -524,6 +524,7 @@ pub async fn start_voice_input(
     request_id: String,
     device_id: String,
     profile: AsrProfile,
+    language: Option<String>,
     on_progress: tauri::ipc::Channel<Progress>,
     state: tauri::State<'_, MicrophoneState>,
 ) -> Result<Transcript, String> {
@@ -558,8 +559,9 @@ pub async fn start_voice_input(
             }
             result
         };
-        let recognition = crate::asr::realtime::recognize_stream(
+        let recognition = crate::asr::realtime::recognize_stream_with_language(
             &profile,
+            language.as_deref().unwrap_or("自动识别"),
             &key,
             &token,
             rx,
@@ -596,9 +598,10 @@ pub async fn start_voice_input(
             return Err("录音已取消。".into());
         }
         parts.push(
-            crate::asr::recognize(
+            crate::asr::recognize_with_language(
                 &profile,
                 &crate::audio_pipeline::encode_wav(&samples[range]),
+                language.as_deref().unwrap_or("自动识别"),
                 &key,
                 &token,
             )

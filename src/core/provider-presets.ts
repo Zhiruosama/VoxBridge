@@ -5,6 +5,15 @@ import type { ProviderProfile, Settings } from './types';
 // Public connection settings only. Credentials are held separately by the OS.
 export const providerPresets: ProviderProfile[] = [
   {
+    id: 'provider-groq-asr',
+    name: 'Groq Whisper · HTTP 短音频',
+    stage: 'asr',
+    adapter: 'openai_audio_transcriptions',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    modelId: 'whisper-large-v3-turbo',
+    voice: '',
+  },
+  {
     id: 'provider-openai-asr',
     name: 'OpenAI 语音识别',
     stage: 'asr',

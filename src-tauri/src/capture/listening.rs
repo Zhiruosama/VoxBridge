@@ -176,7 +176,14 @@ impl SegmentProcessor<'_> {
         token: &tokio_util::sync::CancellationToken,
         mut emit: impl FnMut(ListeningEvent) -> Result<(), String>,
     ) -> Result<(), String> {
-        let recognized = crate::asr::recognize(self.profile, &segment.wav, self.key, token).await?;
+        let recognized = crate::asr::recognize_with_language(
+            self.profile,
+            &segment.wav,
+            self.source,
+            self.key,
+            token,
+        )
+        .await?;
         if recognized.text.trim().is_empty() || token.is_cancelled() {
             return Ok(());
         }
@@ -487,7 +494,7 @@ mod tests {
                 key: "test-key",
                 translation: &translation,
                 session_id: "session",
-                source: "自动识别",
+                source: "英语",
                 target: "简体中文",
                 generation: 0,
                 offset_ms: 0,
@@ -530,6 +537,7 @@ mod tests {
             }
             assert_eq!(transcript["segmentId"], translated["segmentId"]);
             let asr_body = asr_server.join().unwrap();
+            assert_eq!(asr_body["asr_options"]["language"], "en");
             assert!(asr_body
                 .pointer("/messages/0/content/0/input_audio/data")
                 .unwrap()

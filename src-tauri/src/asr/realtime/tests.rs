@@ -75,6 +75,10 @@ async fn mock_stream_waits_for_ready_and_delivers_revisions_before_finish() {
         let run: Value =
             serde_json::from_str(socket.next().await.unwrap().unwrap().to_text().unwrap()).unwrap();
         assert_eq!(run["header"]["action"], "run-task");
+        assert_eq!(
+            run["payload"]["parameters"]["language_hints"],
+            json!(["ja"])
+        );
         assert_eq!(run["payload"]["parameters"]["sample_rate"], 16000);
         assert_eq!(run["payload"]["parameters"]["max_sentence_silence"], 650);
         assert_eq!(
@@ -137,11 +141,20 @@ async fn mock_stream_waits_for_ready_and_delivers_revisions_before_finish() {
     };
     let mut events = Vec::new();
     let token = CancellationToken::new();
-    let config = profile(&address);
-    let recognition = recognize_stream(&config, "test-key", &token, rx, ready_tx, |event| {
-        events.push(event);
-        Ok(())
-    });
+    let mut config = profile(&address);
+    config.model_id = "qwen-audio-3.0-asr-flash-streaming".into();
+    let recognition = recognize_stream_with_language(
+        &config,
+        "日语",
+        "test-key",
+        &token,
+        rx,
+        ready_tx,
+        |event| {
+            events.push(event);
+            Ok(())
+        },
+    );
     let (result, ()) = tokio::join!(recognition, producer);
     result.unwrap();
     server.await.unwrap();

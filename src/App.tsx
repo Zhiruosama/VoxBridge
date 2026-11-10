@@ -1,3 +1,4 @@
+import AsrLanguageSelect from './components/AsrLanguageSelect';
 import { SpeechConversation } from './core/speech-plan';
 import MacWindowChrome from './components/MacWindowChrome';
 import { automaticUpdateBlocker } from './core/app-update';
@@ -947,6 +948,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           )
             setVoice(progress);
         },
+        settings.composer.asrLanguage,
       );
       if (!mountedRef.current || voiceRef.current !== operation || operation.cancelled) return;
       if (origin === 'overlay') {
@@ -1289,6 +1291,17 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
                       ? [{ value: captureSourceId, label: '应用已退出，请重新选择' }]
                       : []),
                   ]}
+                />
+                <AsrLanguageSelect
+                  value={settings.listening.sourceLanguage}
+                  profile={profileFor(settings, 'asr')}
+                  disabled={listening}
+                  onChange={(sourceLanguage) =>
+                    persist(
+                      { ...settings, listening: { ...settings.listening, sourceLanguage } },
+                      true,
+                    )
+                  }
                 />
                 <ListeningStatus
                   phase={listenPhase}

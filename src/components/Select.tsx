@@ -15,6 +15,7 @@ export default function Select({
   onChange,
   options,
   label,
+  valuePrefix,
   placeholder = '请选择',
   disabled = false,
   compact = false,
@@ -25,12 +26,19 @@ export default function Select({
   onChange: (value: string) => void;
   options: Option[];
   label: string;
+  valuePrefix?: string;
   placeholder?: string;
   disabled?: boolean;
   compact?: boolean;
   onOpenChange?: (open: boolean) => void;
   emptyLabel?: string;
 }) {
+  const selectedOption = options.find((option) => option.value === value);
+  const selectedLabel = selectedOption
+    ? selectedOption.translate === false
+      ? selectedOption.label
+      : t(selectedOption.label)
+    : t(placeholder);
   const groups = [...new Set(options.map((option) => option.group ?? ''))];
   const renderOption = (option: Option) => (
     <Primitive.Item className="select-option" value={option.value} key={option.value}>
@@ -53,7 +61,9 @@ export default function Select({
         aria-label={t(label)}
         className={`select-trigger ${compact ? 'select-compact' : ''}`}
       >
-        <Primitive.Value placeholder={t(placeholder)} />
+        <Primitive.Value placeholder={t(placeholder)}>
+          {valuePrefix ? `${t(valuePrefix)} · ${selectedLabel}` : undefined}
+        </Primitive.Value>
         <Primitive.Icon className="select-chevron">
           <ChevronDown size={14} />
         </Primitive.Icon>

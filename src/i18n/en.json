@@ -989,5 +989,18 @@
   "请填写 ASR API 根地址，不包含 /audio/transcriptions。": "Enter the ASR API base URL without /audio/transcriptions.",
   "目标：{0}；返回语言识别：{1}": "Target: {0}; detected language: {1}",
   "上下文语气": "Context-aware delivery",
-  "MiniMax 译文语音参考最近一分钟对话调整语气；上下文随翻译请求发送，不保存到磁盘。手动情绪优先。": "Uses the last minute of conversation to guide MiniMax translated speech. Context is sent with translation requests and kept only in memory. Manual emotion takes priority."
+  "MiniMax 译文语音参考最近一分钟对话调整语气；上下文随翻译请求发送，不保存到磁盘。手动情绪优先。": "Uses the last minute of conversation to guide MiniMax translated speech. Context is sent with translation requests and kept only in memory. Manual emotion takes priority.",
+  "录音识别语言": "Recording language",
+  "Groq Whisper · HTTP 短音频": "Groq Whisper · HTTP short audio",
+  "选择音频实际使用的语言可减少误判；混合多种语言时请选择自动识别。": "Choose the language spoken in the audio to reduce misidentification; use automatic detection for mixed languages.",
+  "当前自定义实时模型尚未适配语言提示，将使用自动识别。": "Language hints are not configured for this custom realtime model; it will detect the language automatically.",
+  "当前模型仅启用保留方言表达，不会限定为粤语。": "This model only preserves dialect expressions; it does not restrict recognition to Cantonese.",
+  "当前实时模型不支持限定粤语；可改用千问 HTTP 短音频模型。": "This realtime model cannot restrict recognition to Cantonese; use the Qwen HTTP short-audio model.",
+  "法语": "French",
+  "葡萄牙语": "Portuguese",
+  "意大利语": "Italian",
+  "越南语": "Vietnamese",
+  "泰语": "Thai",
+  "阿拉伯语": "Arabic",
+  "印地语": "Hindi"
 }

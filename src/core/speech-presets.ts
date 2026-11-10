@@ -16,6 +16,11 @@ export function speechProvider(profile: ProviderProfile): string {
   if (profile.adapter === 'qwen_chat_asr' || profile.adapter === 'qwen_dashscope_asr')
     return '阿里云 · Qwen';
   try {
+    if (
+      profile.adapter === 'openai_audio_transcriptions' &&
+      new URL(profile.baseUrl).hostname === 'api.groq.com'
+    )
+      return 'Groq';
     if (profile.stage === 'translation' && new URL(profile.baseUrl).hostname === 'api.deepseek.com')
       return 'DeepSeek';
     if (
@@ -33,7 +38,16 @@ export function modelOptions(profile: ProviderProfile): SpeechOption[] {
   const provider = speechProvider(profile);
   const ids =
     profile.adapter === 'openai_audio_transcriptions'
-      ? ['whisper-1', 'gpt-4o-transcribe', 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe-diarize']
+      ? provider === 'Groq'
+        ? ['whisper-large-v3-turbo', 'whisper-large-v3']
+        : provider === 'OpenAI'
+          ? [
+              'whisper-1',
+              'gpt-4o-transcribe',
+              'gpt-4o-mini-transcribe',
+              'gpt-4o-transcribe-diarize',
+            ]
+          : []
       : profile.stage === 'tts' && provider === 'MiniMax'
         ? ['speech-2.8-turbo', 'speech-2.8-hd']
         : profile.adapter === 'qwen_dashscope_asr'

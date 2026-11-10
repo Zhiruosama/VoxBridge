@@ -297,6 +297,7 @@ describe('provider profiles', () => {
         },
       }).composer,
     ).toEqual({
+      asrLanguage: '自动识别',
       voiceInputMode: 'dictate',
       enterAction: 'newline',
       output: 'source',
@@ -311,6 +312,7 @@ describe('provider profiles', () => {
     });
     const input = structuredClone(defaults);
     input.composer = {
+      asrLanguage: '日语',
       voiceInputMode: 'send',
       enterAction: 'translate',
       output: 'source',

@@ -1,4 +1,5 @@
 import { parseTextOverlayAppearance, textOverlayAppearanceDefaults } from './text-overlay';
+import { parseAsrLanguage, automaticAsrLanguage } from './asr-language';
 import { textPanelOpacity } from './text-translation-layout';
 import { parseSpeechOptions } from './speech-options';
 import { parseUiLanguage } from '../i18n';
@@ -33,6 +34,7 @@ export const defaults: Settings = {
   },
   subtitle: { ...subtitleDefaults },
   composer: {
+    asrLanguage: automaticAsrLanguage,
     voiceInputMode: 'dictate',
     enterAction: 'speak',
     output: 'translation',
@@ -152,6 +154,7 @@ export function profileFor(settings: Settings, stage: Stage): ProviderProfile {
 function parseComposerSettings(value: unknown): ComposerSettings {
   const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   return {
+    asrLanguage: parseAsrLanguage(input.asrLanguage),
     ...(input.contextualSpeech === true ? { contextualSpeech: true } : {}),
     voiceInputMode: input.voiceInputMode === 'send' ? 'send' : 'dictate',
     enterAction: ['speak', 'translate', 'newline'].includes(input.enterAction as string)
@@ -274,21 +277,9 @@ export function parseSettings(value: unknown): Settings {
     subtitle: parseSubtitleAppearance(input.subtitle),
     composer: parseComposerSettings(input.composer),
     listening: {
-      sourceLanguage: [
-        '自动识别',
-        '英语',
-        '简体中文',
-        '日语',
-        '韩语',
-        '西班牙语',
-        '印尼语',
-        '粤语',
-        '芬兰语',
-        '俄语',
-        '德语',
-      ].includes((input.listening as Record<string, unknown> | undefined)?.sourceLanguage as string)
-        ? (input.listening as Record<string, string>).sourceLanguage
-        : defaults.listening.sourceLanguage,
+      sourceLanguage: parseAsrLanguage(
+        (input.listening as Record<string, unknown> | undefined)?.sourceLanguage,
+      ),
       targetLanguage: [
         '英语',
         '简体中文',

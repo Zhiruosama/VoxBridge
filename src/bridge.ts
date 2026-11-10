@@ -135,9 +135,10 @@ export async function transcribeWav(
   profile: ProviderProfile,
   audio: Uint8Array,
   requestId: string,
+  language = '自动识别',
 ): Promise<Transcript> {
   if (!desktop) throw new Error('ASR 音频转写需要桌面版。');
-  return invoke('transcribe_wav', { profile, audio: Array.from(audio), requestId });
+  return invoke('transcribe_wav', { profile, audio: Array.from(audio), requestId, language });
 }
 export async function stopAsr(requestId: string) {
   if (desktop) await invoke('stop_asr', { requestId });
@@ -207,11 +208,18 @@ export async function startVoiceInput(
   deviceId: string,
   profile: ProviderProfile,
   onProgress: (progress: VoiceProgress) => void,
+  language = '自动识别',
 ): Promise<Transcript> {
   if (!desktop) throw new Error('麦克风录音需要桌面版。');
   const channel = new Channel<VoiceProgress>();
   channel.onmessage = onProgress;
-  return invoke('start_voice_input', { requestId, deviceId, profile, onProgress: channel });
+  return invoke('start_voice_input', {
+    requestId,
+    deviceId,
+    profile,
+    language,
+    onProgress: channel,
+  });
 }
 export async function finishVoiceInput(requestId: string) {
   await invoke('finish_voice_input', { requestId });
