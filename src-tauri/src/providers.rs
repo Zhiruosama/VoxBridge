@@ -558,6 +558,14 @@ fn valid_translation(source: &str, result: &str, target: &str) -> bool {
         }
     }
     let lower = result.to_lowercase();
+    // Reject a language explanation wrapped around a verbatim copy of the input.
+    if lower.starts_with("this is already in ")
+        && result
+            .strip_suffix(source.trim())
+            .is_some_and(|prefix| prefix.trim_end().ends_with([':', '：']))
+    {
+        return false;
+    }
     let commentary = [
         "the phrase ",
         "the text ",
