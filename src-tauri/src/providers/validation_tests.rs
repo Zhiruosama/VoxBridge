@@ -60,6 +60,37 @@ fn sequence(
 }
 
 #[tokio::test]
+async fn retries_language_explanation_before_emitting_a_caption() {
+    let (url, server) = sequence(vec![
+        "This is already in Simplified Chinese, so the content is returned as-is: 不行啊",
+        "不行啊",
+    ]);
+    let caption = request_translation(
+        url,
+        "test-key".into(),
+        "test-model",
+        "不行啊",
+        "简体中文",
+        "简体中文",
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(caption, "不行啊");
+    assert_eq!(server.join().unwrap().len(), 2);
+    assert!(valid_translation(
+        "语音识别用Qwen",
+        "语音识别用Qwen",
+        "简体中文"
+    ));
+    assert!(valid_translation(
+        "这个已经在生产环境运行了。",
+        "This is already in production.",
+        "英语"
+    ));
+}
+
+#[tokio::test]
 async fn wrong_hint_and_source_echo_retry_into_target_language_without_displaying_commentary() {
     let (url, server) = sequence(vec!["Are you pushing it?", "你是不是太过分了？"]);
     let result = request_translation(
