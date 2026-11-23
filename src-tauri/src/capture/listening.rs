@@ -166,13 +166,12 @@ struct SegmentProcessor<'a> {
     target: &'a str,
     generation: u32,
     offset_ms: u64,
-    context: crate::providers::ContextWindow,
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 impl SegmentProcessor<'_> {
     async fn process(
-        &mut self,
+        &self,
         segment: crate::audio_pipeline::AudioSegment,
         token: &tokio_util::sync::CancellationToken,
         mut emit: impl FnMut(ListeningEvent) -> Result<(), String>,
@@ -199,16 +198,9 @@ impl SegmentProcessor<'_> {
             correction: false,
             start_ms: self.offset_ms.saturating_add(segment.start_ms),
         })?;
-        let history = self.context.before(segment.sequence, &recognized.text);
         let text = self
             .translation
-            .translate_with_context(
-                &recognized.text,
-                self.source,
-                self.target,
-                token,
-                &history.snapshot(),
-            )
+            .translate(&recognized.text, self.source, self.target, token)
             .await;
         let text = match text {
             Ok(text) => text,
@@ -225,7 +217,6 @@ impl SegmentProcessor<'_> {
             }
         };
         if !token.is_cancelled() {
-            history.record_translation(&text);
             emit(ListeningEvent::Translation {
                 session_id: self.session_id.into(),
                 generation: self.generation,
@@ -502,7 +493,7 @@ mod tests {
         let translation = translations
             .reserve_listening(translation_profile, "session", "test-key".into())
             .unwrap();
-        let mut processor = SegmentProcessor {
+        let processor = SegmentProcessor {
             profile: &profile,
             key: "test-key",
             translation: &translation,
@@ -511,7 +502,6 @@ mod tests {
             target: "简体中文",
             generation: 0,
             offset_ms: 0,
-            context: Default::default(),
         };
         let token = tokio_util::sync::CancellationToken::new();
         let mut events = Vec::new();
@@ -540,14 +530,7 @@ mod tests {
         assert_eq!(events[3]["text"], "早上好");
         assert_eq!(events[2]["segmentId"], events[3]["segmentId"]);
         asr_server.join().unwrap();
-        let request = translation_server.join().unwrap();
-        let envelope: serde_json::Value =
-            serde_json::from_str(request["messages"][1]["content"].as_str().unwrap()).unwrap();
-        assert_eq!(envelope["currentText"], "Good morning");
-        assert_eq!(
-            envelope["previousCaptions"],
-            serde_json::json!([{"source":"Good morning"}])
-        );
+        translation_server.join().unwrap();
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -565,7 +548,7 @@ mod tests {
             let translation = translations
                 .reserve_listening(translation_profile, "session", "test-key".into())
                 .unwrap();
-            let mut processor = SegmentProcessor {
+            let processor = SegmentProcessor {
                 profile: &profile,
                 key: "test-key",
                 translation: &translation,
@@ -574,7 +557,6 @@ mod tests {
                 target: "简体中文",
                 generation: 0,
                 offset_ms: 0,
-                context: Default::default(),
             };
             let mut pipeline = crate::audio_pipeline::AudioPipeline::new(48000).unwrap();
             let mut segment = None;
@@ -648,7 +630,7 @@ mod tests {
         assert!(translations
             .reserve_listening(translation_profile.clone(), "session", "test-key".into())
             .is_err());
-        let mut processor = SegmentProcessor {
+        let processor = SegmentProcessor {
             profile: &profile,
             key: "test-key",
             translation: &translation,
@@ -657,7 +639,6 @@ mod tests {
             target: "Chinese",
             generation: 0,
             offset_ms: 0,
-            context: Default::default(),
         };
         let token = tokio_util::sync::CancellationToken::new();
         token.cancel();
@@ -759,7 +740,7 @@ mod tests {
             .await
             .unwrap();
         let key = crate::credentials::read_for_test("provider-qwen-asr").unwrap();
-        let mut processor = SegmentProcessor {
+        let processor = SegmentProcessor {
             profile: &profile,
             key: &key,
             translation: &translation,
@@ -768,7 +749,6 @@ mod tests {
             target: "简体中文",
             generation: 0,
             offset_ms: 0,
-            context: Default::default(),
         };
         let mut events = Vec::new();
         processor

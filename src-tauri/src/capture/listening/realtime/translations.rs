@@ -6,12 +6,12 @@ use tokio::time::Instant;
 pub(super) struct QueuedCaption {
     sentence: Sentence,
     queued: Instant,
-    history: crate::providers::CaptionHistory,
+    context: crate::providers::TranslationContext,
     version: Option<Arc<std::sync::atomic::AtomicU32>>,
 }
 impl From<Sentence> for QueuedCaption {
     fn from(sentence: Sentence) -> Self {
-        Self::new(sentence, crate::providers::CaptionHistory::default())
+        Self::new(sentence, crate::providers::TranslationContext::default())
     }
 }
 
@@ -20,11 +20,11 @@ impl QueuedCaption {
         self.version = Some(version);
         self
     }
-    pub(super) fn new(sentence: Sentence, history: crate::providers::CaptionHistory) -> Self {
+    pub(super) fn new(sentence: Sentence, context: crate::providers::TranslationContext) -> Self {
         Self {
             sentence,
             queued: Instant::now(),
-            history,
+            context,
             version: None,
         }
     }
@@ -109,31 +109,27 @@ where
         tokio::select! { biased;
             _ = token.cancelled() => return Ok(()),
             result = pending.next(), if !pending.is_empty() => {
-                let (queued, text, queue_ms, request_ms): (QueuedCaption, Result<String, String>, u64, u64) = result.unwrap();
-                let sentence = queued.sentence;
+                let (sentence, text, queue_ms, request_ms, version): (Sentence, Result<String, String>, u64, u64, Option<Arc<std::sync::atomic::AtomicU32>>) = result.unwrap();
                 measurements.record(queue_ms, request_ms, text.is_ok());
                 if !token.is_cancelled() { metrics(measurements.report(queue.len(), pending.len()))?; }
                 // A provider final can supersede a request already in flight. Even a stale
                 // failure must not stop the corrected caption or the listening session.
-                if queued.version.is_some_and(|v| v.load(Ordering::Relaxed) != sentence.revision) { continue; }
+                if version.is_some_and(|v| v.load(Ordering::Relaxed) != sentence.revision) { continue; }
                 // Translation failures belong to this caption. Network, quota and
                 // authentication errors must not tear down the ASR connection.
-                if !token.is_cancelled() {
-                    if let Ok(translation) = &text {
-                        queued.history.record_translation(translation);
-                    }
-                    emit(sentence, text)?;
-                }
+                if !token.is_cancelled() { emit(sentence, text)?; }
             },
             next = queue.recv(), if !closed && pending.len()<3 => {
                 if let Some(queued) = next {
                     let queue_ms = queued.queued.elapsed().as_millis() as u64;
-                    if queued.version.as_ref().is_some_and(|v| v.load(Ordering::Relaxed) != queued.sentence.revision) { continue; }
-                    let request = translate(queued.sentence.clone(), queued.history.snapshot());
+                    let sentence = queued.sentence;
+                    let version = queued.version;
+                    if version.as_ref().is_some_and(|v| v.load(Ordering::Relaxed) != sentence.revision) { continue; }
+                    let request = translate(sentence.clone(), queued.context);
                     pending.push(async move {
                         let started = Instant::now();
                         let text = request.await;
-                        (queued, text, queue_ms, started.elapsed().as_millis() as u64)
+                        (sentence, text, queue_ms, started.elapsed().as_millis() as u64, version)
                     });
                     metrics(measurements.report(queue.len(), pending.len()))?;
                 } else { closed = true; }

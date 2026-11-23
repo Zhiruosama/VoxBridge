@@ -280,13 +280,13 @@ async fn process_stream(
                             start_ms: request.offset_ms.saturating_add(sentence.start_ms),
                         },
                     )?;
-                    if sentence.final_text {
-                        let history = context_window.before(sentence.id, &sentence.text);
-                        if sentence.text.trim().is_empty() { continue; }
+                    if sentence.final_text && !sentence.text.trim().is_empty() {
                         if !correction { timings.committed(run_started.elapsed().as_millis() as u64); }
+                        let context = if correction { context_window = crate::providers::ContextWindow::default(); crate::providers::TranslationContext::default() }
+                            else { context_window.before(&sentence.text) };
                         translations::enqueue_caption(
                             &final_tx,
-                            translations::QueuedCaption::new(sentence, history).with_version(version),
+                            translations::QueuedCaption::new(sentence, context).with_version(version),
                             |sentence| {
                                 skipped.fetch_add(1, Ordering::Relaxed);
                                 send(channel, ListeningEvent::TranslationError {

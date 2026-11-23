@@ -246,14 +246,14 @@ async fn measurements_distinguish_queue_wait_from_request_work() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn queued_context_uses_available_earlier_translations_without_waiting() {
+async fn enqueued_context_is_fixed_before_concurrent_results_complete() {
     let token = CancellationToken::new();
     let (tx, rx) = mpsc::channel(32);
     let mut context = crate::providers::ContextWindow::default();
     for id in 1..=8 {
         let sentence = caption(id);
-        let history = context.before(id, &sentence.text);
-        tx.send(QueuedCaption::new(sentence, history))
+        let snapshot = context.before(&sentence.text);
+        tx.send(QueuedCaption::new(sentence, snapshot))
             .await
             .unwrap();
     }
@@ -263,28 +263,17 @@ async fn queued_context_uses_available_earlier_translations_without_waiting() {
         &token,
         rx,
         |sentence, context| async move {
-            let expected: Vec<String> = (1..sentence.id)
+            let expected: Vec<String> = ((sentence.id.saturating_sub(3).max(1))..sentence.id)
                 .map(|id| format!("Short sentence {id}."))
                 .collect();
             assert_eq!(context.sources(), expected);
-            let payload: serde_json::Value =
-                serde_json::from_str(&context.payload(&sentence.text)).unwrap();
-            if sentence.id == 2 {
-                assert!(payload["previousCaptions"][0].get("translation").is_none());
-            }
-            if sentence.id == 4 {
-                assert_eq!(
-                    payload["previousCaptions"][1],
-                    serde_json::json!({"source":"Short sentence 2.","translation":"定稿 2"})
-                );
-            }
-            tokio::time::sleep(Duration::from_millis(match sentence.id {
-                1 => 2000,
-                2 => 100,
-                _ => 200,
+            tokio::time::sleep(Duration::from_millis(if sentence.id == 1 {
+                2000
+            } else {
+                100
             }))
             .await;
-            Ok(format!("定稿 {}", sentence.id))
+            Ok("定稿".into())
         },
         |sentence, result| {
             result.unwrap();
