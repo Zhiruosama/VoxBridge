@@ -626,7 +626,7 @@ nav button[aria-current='page'] {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px 12px;
+  padding: 6px 16px 12px;
 }
 .speech-picker {
   position: relative;
@@ -2077,10 +2077,12 @@ input:not([type='range']):focus {
 }
 .composer-preferences .model-button,
 .composer-preferences .speech-picker {
-  flex: 1 1 140px;
+  flex: 0 1 auto;
   min-width: 40px;
 }
 .composer-preferences .model-button {
+  justify-content: flex-start;
+  padding-inline-start: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3337,7 +3339,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 
 .app-shell.sidebar-rail {
-  grid-template-columns: 60px minmax(0, 1fr);
+  --sidebar-layout-width: 60px;
+  grid-template-columns: var(--sidebar-layout-width) minmax(0, 1fr);
 }
 .sidebar-rail > .sidebar {
   display: flex;

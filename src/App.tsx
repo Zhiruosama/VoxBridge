@@ -1180,8 +1180,10 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           </nav>
         )}
       </aside>
-      {sidebar && (
+      {(workspacePage || sidebar) && (
         <SidebarResizeHandle
+          collapsed={!sidebar}
+          onExpand={() => setSidebar(true)}
           width={sidebarLayout.width}
           maximum={sidebarLayout.maximum}
           onChange={sidebarLayout.setWidth}
