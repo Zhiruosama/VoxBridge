@@ -3361,8 +3361,8 @@ input[type='range']:focus-visible::-moz-range-thumb {
   color: var(--text);
 }
 
-.preference-row:focus {
-  outline: 2px solid var(--focus);
+.preferences-page :is(.preference-row, h2)[tabindex='-1']:focus {
+  outline: none;
 }
 .settings-search input {
   appearance: none;
