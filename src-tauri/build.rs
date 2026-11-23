@@ -1,4 +1,6 @@
 fn main() {
+    // Tauri embeds the Dock icon in the macOS development executable.
+    println!("cargo:rerun-if-changed=icons/icon.icns");
     // Public builds embed null; private values remain in ignored build output.
     println!("cargo:rerun-if-env-changed=VOXBRIDGE_PRIVATE_PRESET");
     let preset =
