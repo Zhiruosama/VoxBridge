@@ -3343,20 +3343,29 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 .settings-search {
   display: flex;
+  flex-direction: row;
+  height: max(38px, calc(1.6 * 14px + 16px));
   align-items: center;
   gap: 7px;
-  margin: 4px 4px 0;
+  margin: 4px 0 0;
   padding-inline: 9px;
   background: var(--raised);
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 11px;
 }
-.settings-search:focus-within,
+.settings-search svg {
+  flex: none;
+}
+.settings-search:focus-within {
+  border-color: var(--focus);
+}
+
 .preference-row:focus {
   outline: 2px solid var(--focus);
 }
 .settings-search input {
+  appearance: none;
   min-width: 0;
   width: 100%;
   padding: 7px 0;
@@ -3364,8 +3373,9 @@ input[type='range']:focus-visible::-moz-range-thumb {
   color: var(--text);
   border: 0;
 }
-.settings-search input:focus-visible {
+.settings-search input[type='search']:focus {
   outline: none;
+  box-shadow: none;
 }
 .settings-results button {
   width: 100%;
