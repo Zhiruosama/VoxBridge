@@ -3348,17 +3348,17 @@ input[type='range']:focus-visible::-moz-range-thumb {
   align-items: center;
   gap: 7px;
   margin: 4px 0 0;
-  padding-inline: 9px;
+  padding-inline: 10px;
   background: var(--raised);
   color: var(--muted);
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 11px;
 }
 .settings-search svg {
   flex: none;
 }
 .settings-search:focus-within {
-  border-color: var(--focus);
+  color: var(--text);
 }
 
 .preference-row:focus {
