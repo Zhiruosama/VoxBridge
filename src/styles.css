@@ -3353,6 +3353,7 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 .sidebar-rail nav button {
   position: relative;
+  overflow: visible;
 }
 .sidebar-rail nav button:focus-visible .workspace-nav-label {
   display: block;
