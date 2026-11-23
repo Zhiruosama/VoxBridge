@@ -47,6 +47,17 @@ pub(super) async fn run(
         worker_token.cancel();
         result
     });
+    let mut processor = SegmentProcessor {
+        profile: &request.asr_profile,
+        key,
+        translation,
+        session_id: &request.session_id,
+        source: &request.source_language,
+        target: &request.target_language,
+        generation: request.generation,
+        offset_ms: request.offset_ms,
+        context: Default::default(),
+    };
     let processed = async {
             loop {
                 let segment = tokio::select! {
@@ -57,9 +68,6 @@ pub(super) async fn run(
                     segment = receiver.recv() => match segment { Some(segment) => segment, None => return Ok(()) },
                 };
                 if segment.created.elapsed() > Duration::from_secs(20) { skipped.fetch_add(1, Ordering::Relaxed); continue; }
-                let processor = SegmentProcessor { profile: &request.asr_profile, key,
-                    translation, session_id: &request.session_id,
-                    source: &request.source_language, target: &request.target_language, generation: request.generation, offset_ms: request.offset_ms };
                 tokio::select! {
                     biased;
                     _ = token.cancelled() => return Ok(()),
