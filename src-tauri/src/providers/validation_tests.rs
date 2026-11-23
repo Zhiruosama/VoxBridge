@@ -606,7 +606,7 @@ async fn retries_conversational_mixed_script_input_as_data_and_preserves_the_ful
 }
 
 #[tokio::test]
-#[ignore = "manual: compares four context settings on synthetic subtitles to DeepSeek Flash with the fixture key"]
+#[ignore = "manual: compares four context settings on subtitle fixtures via DeepSeek Flash"]
 async fn live_subtitle_context_window_comparison() {
     use futures_util::{stream, StreamExt};
 
@@ -617,8 +617,11 @@ async fn live_subtitle_context_window_comparison() {
         current: String,
     }
 
-    let fixtures: Vec<Fixture> =
-        serde_json::from_str(include_str!("fixtures/subtitle-context.json")).unwrap();
+    let input = match std::env::var_os("VOXBRIDGE_CONTEXT_FIXTURE") {
+        Some(path) => std::fs::read_to_string(path).expect("subtitle fixture file"),
+        None => include_str!("fixtures/subtitle-context.json").to_owned(),
+    };
+    let fixtures: Vec<Fixture> = serde_json::from_str(&input).expect("valid subtitle fixtures");
     let credential_file =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../密钥-不可提交/deepseek.txt");
     let credential = std::fs::read_to_string(credential_file).expect("workspace test credential");

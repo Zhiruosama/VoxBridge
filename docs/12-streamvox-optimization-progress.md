@@ -116,3 +116,27 @@ HTTP 分段和 WebSocket 实时字幕共用原文上下文。两条链路均从�
 试验分支默认用 12 段。它比 6 段多判对 6 道语境题。例子包括把游戏里的 “Wait for the pull.” 译成「等开怪」，以及在折纸语境下译出 “He folded.” 的折纸含义。6 段和 12 段均在一条从乐器切到钓鱼的样本中选错了 “bass” 的义项。耗时是本轮模型请求记录，真实对话中的字幕延迟和其他语言组合仍待验证。
 
 可用工作区测试凭据运行 `cargo test --manifest-path src-tauri/Cargo.toml --lib live_subtitle_context_window_comparison -- --ignored --nocapture`。样本和判定点见[测试片段](../src-tauri/src/providers/fixtures/subtitle-context.json)。
+
+## 2026-11-23 公开视频和录音复测
+
+采用公开来源的原始字幕顺序。每个待译片段都读取同一来源紧邻的前文，所有窗口共用模型、当前文本、目标语言和翻译提示词。每个窗口翻译同一批 48 句两次，使用 DeepSeek Flash 英译简中。评分者在隐藏窗口长度后检查词义、专名、指代、数字和半句，未通过软件译文校验的请求计为失败。
+
+| 前文上限 | 首轮 | 复跑 | 合计 | 请求耗时 P95 | 平均前文字数 |
+| --- | --- | --- | --- | --- | --- |
+| 0 段 | 39 / 48 | 38 / 48 | 77 / 96 | 1.40 秒 | 0 |
+| 3 段 | 41 / 48 | 40 / 48 | 81 / 96 | 1.23 秒 | 134 |
+| 6 段 | 40 / 48 | 39 / 48 | 79 / 96 | 1.29 秒 | 267 |
+| 12 段 | 41 / 48 | 40 / 48 | 81 / 96 | 1.52 秒 | 483 |
+
+3 段和 12 段在两个回合得分相同。12 段在构造题中更容易取到超过 6 段的线索，在公开片段上则需要更多前文和请求时间。公开片段对照是同一批样本的重复测量，耗时包含模型请求及译文校验重试，不包含桌面采集、ASR 和字幕渲染。
+
+- 《Tears of Steel》选择字幕条目 8、9、10、16、20、33、43、48、49、51、62、65，覆盖拍摄口令、时间和口语表达。[字幕来源](https://commons.wikimedia.org/wiki/TimedText:Tears_of_Steel_in_4k_-_Official_Blender_Foundation_release.webm.en.srt)
+- 《Sintel》选择字幕条目 2、7、10、11、12、13、15、17、19、21、23、24，覆盖人名、同名词义及半句。[字幕来源](https://commons.wikimedia.org/wiki/TimedText:Sintel_movie_4K.webm.en.srt)
+- Blender Studio《Defining Goals》选择英文 VTT 条目 5、11、15、18、19、22、24、34、41、42、54、57，覆盖动画术语和跨字幕断句。[视频与英文字幕](https://studio.blender.org/training/stylized-character-workflow/5d3a1b3d4bc3ff1bb9513d38/)
+- Apollo 13 任务通话选用飞行时钟 055:49:25 至 056:09:58 的 12 条地空通话，覆盖指令、编号、无线电简语和电气术语。[通话录音与转写](https://www.apollojournals.org/afj/ap13fj/08day3-problem.html)
+
+比较命令可通过 `VOXBRIDGE_CONTEXT_FIXTURE` 指定外部 JSON。数组中每个样本对象包含 `id`、`previous` 和 `current`。其中 `previous` 为按原始顺序排列的字符串数组，`current` 为待译文本。
+
+补测使用《Defining Goals》的 03:18–04:13 音频。千问测试凭据返回 401 后，使用本机 Whisper Base English 得到 11 段原始识别结果，再对比相同的四档翻译窗口。0、3、6、12 段分别通过 9、7、9、8 句。6 段能把“能动起来”的角色设计语境译对，3 段在此次请求中误解为“能打动人”。四档都没处理好一条跨字幕的否定范围。这个附加试验只涉及一段教学音频，使用静态字幕回放工具发送识别结果。
+
+试用分支选用 **6 段原文、合计最多 1200 字符**。在公开字幕对照中，该档的 P95 比 3 段高 55 毫秒，比 12 段低 233 毫秒。它比 3 段多覆盖一些较早的线索，也在这次短音频补测里多译对两句。这个选择用于后续实际对话试用，公开字幕复跑的质量差异很小。

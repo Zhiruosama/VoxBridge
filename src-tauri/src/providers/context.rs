@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub(crate) const SUBTITLE_CONTEXT_CAPTIONS: usize = 12;
+pub(crate) const SUBTITLE_CONTEXT_CAPTIONS: usize = 6;
 const CHARACTERS: usize = 1200;
 // The realtime chunker can revise its latest eight published captions at once.
 const CORRECTION_LOOKBACK: usize = 8;
