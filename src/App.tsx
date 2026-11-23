@@ -1076,7 +1076,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
   return (
     <div
       ref={sidebarLayout.shellRef}
-      className={`app-shell ${sidebar ? '' : workspacePage ? 'sidebar-rail' : 'sidebar-collapsed'} ${runtime?.platform === 'windows' ? 'has-window-chrome' : macFrame ? 'has-mac-chrome' : ''}`}
+      className={`app-shell ${sidebar ? '' : 'sidebar-collapsed'} ${runtime?.platform === 'windows' ? 'has-window-chrome' : macFrame ? 'has-mac-chrome' : ''}`}
       style={
         {
           '--sidebar-width': `${sidebarLayout.width}px`,
@@ -1110,7 +1110,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
               disabled={settingsBusy}
             >
               <MessageSquare size={15} />
-              <span className="workspace-nav-label">{t('字幕')}</span>
+              {t('字幕')}
             </button>
             <button
               aria-label={t('文本翻译')}
@@ -1120,7 +1120,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
               disabled={settingsBusy}
             >
               <Languages size={15} />
-              <span className="workspace-nav-label">{t('文本翻译')}</span>
+              {t('文本翻译')}
             </button>
           </nav>
         )}
@@ -1129,7 +1129,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
             <nav aria-label={t('设置导航')}>
               <button aria-label={t('设置')} title={t('设置')} onClick={() => openSettings()}>
                 <Settings2 size={15} />
-                <span className="workspace-nav-label">{t('设置')}</span>
+                {t('设置')}
               </button>
             </nav>
           </div>
@@ -1180,14 +1180,11 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           </nav>
         )}
       </aside>
-      {(workspacePage || sidebar) && (
+      {sidebar && (
         <SidebarResizeHandle
-          collapsed={!sidebar}
-          onExpand={() => setSidebar(true)}
           width={sidebarLayout.width}
           maximum={sidebarLayout.maximum}
           onChange={sidebarLayout.setWidth}
-          onCollapse={workspacePage ? () => setWorkspaceSidebar(false) : undefined}
         />
       )}
       <div className="main-shell">
