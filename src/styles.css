@@ -3337,3 +3337,44 @@ input[type='range']:focus-visible::-moz-range-thumb {
     transition: none;
   }
 }
+
+.preferences-nav {
+  margin-top: 0;
+}
+.settings-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 4px 0;
+  padding-inline: 9px;
+  background: var(--raised);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.settings-search:focus-within,
+.preference-row:focus {
+  outline: 2px solid var(--focus);
+}
+.settings-search input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px 0;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+}
+.settings-search input:focus-visible {
+  outline: none;
+}
+.settings-results button {
+  width: 100%;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+  white-space: normal;
+  text-align: start;
+}
+.settings-results small {
+  color: var(--muted);
+}

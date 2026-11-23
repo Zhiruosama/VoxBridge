@@ -1,4 +1,7 @@
 {
+  "搜索设置": "Search settings",
+  "搜索结果": "Search results",
+  "未找到匹配的设置": "No matching settings",
   "返回工作台": "Back to workspace",
   "API 地址": "API endpoint",
   "API 密钥": "API keys",
