@@ -250,9 +250,10 @@ async fn enqueued_context_is_fixed_before_concurrent_results_complete() {
     let token = CancellationToken::new();
     let (tx, rx) = mpsc::channel(32);
     let mut context = crate::providers::ContextWindow::default();
-    for id in 1..=8 {
+    for id in 1..=16 {
         let sentence = caption(id);
-        let snapshot = context.before(&sentence.text);
+        let snapshot = context.before(sentence.id);
+        context.record(sentence.id, &sentence.text);
         tx.send(QueuedCaption::new(sentence, snapshot))
             .await
             .unwrap();
@@ -263,7 +264,10 @@ async fn enqueued_context_is_fixed_before_concurrent_results_complete() {
         &token,
         rx,
         |sentence, context| async move {
-            let expected: Vec<String> = ((sentence.id.saturating_sub(3).max(1))..sentence.id)
+            let expected: Vec<String> = ((sentence
+                .id
+                .saturating_sub(crate::providers::SUBTITLE_CONTEXT_CAPTIONS as u64)
+                .max(1))..sentence.id)
                 .map(|id| format!("Short sentence {id}."))
                 .collect();
             assert_eq!(context.sources(), expected);
@@ -285,7 +289,7 @@ async fn enqueued_context_is_fixed_before_concurrent_results_complete() {
     .await
     .unwrap();
     let observed = observed.into_inner().unwrap();
-    assert_eq!(observed.len(), 8);
+    assert_eq!(observed.len(), 16);
     assert_ne!(observed[0], 1);
 }
 
@@ -363,4 +367,51 @@ async fn superseded_queued_work_never_starts_an_unnecessary_request() {
     .unwrap();
     assert_eq!(requested.into_inner().unwrap(), vec![2]);
     assert_eq!(observed.into_inner().unwrap(), vec![2]);
+}
+
+#[tokio::test(start_paused = true)]
+async fn queued_translation_reads_the_corrected_predecessor_when_a_slot_opens() {
+    let token = CancellationToken::new();
+    let (tx, rx) = mpsc::channel(4);
+    let mut history = crate::providers::ContextWindow::default();
+    for id in 1..=4 {
+        let sentence = caption(id);
+        let pending = history.before(id);
+        history.record(id, &sentence.text);
+        tx.send(QueuedCaption::new(sentence, pending))
+            .await
+            .unwrap();
+    }
+    drop(tx);
+    let started = Mutex::new(Vec::new());
+    let worker = translate_chunks(
+        &token,
+        rx,
+        |sentence, context| {
+            started.lock().unwrap().push(sentence.id);
+            async move {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                if sentence.id == 2 {
+                    assert_eq!(context.sources(), ["Short sentence 1."]);
+                } else if sentence.id == 4 {
+                    assert_eq!(
+                        context.sources(),
+                        ["Corrected first sentence.", "Short sentence 2."]
+                    );
+                }
+                Ok("译文".into())
+            }
+        },
+        |_, _| Ok(()),
+        |_| Ok(()),
+    );
+    let correct = async {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert_eq!(*started.lock().unwrap(), [1, 2, 3]);
+        history.record(1, "Corrected first sentence.");
+        history.record(3, "");
+    };
+    let (result, ()) = tokio::join!(worker, correct);
+    result.unwrap();
+    assert_eq!(started.into_inner().unwrap(), [1, 2, 3, 4]);
 }

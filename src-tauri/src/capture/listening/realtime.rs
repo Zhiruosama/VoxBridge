@@ -257,6 +257,11 @@ async fn process_stream(
                     _ = tick.tick() => (chunks.flush(started.elapsed().as_millis() as u64), false, false),
                 };
                 let updated = received_update || !output.is_empty();
+                // Apply the final's corrections together, including withdrawals, before
+                // taking any context from this batch.
+                for sentence in output.iter().filter(|sentence| chunks.is_correction(sentence)) {
+                    context_window.record(sentence.id, &sentence.text);
+                }
                 for sentence in output {
                     let correction = chunks.is_correction(&sentence);
                     let version = versions.entry(sentence.id).or_insert_with(||
@@ -281,9 +286,11 @@ async fn process_stream(
                         },
                     )?;
                     if sentence.final_text && !sentence.text.trim().is_empty() {
-                        if !correction { timings.committed(run_started.elapsed().as_millis() as u64); }
-                        let context = if correction { context_window = crate::providers::ContextWindow::default(); crate::providers::TranslationContext::default() }
-                            else { context_window.before(&sentence.text) };
+                        if !correction {
+                            timings.committed(run_started.elapsed().as_millis() as u64);
+                            context_window.record(sentence.id, &sentence.text);
+                        }
+                        let context = context_window.before(sentence.id);
                         translations::enqueue_caption(
                             &final_tx,
                             translations::QueuedCaption::new(sentence, context).with_version(version),

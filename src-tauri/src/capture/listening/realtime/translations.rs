@@ -1,4 +1,5 @@
 use super::*;
+use crate::providers::{PendingTranslationContext, TranslationContext};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use std::{collections::VecDeque, future::Future};
 use tokio::time::Instant;
@@ -6,12 +7,12 @@ use tokio::time::Instant;
 pub(super) struct QueuedCaption {
     sentence: Sentence,
     queued: Instant,
-    context: crate::providers::TranslationContext,
+    context: PendingTranslationContext,
     version: Option<Arc<std::sync::atomic::AtomicU32>>,
 }
 impl From<Sentence> for QueuedCaption {
     fn from(sentence: Sentence) -> Self {
-        Self::new(sentence, crate::providers::TranslationContext::default())
+        Self::new(sentence, PendingTranslationContext::default())
     }
 }
 
@@ -20,7 +21,7 @@ impl QueuedCaption {
         self.version = Some(version);
         self
     }
-    pub(super) fn new(sentence: Sentence, context: crate::providers::TranslationContext) -> Self {
+    pub(super) fn new(sentence: Sentence, context: PendingTranslationContext) -> Self {
         Self {
             sentence,
             queued: Instant::now(),
@@ -94,7 +95,7 @@ pub(super) async fn translate_chunks<F, Fut, E, M>(
     mut metrics: M,
 ) -> Result<(), String>
 where
-    F: FnMut(Sentence, crate::providers::TranslationContext) -> Fut,
+    F: FnMut(Sentence, TranslationContext) -> Fut,
     Fut: Future<Output = Result<String, String>>,
     E: FnMut(Sentence, Result<String, String>) -> Result<(), String>,
     M: FnMut(TranslationMetrics) -> Result<(), String>,
@@ -125,7 +126,7 @@ where
                     let sentence = queued.sentence;
                     let version = queued.version;
                     if version.as_ref().is_some_and(|v| v.load(Ordering::Relaxed) != sentence.revision) { continue; }
-                    let request = translate(sentence.clone(), queued.context);
+                    let request = translate(sentence.clone(), queued.context.resolve());
                     pending.push(async move {
                         let started = Instant::now();
                         let text = request.await;

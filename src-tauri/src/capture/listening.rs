@@ -173,6 +173,7 @@ impl SegmentProcessor<'_> {
     async fn process(
         &self,
         segment: crate::audio_pipeline::AudioSegment,
+        history: &mut crate::providers::ContextWindow,
         token: &tokio_util::sync::CancellationToken,
         mut emit: impl FnMut(ListeningEvent) -> Result<(), String>,
     ) -> Result<(), String> {
@@ -198,9 +199,11 @@ impl SegmentProcessor<'_> {
             correction: false,
             start_ms: self.offset_ms.saturating_add(segment.start_ms),
         })?;
+        let context = history.before(segment.sequence).resolve();
+        history.record(segment.sequence, &recognized.text);
         let text = self
             .translation
-            .translate(&recognized.text, self.source, self.target, token)
+            .translate_with_context(&recognized.text, self.source, self.target, token, &context)
             .await;
         let text = match text {
             Ok(text) => text,
@@ -431,23 +434,24 @@ mod tests {
         text: &str,
         count: usize,
     ) -> (String, std::thread::JoinHandle<serde_json::Value>) {
-        http_responses_with_statuses(text, vec![200; count])
+        http_replies(vec![(200, text); count])
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    fn http_responses_with_statuses(
-        text: &str,
-        statuses: Vec<u16>,
+    fn http_replies(
+        replies: Vec<(u16, &str)>,
     ) -> (String, std::thread::JoinHandle<serde_json::Value>) {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/v1", listener.local_addr().unwrap());
-        let body =
-            serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":text}}]})
+        let replies: Vec<_> = replies.into_iter().map(|(status, text)| {
+            let body = serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":text}}]})
                 .to_string();
+            (status, body)
+        }).collect();
         let server = std::thread::spawn(move || {
             let mut request = serde_json::Value::Null;
-            for status in statuses {
+            for (status, body) in replies {
                 let (mut stream, _) = listener.accept().unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
@@ -484,9 +488,11 @@ mod tests {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[tokio::test]
     async fn http_translation_service_failure_preserves_original_and_next_segment_recovers() {
-        let (asr_url, asr_server) = http_responses("Good morning", 2);
-        let (translation_url, translation_server) =
-            http_responses_with_statuses("早上好", vec![401, 200]);
+        let (asr_url, asr_server) = http_replies(vec![
+            (200, "We are testing subtitles"),
+            (200, "Good morning"),
+        ]);
+        let (translation_url, translation_server) = http_replies(vec![(401, ""), (200, "早上好")]);
         let profile: AsrProfile = serde_json::from_value(serde_json::json!({"id":"test-asr","stage":"asr","adapter":"qwen_chat_asr","baseUrl":asr_url,"modelId":"test"})).unwrap();
         let translations = crate::providers::Requests::default();
         let translation_profile = serde_json::from_value(serde_json::json!({"id":"test-translation","stage":"translation","adapter":"openai_chat_completions","baseUrl":translation_url,"modelId":"test"})).unwrap();
@@ -505,6 +511,7 @@ mod tests {
         };
         let token = tokio_util::sync::CancellationToken::new();
         let mut events = Vec::new();
+        let mut history = crate::providers::ContextWindow::default();
         for sequence in 1..=2 {
             let audio = crate::audio_pipeline::AudioSegment {
                 sequence,
@@ -512,7 +519,7 @@ mod tests {
                 wav: crate::audio_pipeline::encode_wav(&vec![1000; 3200]),
             };
             processor
-                .process(audio, &token, |event| {
+                .process(audio, &mut history, &token, |event| {
                     events.push(serde_json::to_value(event).unwrap());
                     Ok(())
                 })
@@ -522,7 +529,7 @@ mod tests {
         }
         assert_eq!(events.len(), 4);
         assert_eq!(events[0]["type"], "transcript");
-        assert_eq!(events[0]["text"], "Good morning");
+        assert_eq!(events[0]["text"], "We are testing subtitles");
         assert_eq!(events[1]["type"], "translationError");
         assert_eq!(events[0]["segmentId"], events[1]["segmentId"]);
         assert_eq!(events[2]["type"], "transcript");
@@ -530,7 +537,14 @@ mod tests {
         assert_eq!(events[3]["text"], "早上好");
         assert_eq!(events[2]["segmentId"], events[3]["segmentId"]);
         asr_server.join().unwrap();
-        translation_server.join().unwrap();
+        let last_request = translation_server.join().unwrap();
+        let message = last_request["messages"][1]["content"].as_str().unwrap();
+        let quoted: serde_json::Value = serde_json::from_str(message).unwrap();
+        assert_eq!(quoted["currentText"], "Good morning");
+        assert_eq!(
+            quoted["previousCaptions"],
+            serde_json::json!(["We are testing subtitles"])
+        );
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -577,6 +591,7 @@ mod tests {
             processor
                 .process(
                     segment.unwrap(),
+                    &mut crate::providers::ContextWindow::default(),
                     &tokio_util::sync::CancellationToken::new(),
                     |event| {
                         events.push(event);
@@ -649,10 +664,15 @@ mod tests {
         };
         let mut count = 0;
         assert!(processor
-            .process(audio, &token, |_| {
-                count += 1;
-                Ok(())
-            })
+            .process(
+                audio,
+                &mut crate::providers::ContextWindow::default(),
+                &token,
+                |_| {
+                    count += 1;
+                    Ok(())
+                }
+            )
             .await
             .is_err());
         assert_eq!(count, 0);
@@ -754,6 +774,7 @@ mod tests {
         processor
             .process(
                 segment,
+                &mut crate::providers::ContextWindow::default(),
                 &tokio_util::sync::CancellationToken::new(),
                 |event| {
                     events.push(event);

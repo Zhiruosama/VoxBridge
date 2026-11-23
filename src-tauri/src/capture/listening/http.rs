@@ -47,28 +47,39 @@ pub(super) async fn run(
         worker_token.cancel();
         result
     });
+    let processor = SegmentProcessor {
+        profile: &request.asr_profile,
+        key,
+        translation,
+        session_id: &request.session_id,
+        source: &request.source_language,
+        target: &request.target_language,
+        generation: request.generation,
+        offset_ms: request.offset_ms,
+    };
     let processed = async {
-            loop {
-                let segment = tokio::select! {
-                    biased;
-                    _ = token.cancelled() => return Ok(()),
-                    _ = asr_token.cancelled() => return Ok(()),
-                    _ = translation.token.cancelled() => return Ok(()),
-                    segment = receiver.recv() => match segment { Some(segment) => segment, None => return Ok(()) },
-                };
-                if segment.created.elapsed() > Duration::from_secs(20) { skipped.fetch_add(1, Ordering::Relaxed); continue; }
-                let processor = SegmentProcessor { profile: &request.asr_profile, key,
-                    translation, session_id: &request.session_id,
-                    source: &request.source_language, target: &request.target_language, generation: request.generation, offset_ms: request.offset_ms };
-                tokio::select! {
-                    biased;
-                    _ = token.cancelled() => return Ok(()),
-                    _ = asr_token.cancelled() => return Ok(()),
-                    _ = translation.token.cancelled() => return Ok(()),
-                    result = processor.process(segment.audio, token, |event| send(on_event, event)) => result?,
-                };
+        let mut history = crate::providers::ContextWindow::default();
+        loop {
+            let segment = tokio::select! {
+                biased;
+                _ = token.cancelled() => return Ok(()),
+                _ = asr_token.cancelled() => return Ok(()),
+                _ = translation.token.cancelled() => return Ok(()),
+                segment = receiver.recv() => match segment { Some(segment) => segment, None => return Ok(()) },
+            };
+            if segment.created.elapsed() > Duration::from_secs(20) {
+                skipped.fetch_add(1, Ordering::Relaxed);
+                continue;
             }
-        }.await;
+            tokio::select! {
+                biased;
+                _ = token.cancelled() => return Ok(()),
+                _ = asr_token.cancelled() => return Ok(()),
+                _ = translation.token.cancelled() => return Ok(()),
+                result = processor.process(segment.audio, &mut history, token, |event| send(on_event, event)) => result?,
+            }
+        }
+    }.await;
     token.cancel();
     drop(receiver);
     let captured = worker
