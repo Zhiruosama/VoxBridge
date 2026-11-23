@@ -86,25 +86,25 @@ export default function SettingsSearchResults({
   return (
     <section className="settings-results" aria-label={t('搜索结果')}>
       {matches.length ? (
-        matches.map(({ label, group, open }) => (
-          <button
-            key={group + label}
-            disabled={disabled}
-            aria-current={selected === group + label ? 'location' : undefined}
-            onClick={() => {
-              open();
-              setSelected(group + label);
-            }}
-          >
-            <SlidersHorizontal size={15} aria-hidden="true" />
-            <span>
-              {t(label)}
-              {matches.some((entry) => entry.label === label && entry.group !== group) && (
-                <small>{t(group)}</small>
-              )}
-            </span>
-          </button>
-        ))
+        matches.map(({ label, group, open }) => {
+          const duplicate = matches.some((entry) => entry.label === label && entry.group !== group);
+          const name = duplicate ? t(label) + ' · ' + t(group) : t(label);
+          return (
+            <button
+              key={group + label}
+              title={name}
+              disabled={disabled}
+              aria-current={selected === group + label ? 'location' : undefined}
+              onClick={() => {
+                open();
+                setSelected(group + label);
+              }}
+            >
+              <SlidersHorizontal size={15} aria-hidden="true" />
+              <span>{name}</span>
+            </button>
+          );
+        })
       ) : (
         <p>{t('未找到匹配的设置')}</p>
       )}

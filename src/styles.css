@@ -3379,20 +3379,22 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 .settings-results {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   margin-top: 8px;
 }
 .settings-results button {
   text-align: start;
-  white-space: normal;
+  white-space: nowrap;
 }
 .settings-results button[aria-current='location'] {
   color: var(--text);
   background: var(--raised);
 }
-.settings-results small {
-  display: block;
-  color: var(--muted);
+.settings-results button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .settings-results p {
   margin: 8px 10px;
