@@ -1037,7 +1037,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     }
   }
 
-  function openSettings(section: SettingsSection = 'general', anchor = '') {
+  function openSettings(section: SettingsSection = 'general', anchor = '', keepQuery = false) {
     if (voiceRef.current) {
       notify('请先结束或取消录音。');
       return false;
@@ -1056,7 +1056,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
       previousWorkspace.current = page;
       setSettingsSidebar(true);
     }
-    setSettingsQuery('');
+    if (!keepQuery) setSettingsQuery('');
     setSettingsSection(section);
     setSettingsFocus((current) => ({ id: anchor, version: (current?.version ?? 0) + 1 }));
     setPage('settings');
@@ -1158,47 +1158,62 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
                 }}
               />
             </label>
-            <span className="nav-group-label">{t('偏好设置')}</span>
-            <button
-              disabled={settingsBusy}
-              aria-current={
-                page === 'settings' && settingsSection === 'general' ? 'page' : undefined
-              }
-              onClick={() => openSettings('general')}
-            >
-              <Settings2 size={15} />
-              {t('常规')}
-            </button>
-            <span className="nav-group-label">{t('模型服务')}</span>
-            {(
-              [
-                { id: 'translation', label: '文字翻译', Icon: Languages },
-                { id: 'asr', label: '语音识别', Icon: Mic },
-                { id: 'tts', label: '语音合成', Icon: Volume2 },
-              ] as const
-            ).map(({ id, label, Icon }) => (
-              <button
-                key={id}
+            {settingsQuery.trim() ? (
+              <SettingsSearchResults
+                query={settingsQuery}
+                desktop={desktop}
                 disabled={settingsBusy}
-                aria-current={page === 'settings' && settingsSection === id ? 'page' : undefined}
-                onClick={() => openSettings(id)}
-              >
-                <Icon size={15} />
-                {t(label)}
-              </button>
-            ))}
-            <span className="nav-group-label">{t('工具')}</span>
-            <button
-              disabled={settingsBusy}
-              aria-current={page === 'diagnostics' ? 'page' : undefined}
-              onClick={() => {
-                setSettingsQuery('');
-                setPage('diagnostics');
-              }}
-            >
-              <AudioLines size={15} />
-              {t('音频与诊断')}
-            </button>
+                onOpen={(section, anchor) => openSettings(section, anchor, true)}
+                onDiagnostics={() => setPage('diagnostics')}
+              />
+            ) : (
+              <>
+                {' '}
+                <span className="nav-group-label">{t('偏好设置')}</span>
+                <button
+                  disabled={settingsBusy}
+                  aria-current={
+                    page === 'settings' && settingsSection === 'general' ? 'page' : undefined
+                  }
+                  onClick={() => openSettings('general')}
+                >
+                  <Settings2 size={15} />
+                  {t('常规')}
+                </button>
+                <span className="nav-group-label">{t('模型服务')}</span>
+                {(
+                  [
+                    { id: 'translation', label: '文字翻译', Icon: Languages },
+                    { id: 'asr', label: '语音识别', Icon: Mic },
+                    { id: 'tts', label: '语音合成', Icon: Volume2 },
+                  ] as const
+                ).map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    disabled={settingsBusy}
+                    aria-current={
+                      page === 'settings' && settingsSection === id ? 'page' : undefined
+                    }
+                    onClick={() => openSettings(id)}
+                  >
+                    <Icon size={15} />
+                    {t(label)}
+                  </button>
+                ))}
+                <span className="nav-group-label">{t('工具')}</span>
+                <button
+                  disabled={settingsBusy}
+                  aria-current={page === 'diagnostics' ? 'page' : undefined}
+                  onClick={() => {
+                    setSettingsQuery('');
+                    setPage('diagnostics');
+                  }}
+                >
+                  <AudioLines size={15} />
+                  {t('音频与诊断')}
+                </button>
+              </>
+            )}
           </nav>
         )}
       </aside>
@@ -1258,7 +1273,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
               </button>
             </div>
           )}
-          {page === 'diagnostics' && !settingsQuery.trim() && (
+          {page === 'diagnostics' && (
             <button className="subtle" onClick={() => openSettings()}>
               {t('返回设置')}
             </button>
@@ -1283,19 +1298,8 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
               onSettings={() => openSettings('translation')}
             />
           )}
-          {!workspacePage && settingsQuery.trim() && (
-            <SettingsSearchResults
-              query={settingsQuery}
-              desktop={desktop}
-              onOpen={openSettings}
-              onDiagnostics={() => {
-                setSettingsQuery('');
-                setPage('diagnostics');
-              }}
-            />
-          )}
           {page === 'settings' && (
-            <div hidden={Boolean(settingsQuery.trim())}>
+            <>
               <SettingsPanel
                 platform={runtime?.platform}
                 section={settingsSection}
@@ -1313,9 +1317,9 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
                 refreshingApplications={refreshingSources}
                 captureSupported={runtime?.nativeCapture === true}
               />
-            </div>
+            </>
           )}
-          {page === 'diagnostics' && !settingsQuery.trim() && (
+          {page === 'diagnostics' && (
             <Diagnostics runtime={runtime} notify={notify} settings={settings} onSave={persist} />
           )}
           {page === 'workspace' && (

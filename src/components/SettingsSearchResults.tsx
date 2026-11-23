@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 import { t } from '../i18n';
 import type { SettingsSection } from './SettingsPanel';
 
@@ -39,21 +41,25 @@ const groups: [string, string, string[]][] = [
 export default function SettingsSearchResults({
   query,
   desktop,
+  disabled,
   onOpen,
   onDiagnostics,
 }: {
   query: string;
   desktop: boolean;
+  disabled: boolean;
   onOpen: (section: SettingsSection, anchor: string) => void;
   onDiagnostics: () => void;
 }) {
+  const [selected, setSelected] = useState('');
+  const needle = query.trim().toLocaleLowerCase();
   const entries = groups.flatMap(([anchor, group, labels]) =>
-    (labels.length ? labels : [group])
+    (t(group).toLocaleLowerCase().includes(needle) ? [group] : labels)
       .filter((label) => desktop || label !== '关闭主窗口时')
       .map((label) => ({
         label,
         group,
-        open: () => onOpen('general', labels.length ? anchor + '/' + label : anchor),
+        open: () => onOpen('general', label === group ? anchor : anchor + '/' + label),
       })),
   );
   for (const [stage, group] of [
@@ -61,6 +67,10 @@ export default function SettingsSearchResults({
     ['asr', '语音识别'],
     ['tts', '语音合成'],
   ] as const) {
+    if (t(group).toLocaleLowerCase().includes(needle)) {
+      entries.push({ label: group, group, open: () => onOpen(stage, 'connection-heading') });
+      continue;
+    }
     for (const [anchor, label] of [
       ['connection-heading', '服务连接'],
       ['credential-heading', 'API 密钥'],
@@ -71,16 +81,28 @@ export default function SettingsSearchResults({
   }
   entries.push({ label: '音频与诊断', group: '工具', open: onDiagnostics });
   const matches = entries.filter(({ label, group }) =>
-    (t(group) + ' ' + t(label)).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+    (t(group) + ' ' + t(label)).toLocaleLowerCase().includes(needle),
   );
   return (
-    <section className="preferences-page settings-results">
-      <h1>{t('搜索结果')}</h1>
+    <section className="settings-results" aria-label={t('搜索结果')}>
       {matches.length ? (
         matches.map(({ label, group, open }) => (
-          <button key={group + label} onClick={open}>
-            <strong>{t(label)}</strong>
-            <small>{t(group)}</small>
+          <button
+            key={group + label}
+            disabled={disabled}
+            aria-current={selected === group + label ? 'location' : undefined}
+            onClick={() => {
+              open();
+              setSelected(group + label);
+            }}
+          >
+            <SlidersHorizontal size={15} aria-hidden="true" />
+            <span>
+              {t(label)}
+              {matches.some((entry) => entry.label === label && entry.group !== group) && (
+                <small>{t(group)}</small>
+              )}
+            </span>
           </button>
         ))
       ) : (
