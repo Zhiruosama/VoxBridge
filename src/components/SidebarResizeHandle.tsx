@@ -6,7 +6,9 @@ export default function SidebarResizeHandle({
   width,
   maximum,
   onChange,
+  onCollapse,
 }: {
+  onCollapse?: () => void;
   width: number;
   maximum: number;
   onChange: (width: number, persist?: boolean) => void;
@@ -56,6 +58,15 @@ export default function SidebarResizeHandle({
       }}
       onPointerMove={(event) => {
         if (drag.current?.pointer !== event.pointerId) return;
+        if (
+          onCollapse &&
+          drag.current.width + event.clientX - drag.current.x < sidebarMinimum - 32
+        ) {
+          onChange(drag.current.width, false);
+          drag.current = null;
+          onCollapse();
+          return;
+        }
         const next = Math.max(
           sidebarMinimum,
           Math.min(maximum, drag.current.width + event.clientX - drag.current.x),

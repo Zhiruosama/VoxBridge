@@ -1148,7 +1148,7 @@ nav button[aria-current='page'] {
   .sidebar {
     display: none;
   }
-  .app-shell:not(.sidebar-collapsed) .sidebar {
+  .app-shell:not(.sidebar-collapsed):not(.sidebar-rail) .sidebar {
     display: flex;
     position: absolute;
     z-index: 10;
@@ -3334,4 +3334,33 @@ input[type='range']:focus-visible::-moz-range-thumb {
   .update-progress > span {
     transition: none;
   }
+}
+
+.app-shell.sidebar-rail {
+  grid-template-columns: 60px minmax(0, 1fr);
+}
+.sidebar-rail > .sidebar {
+  display: flex;
+  overflow: visible;
+}
+.sidebar-rail .brand span,
+.sidebar-rail .workspace-nav-label {
+  display: none;
+}
+.sidebar-rail .brand,
+.sidebar-rail nav button {
+  justify-content: center;
+}
+.sidebar-rail nav button {
+  position: relative;
+}
+.sidebar-rail nav button:focus-visible .workspace-nav-label {
+  display: block;
+  position: absolute;
+  z-index: 20;
+  left: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--raised);
+  white-space: nowrap;
 }
