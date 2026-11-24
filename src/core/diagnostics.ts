@@ -59,6 +59,7 @@ export function adapterCode(value: unknown): string | undefined {
       'qwen_chat_asr',
       'openai_audio_transcriptions',
       'qwen_dashscope_asr',
+      'doubao_realtime_asr',
       'pending_asr',
     ].includes(value)
     ? value

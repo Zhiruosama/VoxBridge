@@ -1,3 +1,4 @@
+import { canTranscribeWav, isRealtimeAsr } from '../core/asr-protocols';
 import AsrLanguageSelect from './AsrLanguageSelect';
 import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -16,7 +17,7 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
   const [result, setResult] = useState<Transcript | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const supportsFile = ['qwen_chat_asr', 'openai_audio_transcriptions'].includes(profile.adapter);
+  const supportsFile = canTranscribeWav(profile.adapter);
   const fileDisabled = !desktop || busy || !supportsFile;
   const [stopping, setStopping] = useState(false);
   const requestRef = useRef<string | null>(null);
@@ -97,7 +98,7 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
                 {usesBuiltinProfileName(profile) ? t(profile.name) : profile.name}
               </span>
               <span className="protocol-value">
-                {profile.adapter === 'qwen_dashscope_asr' ? 'WebSocket' : 'HTTP'}
+                {isRealtimeAsr(profile.adapter) ? 'WebSocket' : 'HTTP'}
               </span>
             </div>
             <span className="asr-profile-model">{profile.modelId || t('未配置模型')}</span>
@@ -167,7 +168,7 @@ export default function AsrDiagnostic({ settings }: { settings: Settings }) {
           error ||
             (profile.adapter === 'qwen_dashscope_asr'
               ? '实时识别请回到字幕页，选择音频进程后开始监听。'
-              : '支持 0.1–30 秒、16 kHz 单声道 PCM16 WAV。点击后会将所选音频发送给当前 ASR 服务，可能计费；不保存音频或文本。此入口不是实时 WebSocket 识别。'),
+              : '支持 0.1–30 秒、16 kHz 单声道 PCM16 WAV。点击后会将所选音频发送给当前 ASR 服务，可能计费。音频和文本只用于本次验证。'),
         )}
       </p>
     </section>

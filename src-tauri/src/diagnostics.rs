@@ -172,6 +172,7 @@ fn validate(event: &DiagnosticEvent) -> bool {
                 "qwen_chat_asr",
                 "openai_audio_transcriptions",
                 "qwen_dashscope_asr",
+                "doubao_realtime_asr",
                 "pending_asr",
             ]
             .contains(&v)

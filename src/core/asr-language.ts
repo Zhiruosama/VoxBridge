@@ -27,6 +27,8 @@ export function parseAsrLanguage(value: unknown): string {
 }
 
 export function asrLanguageHint(profile: ProviderProfile, language: string): string {
+  if (profile.adapter === 'doubao_realtime_asr')
+    return '豆包实时接口自动识别中文和英语，选择其他语言不会限定识别语言。';
   if (language !== automaticAsrLanguage && profile.adapter === 'qwen_dashscope_asr') {
     if (
       !['qwen-audio-3.0-asr-flash-streaming', 'qwen-audio-3.1-asr-flash-streaming'].includes(

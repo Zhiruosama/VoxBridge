@@ -1,3 +1,4 @@
+import { doubaoRealtimeUrl, supportsSpeakerLabels } from '../core/asr-protocols';
 import { asrLanguages, asrLanguageHint } from '../core/asr-language';
 import ServiceCheck from './ServiceCheck';
 import BilingualToggle from './BilingualToggle';
@@ -1145,16 +1146,18 @@ export default function SettingsPanel({
                   placeholder={
                     profile.adapter === 'minimax_tts_ws'
                       ? 'wss://api.minimax.cn/ws/v1/t2a_v2'
-                      : 'https://api.example.com/v1'
+                      : profile.adapter === 'doubao_realtime_asr'
+                        ? doubaoRealtimeUrl
+                        : 'https://api.example.com/v1'
                   }
                   onChange={(e) => update({ baseUrl: e.target.value })}
                   spellCheck={false}
                 />
               </SettingRow>
-              <SettingRow title={t('模型')}>
+              <SettingRow title={t(profile.adapter === 'doubao_realtime_asr' ? '资源 ID' : '模型')}>
                 <PresetSelect
                   key={`${profile.id}:${profile.adapter}:model`}
-                  label={t('模型')}
+                  label={t(profile.adapter === 'doubao_realtime_asr' ? '资源 ID' : '模型')}
                   value={profile.modelId}
                   options={modelOptions(profile)}
                   onChange={(modelId) => update(speechModelChange(profile, modelId))}
@@ -1183,6 +1186,7 @@ export default function SettingsPanel({
                       { value: 'openai_audio_transcriptions', label: 'OpenAI 兼容语音识别' },
                       { value: 'qwen_chat_asr', label: 'Qwen HTTP 短音频' },
                       { value: 'qwen_dashscope_asr', label: 'Qwen 实时识别' },
+                      { value: 'doubao_realtime_asr', label: '豆包实时识别' },
                     ]}
                   />
                 ) : (
@@ -1197,6 +1201,23 @@ export default function SettingsPanel({
                   </span>
                 )}
               </SettingRow>
+              {supportsSpeakerLabels(profile) && (
+                <SettingRow
+                  title="区分说话人"
+                  description="字幕定稿后标注说话人。保存后，下次开始监听时生效。"
+                >
+                  <button
+                    type="button"
+                    role="switch"
+                    className="preference-toggle"
+                    aria-label={t('区分说话人')}
+                    aria-checked={profile.speakerLabels === true}
+                    onClick={() => update({ speakerLabels: !profile.speakerLabels })}
+                  >
+                    {t(profile.speakerLabels ? '开启' : '关闭')}
+                  </button>
+                </SettingRow>
+              )}
               {stage === 'tts' && (
                 <SettingRow title={t('语速')}>
                   <SpeechSpeed value={profile.speed} onChange={(speed) => update({ speed })} />

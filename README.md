@@ -1,58 +1,47 @@
-# VoxBridge
+<p align="center"><img src="src-tauri/icons/128x128.png" width="72" height="72" alt=""></p>
+<h1 align="center">VoxBridge</h1>
 
-**简体中文** · [English](README.en.md) · [日本語](README.ja.md) · [Русский](README.ru.md)
+<p align="center">
+  <strong>一个用于跨语言通话的桌面翻译工具，支持 macOS 和 Windows。</strong><br>
+  看双语字幕，翻译复制的文字，把打字或录下的回复用对方的语言说出来。
+</p>
 
-[下载安装](https://github.com/Zhiruosama/VoxBridge/releases) · [开始使用](docs/guides/getting-started.md) · [文档中心](docs/README.md) · [反馈问题](https://github.com/Zhiruosama/VoxBridge/issues)
+<p align="center">
+  <a href="https://github.com/Zhiruosama/VoxBridge/releases"><strong>下载测试版</strong></a> ·
+  <a href="docs/guides/getting-started.md">安装指南</a> ·
+  <a href="docs/README.md">文档中心</a>
+</p>
 
-VoxBridge 是一款 macOS 和 Windows 翻译工具。它可以把应用声音显示为双语字幕，也可以翻译你输入的文字或录下的语音，通过虚拟麦克风在 Discord 等聊天软件中发声。
+<p align="center"><strong>简体中文</strong> · <a href="README.en.md">English</a> · <a href="README.ja.md">日本語</a> · <a href="README.ru.md">Русский</a></p>
 
-![VoxBridge 工作台](docs/assets/workspace-overview.png)
+![VoxBridge 字幕工作台，示例中每句英文下方显示对应的中文译文](docs/assets/workspace-overview.png)
 
-_界面示意，字幕为示例内容。_
+## 下载安装
 
-## 可以做什么
+在 [GitHub Releases](https://github.com/Zhiruosama/VoxBridge/releases) 展开测试版的 **Assets**，按文件名结尾选择安装包。
 
-- **文本翻译**：输入或监听复制的文字，确认后翻译或自动翻译，也可在小窗查看译文。
-- **翻译字幕**：选择要监听的应用，查看原文和译文。
-- **语音表达**：打字或录音，确认内容后生成语音；可以选择本地试听或发送到虚拟麦克风。
-- **悬浮窗口**：在其他窗口上方阅读字幕，也能直接打字或录音。
-- **声音与外观**：选择服务、模型、音色和语速，调整字幕颜色、字号与面板外观。
-
-## 下载与安装
-
-到 [Releases](https://github.com/Zhiruosama/VoxBridge/releases) 选择适合自己电脑的安装包。安装包已包含前端和原生程序，无需安装开发工具。
-
-| 电脑 | 选择的文件 | 安装方式 |
+| 平台 | 文件名结尾 | 安装 |
 | --- | --- | --- |
-| Apple Silicon Mac，macOS 14.2 或更高 | `aarch64.dmg` | 打开后拖入「应用程序」 |
-| Windows 11，Intel / AMD | `x64-setup.exe` | 运行安装器 |
-| Windows ARM64 | `arm64-setup.exe` | 实验支持，音频硬件兼容性仍待验证 |
+| Apple Silicon Mac · macOS 14.2 及以上 | `aarch64.dmg` | 打开磁盘映像，将 VoxBridge 拖入「应用程序」 |
+| Windows 11 · Intel / AMD | `x64-setup.exe` | 运行安装程序 |
+| Windows ARM64 · 实验支持 | `arm64-setup.exe` | 运行安装程序，音频硬件兼容性仍待验证 |
 
-Mac 应用尚未完成 Developer ID 签名和公证，Windows 应用尚未做 Authenticode 签名。首次打开、虚拟麦克风安装及升级方式见[安装指南](docs/guides/getting-started.md)。各平台的验证范围以[发布说明](https://github.com/Zhiruosama/VoxBridge/releases)为准。
+macOS 版尚未完成 Developer ID 签名和公证，Windows 版尚未做 Authenticode 签名。首次打开遇到系统提示时，请参阅[安装指南](docs/guides/getting-started.md)。各版本的验证范围见发布说明。
 
-## 开始使用
+## 第一次使用
 
-1. 打开设置，填写需要使用的模型服务和自己的 API Key。**只翻译文字，只需配置文字翻译服务。**
-2. 左侧选择「文本翻译」开始打字，或选择「字幕」并指定要监听的应用。
-3. 如需向聊天软件发送语音，再配置语音合成与虚拟麦克风；自己是否试听可单独控制。
+安装后，在「设置」中为要用的服务选择模型并保存自己的 API Key。可以先从下面任一项开始。
 
-密钥保存后无需每次重启重新填写。云服务按供应商规则计费，相关文字或音频会发送给你选择的服务；安装包不包含密钥、额度或私人克隆音色。
+- **看通话字幕。** 配置语音识别和文字翻译，在「字幕」页选中 Discord 或浏览器，等应用开始播放声音后点击「开始监听」。打开悬浮字幕，就能在通话窗口上方对照原文和译文。[监听与悬浮字幕](docs/guides/listening.md)
+- **用另一种语言回复。** 配置文字翻译和语音合成，在字幕页底部选好目标语言和音色，输入一句话。可以先用耳机试听，再通过虚拟麦克风送进通话。如果想口述回复，再配置语音识别，录完可先核对文字。[语音输入与虚拟麦克风](docs/guides/voice-output.md)
+- **翻译一段文字。** 只需配置文字翻译。在「文本翻译」页选好目标语言，粘贴文字并按 Enter。经常边读边译时，可以开启剪贴板监听和自动翻译，在小窗里看结果。[文本翻译](docs/guides/text-translation.md)
 
-## 按需要阅读
+使用云服务时，你提交的文字或音频会发送给所选供应商，并按其规则计费。API Key 和服务额度需自备。[模型与密钥配置](docs/guides/services.md)
 
-| 想做什么 | 阅读这里 |
-| --- | --- |
-| 第一次安装和配置 | [开始使用](docs/guides/getting-started.md) |
-| 配置模型、密钥和音色 | [服务配置](docs/guides/services.md) |
-| 只翻译一段文字 | [文本翻译](docs/guides/text-translation.md) |
-| 看应用声音的翻译字幕 | [监听与悬浮字幕](docs/guides/listening.md) |
-| 在 Discord 等软件中发送语音 | [语音输入与虚拟麦克风](docs/guides/voice-output.md) |
-| 遇到无声、报错或权限问题 | [常见问题与排错](docs/guides/troubleshooting.md) |
+## 帮助与开发
 
-开发、架构和历史记录统一从[文档中心](docs/README.md)进入。
+[声音、权限与服务排错](docs/guides/troubleshooting.md) · [反馈问题](https://github.com/Zhiruosama/VoxBridge/issues) · [本地开发与打包](docs/development.md) · [架构设计](docs/02-architecture.md)
 
 ## 许可
 
-VoxBridge 自有代码采用 [PolyForm Noncommercial](LICENSE)，允许依照许可进行非商业使用、修改和分发；商业用途需要另行取得授权。项目属于源码公开（source-available），不是允许自由商用的开源许可。
-
-第三方组件保留各自许可，详见[第三方许可说明](THIRD_PARTY_NOTICES.md)。
+VoxBridge 的源码公开，自有代码按 [PolyForm Noncommercial](LICENSE) 许可用于非商业使用、修改和分发。商业用途需另行授权。第三方组件适用各自的许可，详见[第三方许可说明](THIRD_PARTY_NOTICES.md)。

@@ -6,6 +6,7 @@ fn profile(url: &str) -> AsrProfile {
         adapter: "qwen_dashscope_asr".into(),
         base_url: url.into(),
         model_id: "qwen-audio-3.0-asr-flash-streaming".into(),
+        speaker_labels: false,
     }
 }
 fn sentence(id: u64, text: &str, done: bool) -> Value {

@@ -27,6 +27,10 @@ export default function CaptionFeed({
         const expression = first.segmentId.startsWith('expression:');
         const color = first.color ?? '#ffffff';
         const main = scope === 'workspace';
+        const speaker =
+          first.speaker === undefined ? null : (
+            <span className="caption-speaker">{t('说话人 {0}', first.speaker)}</span>
+          );
         const reveal = (value: string) =>
           main && expression ? <ExpressionReveal text={value} /> : value;
         const hasSource = (line: CaptionMember) =>
@@ -84,11 +88,14 @@ export default function CaptionFeed({
               } as CSSProperties
             }
           >
-            {main && (
+            {main ? (
               <div className="segment-meta">
                 <time>{first.time}</time>
+                {speaker}
                 {!first.final && <span>{t('识别中…')}</span>}
               </div>
+            ) : (
+              speaker
             )}
             {content !== 'translation' && group.members.some(hasSource) && (
               <p

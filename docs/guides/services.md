@@ -9,7 +9,7 @@
 | 设置页 | 用途 | 已接入的接口 |
 | --- | --- | --- |
 | 文字翻译 | 翻译输入文字和识别字幕 | OpenAI 兼容 Chat Completions，含 DeepSeek 预设 |
-| 语音识别 | 监听应用声音、识别麦克风录音 | Qwen 实时 WebSocket、Qwen HTTP 短音频、OpenAI Audio Transcriptions |
+| 语音识别 | 监听应用声音、识别麦克风录音 | 豆包实时 WebSocket、Qwen 实时 WebSocket、Qwen HTTP 短音频、OpenAI Audio Transcriptions |
 | 语音合成 | 将文字生成声音 | MiniMax WebSocket、OpenAI 兼容 Speech |
 
 预设只是填表帮助，不代表所有厂商、模型或语言都兼容。相同 API Key 也不意味着接口协议相同。开发者扩展服务时可参考[协议边界](../08-provider-configuration.md)。
@@ -42,6 +42,20 @@
 来源：[千问实时价格](https://help.aliyun.com/zh/model-studio/qwen-audio-3-0-asr-flash-streaming)、[Paraformer 价格与语言](https://help.aliyun.com/zh/model-studio/paraformer-realtime-v2)、[Groq 价格与计费限制](https://console.groq.com/docs/speech-to-text)。价格低不代表同等准确率；本项目尚未用相同真实录音比较这些模型，因此保留现有配置，不自动更换供应商。
 
 试用 Groq：在「语音识别 → 新增配置」选择「Groq Whisper · HTTP 短音频」，保存自己的 Groq API Key。预设地址为 `https://api.groq.com/openai/v1`，默认模型为 `whisper-large-v3-turbo`；也可选 `whisper-large-v3`。程序复用 OpenAI 兼容转写接口，支持分段字幕、麦克风和文件验证，不提供逐字实时流。需自行确认所在网络可以访问 Groq。
+
+### 豆包流式语音识别 2.0
+
+在「语音识别 → 新增配置」选择「豆包流式语音识别 2.0」，在火山引擎开通小时版，再保存同一项目的语音 API Key。先开通服务，再创建密钥。[开通语音服务](https://console.volcengine.com/speech/new/setting/activate?projectName=default) · [语音 API Key 管理](https://console.volcengine.com/speech/new/setting/apikeys?projectName=default)
+
+| 设置项 | 小时版 |
+| --- | --- |
+| 接口类型 | 豆包实时识别 |
+| API 地址 | `wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async` |
+| 资源 ID | `volc.seedasr.sauc.duration` |
+
+实时接口自动识别中文和英语，句末的二遍识别结果会用于字幕翻译。可在字幕页、麦克风录音或「音频与诊断」的短 WAV 验证中试用。已使用官方地址与资源 ID 保存过「未配置协议」条目的用户可以继续使用该条目及其密钥。[火山引擎实时接口说明](https://docs.volcengine.com/docs/doubao-voice/bidirectional-streaming-automatic-speech-recognition-websocket?lang=zh)
+
+使用豆包实时识别 2.0 时，可以在「语音识别 → 区分说话人」开启字幕标签。保存后重新开始监听，工作台和悬浮窗会在定稿字幕上显示会话内的说话人编号。多人同时说话时，模型仍可能漏听或分错人。
 
 ### OpenAI 语音识别
 

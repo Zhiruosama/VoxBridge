@@ -1,3 +1,4 @@
+import { doubaoResourceIds } from './asr-protocols';
 import { supportsEmotion } from './speech-options';
 import type { ProviderProfile, Settings } from './types';
 import { profileFor } from './settings';
@@ -12,6 +13,7 @@ export interface SpeechOption {
 
 /** Catalogs belong to a protocol/provider; an OpenAI-compatible endpoint need not be OpenAI. */
 export function speechProvider(profile: ProviderProfile): string {
+  if (profile.adapter === 'doubao_realtime_asr') return '火山引擎 · 豆包';
   if (profile.adapter === 'minimax_tts_ws') return 'MiniMax';
   if (profile.adapter === 'qwen_chat_asr' || profile.adapter === 'qwen_dashscope_asr')
     return '阿里云 · Qwen';
@@ -37,26 +39,28 @@ export function speechProvider(profile: ProviderProfile): string {
 export function modelOptions(profile: ProviderProfile): SpeechOption[] {
   const provider = speechProvider(profile);
   const ids =
-    profile.adapter === 'openai_audio_transcriptions'
-      ? provider === 'Groq'
-        ? ['whisper-large-v3-turbo', 'whisper-large-v3']
-        : provider === 'OpenAI'
-          ? [
-              'whisper-1',
-              'gpt-4o-transcribe',
-              'gpt-4o-mini-transcribe',
-              'gpt-4o-transcribe-diarize',
-            ]
-          : []
-      : profile.stage === 'tts' && provider === 'MiniMax'
-        ? ['speech-2.8-turbo', 'speech-2.8-hd']
-        : profile.adapter === 'qwen_dashscope_asr'
-          ? ['qwen-audio-3.0-asr-flash-streaming']
-          : profile.adapter === 'qwen_chat_asr'
-            ? ['qwen3-asr-flash']
-            : provider === 'OpenAI'
-              ? ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']
-              : [];
+    profile.adapter === 'doubao_realtime_asr'
+      ? doubaoResourceIds
+      : profile.adapter === 'openai_audio_transcriptions'
+        ? provider === 'Groq'
+          ? ['whisper-large-v3-turbo', 'whisper-large-v3']
+          : provider === 'OpenAI'
+            ? [
+                'whisper-1',
+                'gpt-4o-transcribe',
+                'gpt-4o-mini-transcribe',
+                'gpt-4o-transcribe-diarize',
+              ]
+            : []
+        : profile.stage === 'tts' && provider === 'MiniMax'
+          ? ['speech-2.8-turbo', 'speech-2.8-hd']
+          : profile.adapter === 'qwen_dashscope_asr'
+            ? ['qwen-audio-3.0-asr-flash-streaming']
+            : profile.adapter === 'qwen_chat_asr'
+              ? ['qwen3-asr-flash']
+              : provider === 'OpenAI'
+                ? ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']
+                : [];
   return withCurrent(
     mergePresets(
       profile,

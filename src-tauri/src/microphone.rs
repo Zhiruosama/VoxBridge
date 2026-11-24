@@ -523,7 +523,7 @@ fn record(
 pub async fn start_voice_input(
     request_id: String,
     device_id: String,
-    profile: AsrProfile,
+    mut profile: AsrProfile,
     language: Option<String>,
     on_progress: tauri::ipc::Channel<Progress>,
     state: tauri::State<'_, MicrophoneState>,
@@ -544,6 +544,7 @@ pub async fn start_voice_input(
     let key = tokio::select! { _ = token.cancelled() => return Err("录音已取消。".into()), result = crate::credentials::read_async(&profile.id) => result? };
     let capture_token = token.clone();
     let samples = if profile.is_realtime() {
+        profile.speaker_labels = false;
         let (tx, rx) = tokio::sync::mpsc::channel(64);
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
         let mut sentences = std::collections::BTreeMap::new();
@@ -567,7 +568,9 @@ pub async fn start_voice_input(
             rx,
             ready_tx,
             |sentence| {
-                sentences.insert(sentence.id, sentence.text);
+                if !profile.is_doubao() || sentence.final_text {
+                    sentences.insert(sentence.id, sentence.text);
+                }
                 Ok(())
             },
         );

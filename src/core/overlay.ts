@@ -67,6 +67,7 @@ export function overlaySnapshot(
     lines.unshift({
       segmentId: segment.id,
       paragraphId: segment.paragraphId,
+      speaker: segment.speaker,
       color:
         parsed.colorMode === 'workspace'
           ? colors[segment.id.startsWith('expression:') ? 'expression' : 'recognition']

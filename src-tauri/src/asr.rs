@@ -23,11 +23,26 @@ pub struct AsrProfile {
     adapter: String,
     base_url: String,
     pub model_id: String,
+    #[serde(default)]
+    pub(crate) speaker_labels: bool,
 }
 
 impl AsrProfile {
     pub(crate) fn is_realtime(&self) -> bool {
-        self.adapter == "qwen_dashscope_asr"
+        self.adapter == "qwen_dashscope_asr" || self.is_doubao()
+    }
+
+    fn uses_speaker_labels(&self) -> bool {
+        self.speaker_labels
+            && self.is_doubao()
+            && matches!(
+                self.model_id.trim(),
+                "volc.seedasr.sauc.duration" | "volc.seedasr.sauc.concurrent"
+            )
+    }
+
+    pub(crate) fn is_doubao(&self) -> bool {
+        self.adapter == "doubao_realtime_asr"
     }
 }
 
@@ -39,7 +54,7 @@ pub struct Transcript {
 }
 
 pub(crate) fn endpoint(profile: &AsrProfile) -> Result<url::Url, String> {
-    if profile.adapter == "qwen_dashscope_asr" {
+    if profile.is_realtime() {
         return realtime::endpoint(profile);
     }
     if profile.stage != "asr"
@@ -83,6 +98,10 @@ pub(crate) fn endpoint(profile: &AsrProfile) -> Result<url::Url, String> {
 }
 
 pub(crate) fn validate_wav(audio: &[u8]) -> Result<f64, String> {
+    wav_pcm(audio).map(|pcm| pcm.len() as f64 / 32_000.0)
+}
+
+fn wav_pcm(audio: &[u8]) -> Result<&[u8], String> {
     let invalid = || "仅支持 0.1–30 秒、16 kHz 单声道 PCM16 WAV，请先转换音频格式。".to_string();
     if audio.len() < 44
         || audio.len() > MAX_WAV
@@ -97,7 +116,7 @@ pub(crate) fn validate_wav(audio: &[u8]) -> Result<f64, String> {
     }
     let mut offset = 12;
     let mut format = false;
-    let mut data_size = None;
+    let mut pcm = None;
     while offset + 8 <= audio.len() {
         let id = &audio[offset..offset + 4];
         let size = u32::from_le_bytes(audio[offset + 4..offset + 8].try_into().unwrap()) as usize;
@@ -122,18 +141,19 @@ pub(crate) fn validate_wav(audio: &[u8]) -> Result<f64, String> {
             }
             format = true;
         } else if id == b"data" {
-            if !format || data_size.is_some() || !size.is_multiple_of(2) {
+            if !format || pcm.is_some() || !size.is_multiple_of(2) {
                 return Err(invalid());
             }
-            data_size = Some(size);
+            pcm = Some(&audio[start..end]);
         }
         offset = end + size % 2;
     }
-    let seconds = data_size.ok_or_else(invalid)? as f64 / 32_000.0;
+    let pcm = pcm.ok_or_else(invalid)?;
+    let seconds = pcm.len() as f64 / 32_000.0;
     if !format || offset != audio.len() || !(0.1..=30.0).contains(&seconds) {
         return Err(invalid());
     }
-    Ok(seconds)
+    Ok(pcm)
 }
 
 fn status_error(status: u16) -> String {
@@ -328,7 +348,7 @@ pub fn stop_asr(request_id: String, state: tauri::State<'_, AsrState>) -> Result
 
 #[tauri::command]
 pub async fn transcribe_wav(
-    profile: AsrProfile,
+    mut profile: AsrProfile,
     audio: Vec<u8>,
     request_id: String,
     language: Option<String>,
@@ -341,6 +361,17 @@ pub async fn transcribe_wav(
         _ = job.token.cancelled() => return Err(STOPPED.into()),
         result = crate::credentials::read_async(&profile.id) => result?,
     };
+    if profile.is_doubao() {
+        profile.speaker_labels = false;
+        return recognize_wav_stream(
+            &profile,
+            wav_pcm(&audio)?,
+            language.as_deref().unwrap_or("自动识别"),
+            &key,
+            &job.token,
+        )
+        .await;
+    }
     recognize_with_language(
         &profile,
         &audio,
@@ -349,6 +380,59 @@ pub async fn transcribe_wav(
         &job.token,
     )
     .await
+}
+
+async fn recognize_wav_stream(
+    profile: &AsrProfile,
+    pcm: &[u8],
+    language: &str,
+    key: &str,
+    token: &CancellationToken,
+) -> Result<Transcript, String> {
+    let (sender, receiver) = tokio::sync::mpsc::channel(1);
+    let (ready_sender, ready_receiver) = tokio::sync::oneshot::channel();
+    let send_pcm = async move {
+        if ready_receiver.await.is_err() {
+            return;
+        }
+        let start = tokio::time::Instant::now();
+        let mut elapsed_bytes = 0;
+        for bytes in pcm.chunks(3200) {
+            elapsed_bytes += bytes.len();
+            let available_at = start + Duration::from_secs_f64(elapsed_bytes as f64 / 32_000.0);
+            tokio::select! { biased;
+                _ = sender.closed() => return,
+                _ = tokio::time::sleep_until(available_at) => {}
+            }
+            if sender.send(bytes.to_vec()).await.is_err() {
+                return;
+            }
+        }
+    };
+    let mut sentences = Vec::new();
+    let receive = realtime::recognize_stream_with_language(
+        profile,
+        language,
+        key,
+        token,
+        receiver,
+        ready_sender,
+        |sentence| {
+            if sentence.final_text {
+                sentences.push(sentence.text);
+            }
+            Ok(())
+        },
+    );
+    let (result, ()) = tokio::join!(receive, send_pcm);
+    result?;
+    if token.is_cancelled() {
+        return Err(STOPPED.into());
+    }
+    Ok(Transcript {
+        text: sentences.join(" "),
+        audio_seconds: pcm.len() as f64 / 32_000.0,
+    })
 }
 
 #[cfg(test)]

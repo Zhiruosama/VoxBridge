@@ -8,6 +8,7 @@ fn caption(id: u64) -> Sentence {
         text: format!("Short sentence {id}."),
         final_text: true,
         start_ms: 0,
+        speaker_id: None,
     }
 }
 

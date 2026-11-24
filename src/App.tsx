@@ -677,7 +677,8 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     if (!listenEpochRef.current.accept(event)) return;
     if (event.type === 'transcript') {
       if (event.final) conversation.current.remember(event.segmentId, 'remote', event.text);
-      setSession((state) => applyTranscript(state, event));
+      const speaker = event.final ? listenEpochRef.current.speaker(event.speakerId) : undefined;
+      setSession((state) => applyTranscript(state, event, speaker));
     } else if (event.type === 'translation') {
       setSession((state) =>
         applyTranslation(
@@ -724,13 +725,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     const source = captureSources.find((item) => captureSourceKey(item) === captureSourceId);
     const asrProfile = profileFor(settings, 'asr');
     const invalid = validateProfile(asrProfile) || validateProfile(translationProfile);
-    if (
-      !source ||
-      invalid ||
-      !['qwen_chat_asr', 'qwen_dashscope_asr', 'openai_audio_transcriptions'].includes(
-        asrProfile.adapter,
-      )
-    ) {
+    if (!source || invalid || asrProfile.adapter === 'pending_asr') {
       setListenError(invalid || '请刷新并选择监听应用，配置语音识别与文字翻译服务。');
       if (invalid) notify(invalid, validateProfile(asrProfile) ? 'asr' : 'translation');
       return;

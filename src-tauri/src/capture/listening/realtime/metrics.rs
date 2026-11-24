@@ -85,6 +85,7 @@ mod tests {
             text: "fixture".into(),
             final_text,
             start_ms: 0,
+            speaker_id: None,
         }
     }
     #[test]
