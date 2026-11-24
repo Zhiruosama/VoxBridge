@@ -9,7 +9,10 @@ import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAc
 import { ArrowUpRight, ChevronDown, Check, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { version } from '../../package.json';
 import type { OutputDevice, ProviderProfile, Settings, Stage } from '../core/types';
-import { defaultTranslationPrompt, translationPromptLimit } from '../core/translation-prompt';
+import {
+  removeTranslationPromptPreset,
+  saveTranslationPromptPreset,
+} from '../core/translation-prompt';
 import { blankProfile, profileFor, captionColorDefaults, defaults } from '../core/settings';
 import {
   previewDeviceOptions,
@@ -34,6 +37,7 @@ import MicrophoneAccess from './MicrophoneAccess';
 import UpdateControls from './UpdateControls';
 import PresetEditor from './PresetEditor';
 import PresetSelect from './PresetSelect';
+import TranslationPromptEditor from './TranslationPromptEditor';
 import {
   applyProviderPreset,
   providerPresets,
@@ -1274,29 +1278,20 @@ export default function SettingsPanel({
             />
           )}
           {stage === 'translation' && (
-            <section className="preference-section" aria-labelledby="translation-prompt-heading">
-              <div className="preference-section-title">
-                <h2 id="translation-prompt-heading">{t('翻译风格')}</h2>
-                <button
-                  className="subtle"
-                  onClick={() => update({ translationPrompt: defaultTranslationPrompt })}
-                >
-                  {t('恢复默认')}
-                </button>
-              </div>
-              <div className="preference-card translation-prompt-editor">
-                <textarea
-                  aria-label={t('翻译前置 Prompt')}
-                  value={profile.translationPrompt ?? defaultTranslationPrompt}
-                  maxLength={translationPromptLimit}
-                  rows={8}
-                  spellCheck={false}
-                  placeholder={defaultTranslationPrompt}
-                  onChange={(event) => update({ translationPrompt: event.target.value })}
-                />
-                <p>{t('调整措辞和语气，目标语言由语言设置决定。留空使用默认提示词。')}</p>
-              </div>
-            </section>
+            <TranslationPromptEditor
+              key={profile.id}
+              profile={profile}
+              presets={draft.translationPromptPresets}
+              onPromptChange={(translationPrompt, translationPromptPresetId) =>
+                update({ translationPrompt, translationPromptPresetId })
+              }
+              onSavePreset={(entry) =>
+                setDraft(saveTranslationPromptPreset(draft, profile.id, entry))
+              }
+              onDeletePreset={(id) =>
+                setDraft((current) => removeTranslationPromptPreset(current, id))
+              }
+            />
           )}
           <section className="preference-section" aria-labelledby="credential-heading">
             <h2 id="credential-heading">{t('API 密钥')}</h2>

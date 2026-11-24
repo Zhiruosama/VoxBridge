@@ -1288,6 +1288,25 @@ nav button[aria-current='page'] {
   display: flex;
   align-items: center;
 }
+.select-option-remove {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.select-option-remove:not(:hover, :focus-visible) svg,
+.select-option-remove:is(:hover, :focus-visible) ~ .select-check {
+  visibility: hidden;
+}
+.select-option-remove ~ .select-check {
+  pointer-events: none;
+}
 .select-options {
   max-height: min(calc(var(--radix-select-content-available-height) - 12px), 308px);
   overscroll-behavior: contain;
@@ -1909,6 +1928,29 @@ input:not([type='range']):focus {
 .translation-prompt-editor {
   padding-block: 18px;
 }
+.translation-prompt-content {
+  display: grid;
+  gap: 12px;
+}
+.translation-prompt-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.translation-prompt-toolbar .select-trigger {
+  flex: 1;
+  min-width: 0;
+  max-width: 330px;
+  background: var(--bg);
+}
+.translation-prompt-form {
+  display: grid;
+  gap: 8px;
+}
+.translation-prompt-form input {
+  width: 100%;
+}
 .translation-prompt-editor textarea {
   width: 100%;
   min-height: 180px;
@@ -1922,8 +1964,8 @@ input:not([type='range']):focus {
   font-size: 13px;
   line-height: 1.8;
 }
-.translation-prompt-editor p {
-  margin: 10px 0 0;
+.translation-prompt-help {
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
 }

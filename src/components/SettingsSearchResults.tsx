@@ -74,7 +74,12 @@ export default function SettingsSearchResults({
     for (const [anchor, label] of [
       ['connection-heading', '服务连接'],
       ['credential-heading', 'API 密钥'],
-      ...(stage === 'translation' ? [['translation-prompt-heading', '翻译风格']] : []),
+      ...(stage === 'translation'
+        ? [
+            ['translation-prompt-heading', '翻译风格'],
+            ['translation-prompt-heading', '提示词预设'],
+          ]
+        : []),
     ]) {
       entries.push({ label, group, open: () => onOpen(stage, anchor) });
     }

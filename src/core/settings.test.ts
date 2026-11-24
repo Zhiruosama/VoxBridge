@@ -1,5 +1,13 @@
 import { doubaoRealtimeUrl, doubaoResourceIds } from './asr-protocols';
-import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
+import {
+  builtinTranslationPromptPresets,
+  defaultTranslationPrompt,
+  defaultTranslationPromptPresetId,
+  removeTranslationPromptPreset,
+  saveTranslationPromptPreset,
+  selectedTranslationPromptPresetId,
+  translationPromptLimit,
+} from './translation-prompt';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaults, loadSettings, parseSettings, saveSettings, validateProfile } from './settings';
 import { migrateLegacyOutputRouting } from './audio-routing';
@@ -421,10 +429,14 @@ it('migrates listening direction independently from the saved text-expression pa
 
 describe('translation style prompt', () => {
   it('migrates an older configuration to the casual default without changing the active model', () => {
-    const settings = structuredClone(defaults);
+    const { translationPromptPresets: _unused, ...settings } = structuredClone(defaults);
     delete settings.profiles[1].translationPrompt;
     const parsed = parseSettings(settings);
     expect(parsed.profiles[1].translationPrompt).toBe(defaultTranslationPrompt);
+    expect(parsed.translationPromptPresets).toEqual([]);
+    expect(selectedTranslationPromptPresetId(parsed.profiles[1], [])).toBe(
+      defaultTranslationPromptPresetId,
+    );
     expect(parsed.active).toEqual(settings.active);
     expect(defaultTranslationPrompt).toContain('Instagram');
     expect(defaultTranslationPrompt).toContain('Discord');
@@ -435,6 +447,7 @@ describe('translation style prompt', () => {
     settings.profiles.push({ ...settings.profiles[1], id: 'other', translationPrompt: '' });
     const parsed = parseSettings(JSON.parse(JSON.stringify(settings)));
     expect(parsed.profiles[1].translationPrompt).toBe(settings.profiles[1].translationPrompt);
+    expect(selectedTranslationPromptPresetId(parsed.profiles[1], [])).toBeUndefined();
     expect(parsed.profiles[3].translationPrompt).toBe('');
     expect(parsed.profiles[0].translationPrompt).toBeUndefined();
   });
@@ -452,6 +465,37 @@ describe('translation style prompt', () => {
     expect(parseSettings(settings).profiles[3].translationPrompt).toHaveLength(
       translationPromptLimit,
     );
+  });
+  it('persists a named copy of a built-in and preserves the prompt when that copy is deleted', () => {
+    const math = builtinTranslationPromptPresets.find((preset) => preset.name === '数学')!;
+    const custom = { ...math, id: 'custom:my-math', name: ' My Math ' };
+    const saved = saveTranslationPromptPreset(defaults, 'translation-default', custom);
+    const parsed = parseSettings(JSON.parse(JSON.stringify(saved)));
+    expect(parsed.translationPromptPresets).toEqual([{ ...custom, name: 'My Math' }]);
+    expect(
+      selectedTranslationPromptPresetId(parsed.profiles[1], parsed.translationPromptPresets),
+    ).toBe(custom.id);
+    const deleted = removeTranslationPromptPreset(parsed, custom.id);
+    expect(deleted.translationPromptPresets).toEqual([]);
+    expect(deleted.profiles[1].translationPromptPresetId).toBeUndefined();
+    expect(deleted.profiles[1].translationPrompt).toBe(math.prompt);
+    expect(selectedTranslationPromptPresetId(deleted.profiles[1], [])).toBe(math.id);
+  });
+  it('validates custom presets and clears stale selections without replacing existing text', () => {
+    const preset = { id: 'custom:first', name: 'Study', prompt: 'Use standard terms.' };
+    const saved = saveTranslationPromptPreset(defaults, 'translation-default', preset);
+    expect(() =>
+      saveTranslationPromptPreset(saved, 'translation-default', { ...preset, id: 'custom:second' }),
+    ).toThrow('同名');
+    const { translationPromptPresets, ...settings } = saved;
+    expect(parseSettings(settings).profiles[1]).toMatchObject({ translationPrompt: preset.prompt });
+    expect(parseSettings(settings).profiles[1].translationPromptPresetId).toBeUndefined();
+    expect(() =>
+      parseSettings({
+        ...settings,
+        translationPromptPresets: [{ ...translationPromptPresets[0], id: 'builtin:chat' }],
+      }),
+    ).toThrow('预设格式无效');
   });
 });
 
