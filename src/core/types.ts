@@ -39,6 +39,7 @@ export interface ProviderProfile {
   voicePresets?: ProfilePreset[];
   thinking?: 'enabled' | 'disabled';
   translationPrompt?: string;
+  translationPromptPresetId?: string;
 }
 export interface ProfilePreset {
   name: string;
@@ -84,6 +85,7 @@ export interface Settings {
   uiLanguage: 'zh-CN' | 'en' | 'ru';
   schemaVersion: 1;
   profiles: ProviderProfile[];
+  translationPromptPresets: import('./translation-prompt').TranslationPromptPreset[];
   active: Record<Stage, string>;
   sourceLanguage: string;
   targetLanguage: string;

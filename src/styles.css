@@ -1898,6 +1898,29 @@ input:not([type='range']):focus {
 .translation-prompt-editor {
   padding-block: 18px;
 }
+.translation-prompt-content {
+  display: grid;
+  gap: 12px;
+}
+.translation-prompt-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.translation-prompt-toolbar .select-trigger {
+  flex: 1;
+  min-width: 0;
+  max-width: 330px;
+  background: var(--bg);
+}
+.translation-prompt-form {
+  display: grid;
+  gap: 8px;
+}
+.translation-prompt-form input {
+  width: 100%;
+}
 .translation-prompt-editor textarea {
   width: 100%;
   min-height: 180px;
@@ -1911,10 +1934,38 @@ input:not([type='range']):focus {
   font-size: 13px;
   line-height: 1.8;
 }
-.translation-prompt-editor p {
-  margin: 10px 0 0;
+.translation-prompt-help {
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+.translation-prompt-library {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  font-size: 13px;
+}
+.translation-prompt-library summary {
+  width: fit-content;
+  cursor: pointer;
+}
+.translation-prompt-library ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.translation-prompt-library li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+}
+.translation-prompt-library li span {
+  overflow-wrap: anywhere;
+}
+.translation-prompt-library .icon-button {
+  flex: 0 0 32px;
+  height: 32px;
 }
 
 .composer-box.is-voice-active > textarea,

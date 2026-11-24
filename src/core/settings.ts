@@ -4,7 +4,11 @@ import { textPanelOpacity } from './text-translation-layout';
 import { parseSpeechOptions } from './speech-options';
 import { parseUiLanguage } from '../i18n';
 import { systemDefaultOutputId, virtualMicrophoneOutputId } from './audio-routing';
-import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
+import {
+  defaultTranslationPrompt,
+  parseTranslationPromptPresets,
+  translationPromptLimit,
+} from './translation-prompt';
 import type { ComposerSettings, ProviderProfile, Settings, Stage } from './types';
 import { parseSubtitleAppearance, subtitleDefaults } from './overlay';
 import { parseProfilePresets } from './profile-presets';
@@ -15,6 +19,7 @@ export { captionColorDefaults } from './caption-colors';
 export const defaults: Settings = {
   uiLanguage: 'zh-CN',
   schemaVersion: 1,
+  translationPromptPresets: [],
   sourceLanguage: '简体中文',
   targetLanguage: '英语',
   listening: { sourceLanguage: '自动识别', targetLanguage: '简体中文' },
@@ -171,6 +176,7 @@ export function parseSettings(value: unknown): Settings {
   const input = value as Record<string, unknown>;
   if (input.schemaVersion !== 1 || !Array.isArray(input.profiles))
     throw new Error('不支持的设置版本。');
+  const translationPromptPresets = parseTranslationPromptPresets(input.translationPromptPresets);
   const profiles: ProviderProfile[] = input.profiles.map((item: unknown) => {
     if (!item || typeof item !== 'object') throw new Error('服务配置无效。');
     const p = item as Record<string, unknown>;
@@ -202,6 +208,16 @@ export function parseSettings(value: unknown): Settings {
       throw new Error('语速应在 0.5–2.0 倍之间。');
     const invalid = validateEndpoint(p.baseUrl as string, adapter);
     if (invalid) throw new Error(invalid);
+    const translationPrompt =
+      typeof p.translationPrompt === 'string' ? p.translationPrompt : defaultTranslationPrompt;
+    const savedPromptPreset =
+      stage === 'translation'
+        ? translationPromptPresets.find(
+            (preset) =>
+              preset.id === p.translationPromptPresetId &&
+              preset.prompt === translationPrompt.trim(),
+          )
+        : undefined;
     return {
       id: p.id as string,
       name: p.name as string,
@@ -220,14 +236,8 @@ export function parseSettings(value: unknown): Settings {
       ...(stage === 'tts' && p.voicePresets !== undefined
         ? { voicePresets: parseProfilePresets(p.voicePresets) }
         : {}),
-      ...(stage === 'translation'
-        ? {
-            translationPrompt:
-              typeof p.translationPrompt === 'string'
-                ? p.translationPrompt
-                : defaultTranslationPrompt,
-          }
-        : {}),
+      ...(stage === 'translation' ? { translationPrompt } : {}),
+      ...(savedPromptPreset ? { translationPromptPresetId: savedPromptPreset.id } : {}),
       ...(stage === 'translation' && ['enabled', 'disabled'].includes(p.thinking as string)
         ? { thinking: p.thinking as 'enabled' | 'disabled' }
         : {}),
@@ -310,6 +320,7 @@ export function parseSettings(value: unknown): Settings {
           : virtualMicrophoneOutputId,
     },
     profiles,
+    translationPromptPresets,
     active: {
       asr: active.asr as string,
       translation: active.translation as string,
