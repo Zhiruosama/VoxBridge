@@ -1,3 +1,4 @@
+import { doubaoRealtimeUrl, doubaoResourceIds, isRealtimeAsr } from './asr-protocols';
 import { parseTextOverlayAppearance, textOverlayAppearanceDefaults } from './text-overlay';
 import { parseAsrLanguage, automaticAsrLanguage } from './asr-language';
 import { textPanelOpacity } from './text-translation-layout';
@@ -105,7 +106,7 @@ function validateEndpoint(baseUrl: string, adapter: ProviderProfile['adapter']):
     const protocols =
       adapter === 'pending_asr'
         ? ['https:', 'wss:']
-        : adapter === 'minimax_tts_ws' || adapter === 'qwen_dashscope_asr'
+        : adapter === 'minimax_tts_ws' || isRealtimeAsr(adapter)
           ? ['wss:']
           : ['https:'];
     const secureProtocol =
@@ -175,13 +176,29 @@ export function parseSettings(value: unknown): Settings {
     if (!item || typeof item !== 'object') throw new Error('服务配置无效。');
     const p = item as Record<string, unknown>;
     const stage = p.stage as Stage;
-    const adapter = p.adapter as ProviderProfile['adapter'];
+    // Preserve the profile ID so a saved test configuration keeps its API key.
+    const adapter = (
+      stage === 'asr' &&
+      p.adapter === 'pending_asr' &&
+      typeof p.baseUrl === 'string' &&
+      p.baseUrl.trim() === doubaoRealtimeUrl &&
+      typeof p.modelId === 'string' &&
+      doubaoResourceIds.includes(p.modelId.trim())
+        ? 'doubao_realtime_asr'
+        : p.adapter
+    ) as ProviderProfile['adapter'];
     const adapters =
       stage === 'translation'
         ? ['openai_chat_completions']
         : stage === 'tts'
           ? ['minimax_tts_ws', 'openai_audio_speech']
-          : ['pending_asr', 'qwen_chat_asr', 'qwen_dashscope_asr', 'openai_audio_transcriptions'];
+          : [
+              'pending_asr',
+              'qwen_chat_asr',
+              'qwen_dashscope_asr',
+              'doubao_realtime_asr',
+              'openai_audio_transcriptions',
+            ];
     if (!['asr', 'translation', 'tts'].includes(stage) || !adapters.includes(adapter))
       throw new Error('不支持的服务协议。');
     for (const key of ['id', 'name', 'baseUrl', 'modelId', 'voice']) {

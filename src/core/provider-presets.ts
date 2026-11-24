@@ -1,9 +1,19 @@
+import { doubaoRealtimeUrl, doubaoResourceIds } from './asr-protocols';
 import { blankProfile } from './settings';
 import { defaultTranslationPrompt } from './translation-prompt';
 import type { ProviderProfile, Settings } from './types';
 
 // Public connection settings only. Credentials are held separately by the OS.
 export const providerPresets: ProviderProfile[] = [
+  {
+    id: 'provider-doubao-realtime',
+    name: '豆包流式语音识别 2.0',
+    stage: 'asr',
+    adapter: 'doubao_realtime_asr',
+    baseUrl: doubaoRealtimeUrl,
+    modelId: doubaoResourceIds[0],
+    voice: '',
+  },
   {
     id: 'provider-groq-asr',
     name: 'Groq Whisper · HTTP 短音频',

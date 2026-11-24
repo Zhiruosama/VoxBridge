@@ -1,3 +1,4 @@
+import { doubaoRealtimeUrl, doubaoResourceIds } from './asr-protocols';
 import { defaultTranslationPrompt, translationPromptLimit } from './translation-prompt';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaults, loadSettings, parseSettings, saveSettings, validateProfile } from './settings';
@@ -59,6 +60,28 @@ describe('settings recovery', () => {
 });
 
 describe('provider profiles', () => {
+  it('reuses the active saved Doubao test profile and its credential ID', () => {
+    const settings = structuredClone(defaults);
+    const profile = {
+      id: 'saved-doubao',
+      name: '豆包',
+      stage: 'asr' as const,
+      adapter: 'pending_asr' as const,
+      baseUrl: doubaoRealtimeUrl,
+      modelId: doubaoResourceIds[0],
+      voice: '',
+    };
+    settings.profiles.push(profile);
+    settings.active.asr = profile.id;
+
+    const parsed = parseSettings(settings);
+    expect(parsed.active.asr).toBe(profile.id);
+    expect(parsed.profiles.at(-1)).toEqual({ ...profile, adapter: 'doubao_realtime_asr' });
+    expect(parseSettings(parsed)).toEqual(parsed);
+
+    profile.baseUrl = 'wss://example.com/other-asr';
+    expect(parseSettings(settings).profiles.at(-1)).toEqual(profile);
+  });
   it('migrates and persists workspace font size independently of floating captions', () => {
     for (const value of [undefined, null, '24', NaN, Infinity]) {
       expect(parseSettings({ ...defaults, captionFontSize: value }).captionFontSize).toBe(17);

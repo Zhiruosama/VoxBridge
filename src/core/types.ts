@@ -6,6 +6,7 @@ export type Adapter =
   | 'openai_audio_transcriptions'
   | 'qwen_chat_asr'
   | 'qwen_dashscope_asr'
+  | 'doubao_realtime_asr'
   | 'pending_asr';
 export interface AudioRouting {
   inputDeviceId?: string;

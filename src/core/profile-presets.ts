@@ -15,6 +15,7 @@ function normalize(value: unknown): ProfilePreset {
     'qwen_chat_asr',
     'openai_audio_transcriptions',
     'qwen_dashscope_asr',
+    'doubao_realtime_asr',
     'openai_audio_speech',
     'minimax_tts_ws',
     'openai_chat_completions',

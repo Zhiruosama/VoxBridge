@@ -238,6 +238,7 @@ async fn process_stream(
     };
     let segmented = async {
         let mut chunks = chunks::Chunks::default();
+        let provider_sentences = request.asr_profile.is_doubao();
         let mut versions = std::collections::BTreeMap::new();
         let mut context_window = crate::providers::ContextWindow::default();
         let mut timings = metrics::RecognitionTimings::default();
@@ -250,7 +251,12 @@ async fn process_stream(
                     sentence = source_rx.recv() => match sentence {
                         Some((sentence, received_ms)) => {
                             timings.received(&sentence, received_ms);
-                            (chunks.push(sentence, started.elapsed().as_millis() as u64), true, false)
+                            let output = if provider_sentences {
+                                vec![sentence]
+                            } else {
+                                chunks.push(sentence, started.elapsed().as_millis() as u64)
+                            };
+                            (output, true, false)
                         },
                         None => (chunks.finish(), false, true),
                     },

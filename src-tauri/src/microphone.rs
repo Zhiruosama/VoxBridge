@@ -567,7 +567,9 @@ pub async fn start_voice_input(
             rx,
             ready_tx,
             |sentence| {
-                sentences.insert(sentence.id, sentence.text);
+                if !profile.is_doubao() || sentence.final_text {
+                    sentences.insert(sentence.id, sentence.text);
+                }
                 Ok(())
             },
         );

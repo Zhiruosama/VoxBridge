@@ -3,16 +3,18 @@ use futures_util::{SinkExt, StreamExt};
 use std::collections::BTreeMap;
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite::{
-    client::IntoClientRequest, protocol::WebSocketConfig, Message,
+    client::IntoClientRequest, handshake::client::Request, protocol::WebSocketConfig, Message,
 };
+
+mod doubao;
 
 pub(crate) fn endpoint(profile: &AsrProfile) -> Result<url::Url, String> {
     if profile.stage != "asr"
-        || profile.adapter != "qwen_dashscope_asr"
+        || !profile.is_realtime()
         || profile.model_id.trim().is_empty()
         || profile.model_id.len() > 200
     {
-        return Err("请配置千问实时 ASR 协议及模型。".into());
+        return Err("请配置实时 ASR 协议及模型。".into());
     }
     let url = url::Url::parse(profile.base_url.trim()).map_err(|_| "实时 ASR 地址无效。")?;
     let local = matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
@@ -102,6 +104,25 @@ impl Results {
 
 type Socket =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+async fn connect(request: Request) -> Result<Socket, String> {
+    let config = WebSocketConfig::default()
+        .max_message_size(Some(MAX_RESPONSE + 64))
+        .max_frame_size(Some(MAX_RESPONSE + 64));
+    tokio::time::timeout(
+        Duration::from_secs(15),
+        tokio_tungstenite::connect_async_with_config(request, Some(config), true),
+    )
+    .await
+    .map_err(|_| "实时 ASR 连接超时。")?
+    .map(|(socket, _)| socket)
+    .map_err(|error| match error {
+        tokio_tungstenite::tungstenite::Error::Http(response) => {
+            status_error(response.status().as_u16())
+        }
+        _ => "实时 ASR 连接失败。".into(),
+    })
+}
+
 async fn write(socket: &mut Socket, message: Message) -> Result<(), String> {
     tokio::time::timeout(Duration::from_secs(5), socket.send(message))
         .await
@@ -181,14 +202,15 @@ pub(crate) async fn recognize_stream_with_language(
     ready: oneshot::Sender<()>,
     mut emit: impl FnMut(Sentence) -> Result<(), String>,
 ) -> Result<(), String> {
+    if profile.is_doubao() {
+        return doubao::recognize(profile, language, key, token, audio, ready, emit).await;
+    }
     tokio::select! {biased;
         _=token.cancelled()=>Ok(()),
         result=async {
             let mut request=endpoint(profile)?.as_str().into_client_request().map_err(|_|"实时 ASR 地址无效。")?;
             request.headers_mut().insert("Authorization",format!("Bearer {key}").parse().map_err(|_|"ASR 密钥格式无效。")?);
-            let config=WebSocketConfig::default().max_message_size(Some(MAX_RESPONSE)).max_frame_size(Some(MAX_RESPONSE));
-            let (mut socket,_)=tokio::time::timeout(Duration::from_secs(15),tokio_tungstenite::connect_async_with_config(request,Some(config),true)).await.map_err(|_|"实时 ASR 连接超时。")?
-                .map_err(|error|match error {tokio_tungstenite::tungstenite::Error::Http(response)=>status_error(response.status().as_u16()),_=>"实时 ASR 连接失败。".into()})?;
+            let mut socket = connect(request).await?;
             static SEQUENCE:std::sync::atomic::AtomicU64=std::sync::atomic::AtomicU64::new(0);
             let clock=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|_|"系统时间不可用。")?.as_nanos();
             let task_id=format!("{:032x}",clock ^ (u128::from(std::process::id())<<64) ^ u128::from(SEQUENCE.fetch_add(1,std::sync::atomic::Ordering::Relaxed)));
