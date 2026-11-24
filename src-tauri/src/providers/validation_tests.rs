@@ -25,6 +25,14 @@ fn rejects_explanatory_prose_and_source_echo_but_preserves_names() {
 fn sequence(
     replies: Vec<&'static str>,
 ) -> (url::Url, std::thread::JoinHandle<Vec<serde_json::Value>>) {
+    raw_sequence(replies.into_iter().map(|reply| {
+        serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":reply}}]}).to_string()
+    }).collect())
+}
+
+fn raw_sequence(
+    replies: Vec<String>,
+) -> (url::Url, std::thread::JoinHandle<Vec<serde_json::Value>>) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let url = endpoint(&format!("http://{}/v1", listener.local_addr().unwrap())).unwrap();
     let server = std::thread::spawn(move || {
@@ -51,12 +59,117 @@ fn sequence(
             let mut bytes = vec![0; length];
             reader.read_exact(&mut bytes).unwrap();
             requests.push(serde_json::from_slice(&bytes).unwrap());
-            let body=serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":reply}}]}).to_string();
+            let body = reply;
             write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
         }
         requests
     });
     (url, server)
+}
+
+const FRAGMENT_REPLY: &str = "I'm not familiar with the word \"usion\" — it doesn't appear to be a standard English word. Could you clarify what you mean? If it's a typo, I can help you figure out the intended word.";
+
+#[tokio::test]
+async fn retries_fragments_and_never_publishes_provider_commentary() {
+    for target in ["英语", "简体中文"] {
+        let (url, server) = sequence(vec![
+            FRAGMENT_REPLY,
+            "“usion”不是一个常见的词。请提供原文或补充上下文。",
+        ]);
+        let result = request_translation(
+            url,
+            "fixture".into(),
+            "test",
+            "usion",
+            "自动识别",
+            target,
+            None,
+        )
+        .await;
+        let error = result.unwrap_err();
+        assert!(is_invalid_translation(&error));
+        assert!(!error.contains("usion"));
+        let requests = server.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        let retry: serde_json::Value =
+            serde_json::from_str(requests[1]["messages"][1]["content"].as_str().unwrap()).unwrap();
+        assert_eq!(retry["currentText"], "usion");
+    }
+    let (url, server) = sequence(vec![FRAGMENT_REPLY, "usion"]);
+    assert_eq!(
+        request_translation(
+            url,
+            "fixture".into(),
+            "test",
+            "usion",
+            "自动识别",
+            "英语",
+            None
+        )
+        .await
+        .unwrap(),
+        "usion"
+    );
+    assert_eq!(server.join().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn retries_missing_content_refusal_tool_calls_and_invalid_json() {
+    for malformed in [
+        "non-JSON response",
+        r#"{"choices":[{"message":{"content":[]}}]}"#,
+        r#"{"choices":[{"message":{"content":" "}}]}"#,
+        r#"{"choices":[{"message":{"content":"你好","refusal":"provider reply"}}]}"#,
+        r#"{"choices":[{"finish_reason":"tool_calls","message":{"content":"你好"}}]}"#,
+    ] {
+        let good =
+            serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":"你好"}}]});
+        let (url, server) = raw_sequence(vec![malformed.into(), good.to_string()]);
+        assert_eq!(
+            request_translation(
+                url,
+                "fixture".into(),
+                "test",
+                "hello",
+                "英语",
+                "简体中文",
+                None
+            )
+            .await
+            .unwrap(),
+            "你好"
+        );
+        assert_eq!(server.join().unwrap().len(), 2);
+    }
+}
+
+#[test]
+fn rejects_translation_wrappers_and_preserves_real_utterances() {
+    for wrapped in [
+        "Translation: Hello.",
+        "译文：你好。",
+        r#"{"translation":"你好"}"#,
+        "<think>分析</think>你好。",
+        "<translation>你好。</translation>",
+    ] {
+        assert!(!valid_translation("Hello.", wrapped, "简体中文"));
+        assert!(!valid_translation("你好。", wrapped, "英语"));
+    }
+    for (source, result, target) in [
+        (
+            "请解释一下你的意思。",
+            "Could you clarify what you mean?",
+            "英语",
+        ),
+        ("DNS", "DNS", "英语"),
+        ("致谢", "Acknowledgments", "英语"),
+        ("不。", "No.", "英语"),
+    ] {
+        assert!(
+            valid_translation(source, result, target),
+            "{source} → {result}"
+        );
+    }
 }
 
 #[tokio::test]
