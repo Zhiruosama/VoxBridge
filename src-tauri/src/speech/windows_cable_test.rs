@@ -112,6 +112,7 @@ fn windows_cable_roundtrip() {
             output.id.clone(),
             None,
             Arc::new(AtomicBool::new(false)),
+            &PlaybackControl::default(),
             CancellationToken::new(),
             ready,
             rx,

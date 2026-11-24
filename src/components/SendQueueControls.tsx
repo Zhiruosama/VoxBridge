@@ -53,6 +53,7 @@ export default function SendQueueControls({
     synthesizing: '合成中',
     ready: '等待播放',
     playing: '播放中',
+    playbackPaused: '已暂停',
     waitingDevice: '等待设备',
     decoding: '准备播放',
     failed: '失败',
@@ -92,7 +93,7 @@ export default function SendQueueControls({
               <button
                 onClick={() => onAction({ action: view.paused ? 'queueResume' : 'queuePause' })}
               >
-                {t(view.paused ? '继续' : '暂停')}
+                {t(view.paused ? '继续队列' : '暂停队列')}
               </button>
               <button aria-label={t('关闭发送队列')} onClick={() => setOpen(false)}>
                 ×

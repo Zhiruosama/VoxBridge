@@ -25,7 +25,12 @@ impl LocalMonitor {
         }
     }
     /// True exactly when a new monitor player starts. Failure never cancels the send path.
-    pub fn tick(&mut self, channel: &tauri::ipc::Channel<SpeechProgress>, id: &str) -> bool {
+    pub fn tick(
+        &mut self,
+        channel: &tauri::ipc::Channel<SpeechProgress>,
+        id: &str,
+        paused: bool,
+    ) -> bool {
         if !self.enabled.load(Ordering::SeqCst) {
             self.output = None;
             self.blocked = false;
@@ -59,6 +64,7 @@ impl LocalMonitor {
         match output {
             Ok(Some(stream)) => {
                 let player = Player::connect_new(stream.mixer());
+                super::playback_control::set_paused(&player, paused);
                 self.output = Some((stream, player));
                 true
             }
@@ -73,6 +79,11 @@ impl LocalMonitor {
                 progress(channel, id, "monitorUnavailable");
                 false
             }
+        }
+    }
+    pub fn set_paused(&self, paused: bool) {
+        if let Some((_, player)) = &self.output {
+            super::playback_control::set_paused(player, paused);
         }
     }
     pub fn samples(&self, samples: &[f32], rate: u32) {
@@ -131,17 +142,17 @@ mod tests {
             enabled.clone(),
             "primary-output".into(),
         );
-        assert!(!monitor.tick(&channel, "request"));
+        assert!(!monitor.tick(&channel, "request", false));
         assert!(events.lock().unwrap().is_empty());
         enabled.store(true, Ordering::SeqCst);
-        assert!(!monitor.tick(&channel, "request"));
-        assert!(!monitor.tick(&channel, "request"));
+        assert!(!monitor.tick(&channel, "request", false));
+        assert!(!monitor.tick(&channel, "request", false));
         assert!(monitor.drained());
         assert_eq!(events.lock().unwrap().as_slice(), ["monitorUnavailable"]);
         enabled.store(false, Ordering::SeqCst);
-        monitor.tick(&channel, "request");
+        monitor.tick(&channel, "request", false);
         enabled.store(true, Ordering::SeqCst);
-        monitor.tick(&channel, "request");
+        monitor.tick(&channel, "request", false);
         assert_eq!(events.lock().unwrap().len(), 2);
     }
 
@@ -186,7 +197,7 @@ mod tests {
         );
         let channel =
             tauri::ipc::Channel::new(|_| panic!("same-device monitoring must not emit a failure"));
-        assert!(!monitor.tick(&channel, "same-output"));
+        assert!(!monitor.tick(&channel, "same-output", false));
         assert!(monitor.output.is_none());
         assert!(monitor.blocked);
         let name = crate::platform::list_outputs()

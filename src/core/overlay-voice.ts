@@ -26,6 +26,7 @@ export const overlayVoiceLabels: Record<OverlayVoiceState['phase'], string> = {
   synthesizing: '合成中…',
   decoding: '准备播放…',
   playing: '输出中…',
+  playbackPaused: '已暂停',
   stopping: '停止中…',
 };
 

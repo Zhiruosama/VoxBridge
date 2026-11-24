@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { SendQueue } from './send-queue';
 import { defaults } from './settings';
+import type { SpeechProgress } from './types';
 function deferred() {
   let resolve!: () => void;
   const promise = new Promise<void>((r) => (resolve = r));
@@ -16,10 +17,13 @@ function fixture() {
     p.voice = 'voice';
   }
   const playing = new Map<string, ReturnType<typeof deferred>>();
+  const progress = new Map<string, (event: SpeechProgress) => void>();
   const order: string[] = [];
   const play = vi.fn(async (...args: any[]) => {
     const id = typeof args[0] === 'object' && 'sendDeviceId' in args[0] ? args[2] : args[4];
     order.push(id);
+    progress.set(id, args.at(-1));
+    progress.get(id)!({ requestId: id, phase: 'playing' });
     const gate = deferred();
     playing.set(id, gate);
     await gate.promise;
@@ -31,6 +35,7 @@ function fixture() {
     prepare: vi.fn(async () => {}),
     playPrepared: play,
     discardPrepared: vi.fn(async () => {}),
+    togglePlayback: vi.fn(async (_id: string) => {}),
     cancelTranslation: vi.fn(async () => {}),
     stopSpeech: vi.fn(async (id: string) => {
       playing.get(id)?.resolve();
@@ -44,7 +49,7 @@ function fixture() {
       { id, text: id, settings, action: 'speak' },
       { accepted, translation, phase: () => {} },
     );
-  return { queue, deps, settings, playing, order, enqueue, accepted, translation };
+  return { queue, deps, settings, playing, progress, order, enqueue, accepted, translation };
 }
 it('accepts multiple messages, prefetches only the next one, and serializes output', async () => {
   const f = fixture();
@@ -97,6 +102,34 @@ it('stop cancels current output and pauses remaining prepared messages until res
   await vi.waitFor(() => expect(f.order).toEqual(['one:0', 'two:0']));
   f.playing.get('two:0')!.resolve();
   await b;
+});
+it('pauses and resumes the active speech without handing playback to the next item', async () => {
+  const f = fixture();
+  const one = f.enqueue('one');
+  const two = f.enqueue('two');
+  await vi.waitFor(() => expect(f.queue.snapshot().items[1].status).toBe('ready'));
+  await f.queue.togglePlayback('two');
+  expect(f.deps.togglePlayback).not.toHaveBeenCalled();
+  await f.queue.togglePlayback('one');
+  expect(f.deps.togglePlayback).toHaveBeenLastCalledWith('one:0');
+  f.progress.get('one:0')!({ requestId: 'one:0', phase: 'playbackPaused' });
+  expect(f.queue.snapshot()).toMatchObject({
+    paused: false,
+    items: [
+      { id: 'one', status: 'playbackPaused', active: true },
+      { id: 'two', status: 'ready' },
+    ],
+  });
+  expect(f.order).toEqual(['one:0']);
+  await f.queue.togglePlayback('one');
+  expect(f.deps.togglePlayback).toHaveBeenCalledTimes(2);
+  f.progress.get('one:0')!({ requestId: 'one:0', phase: 'playing' });
+  expect(f.queue.snapshot().items[0].status).toBe('playing');
+  f.playing.get('one:0')!.resolve();
+  expect(await one).toBe('completed');
+  await vi.waitFor(() => expect(f.order).toEqual(['one:0', 'two:0']));
+  f.playing.get('two:0')!.resolve();
+  expect(await two).toBe('completed');
 });
 it('skips a failed message and retries it after content already waiting', async () => {
   const f = fixture();

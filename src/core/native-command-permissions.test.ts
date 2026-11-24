@@ -73,7 +73,13 @@ describe('native command permission integration', () => {
   });
   it('allows all queued speech operations only in the main window', () => {
     expect(main.windows).toEqual(['main']);
-    for (const command of ['prepare_speech', 'play_prepared_speech', 'discard_prepared_speech']) {
+    for (const command of [
+      'prepare_speech',
+      'play_prepared_speech',
+      'discard_prepared_speech',
+      'toggle_speech_playback',
+      'configure_playback_shortcut',
+    ]) {
       const permission = `allow-${command.replaceAll('_', '-')}`;
       expect(main.permissions).toContain(permission);
       expect(subtitle.permissions).not.toContain(permission);

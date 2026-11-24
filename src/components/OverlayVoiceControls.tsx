@@ -3,7 +3,7 @@ import SendQueueControls from './SendQueueControls';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { listen } from '@tauri-apps/api/event';
-import { ArrowUp, Keyboard, LoaderCircle, Mic, Square, X } from 'lucide-react';
+import { ArrowUp, Keyboard, LoaderCircle, Mic, Pause, Play, Square, X } from 'lucide-react';
 import { overlayVoiceAction, readOverlayVoice, setOverlayTextInput } from '../bridge';
 import {
   newerOverlayVoice,
@@ -145,6 +145,8 @@ export default function OverlayVoiceControls({
     }
   }
   const idle = voice.phase === 'idle';
+  const activeSpeech = voice.queue.items.find((item) => item.active);
+  const playbackPaused = voice.phase === 'playbackPaused';
   const recording = voice.phase === 'recording';
   const capturing = ['starting', 'recording', 'recognizing', 'cancelling'].includes(voice.phase);
   const showDraft = textOpen;
@@ -325,6 +327,17 @@ export default function OverlayVoiceControls({
               </button>
             )}
           </>
+        )}
+        {activeSpeech && (voice.phase === 'playing' || playbackPaused) && (
+          <button
+            className="overlay-mic-button"
+            aria-label={t(playbackPaused ? '继续当前语音' : '暂停当前语音')}
+            title={t(playbackPaused ? '继续当前语音' : '暂停当前语音')}
+            disabled={requesting}
+            onClick={() => void request({ action: 'togglePlayback', id: activeSpeech.id })}
+          >
+            {playbackPaused ? <Play size={15} /> : <Pause size={15} />}
+          </button>
         )}
         {!idle && !capturing && (
           <button

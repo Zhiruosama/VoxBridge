@@ -18,6 +18,7 @@ mod providers;
 mod recovery;
 mod setup;
 mod speech;
+mod speech_shortcut;
 mod text_overlay;
 #[cfg(all(test, target_os = "windows"))]
 mod update_tests;
@@ -64,6 +65,9 @@ pub fn run() {
             if setup::create_window(app)? {
                 return Ok(());
             }
+            let _ = app
+                .handle()
+                .plugin(tauri_plugin_global_shortcut::Builder::new().build());
             // Diagnostics must never prevent the application from starting.
             let _ = diagnostics::initialize(app.handle());
             credentials::initialize(app.handle()).map_err(std::io::Error::other)?;
@@ -121,6 +125,7 @@ pub fn run() {
         .manage(text_overlay::TextOverlayState::default())
         .manage(overlay::voice::OverlayVoiceState::default())
         .manage(speech::SpeechState::default())
+        .manage(speech_shortcut::PlaybackShortcut::default())
         .manage(speech::PreparedSpeechState::default())
         .manage(speech::AudioGate::new())
         .manage(setup::SetupState::default())
@@ -184,6 +189,8 @@ pub fn run() {
             speech::prepared::play_prepared_speech,
             speech::prepared::discard_prepared_speech,
             speech::stop_speech,
+            speech::toggle_speech_playback,
+            speech_shortcut::configure_playback_shortcut,
             speech::set_speech_monitoring,
             platform::open_virtual_mic_installer,
             platform::virtual_mic::virtual_mic_status,

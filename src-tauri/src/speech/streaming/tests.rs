@@ -48,6 +48,27 @@ fn pcm_rejects_empty_truncated_and_overlong_audio_and_inconsistent_metadata() {
     }
 }
 
+#[test]
+fn receiving_continues_while_paused_beyond_the_transport_channel_capacity() {
+    let (sender, mut receiver) = mpsc::channel(CHANNEL_BLOCKS);
+    let mut pending = VecDeque::new();
+    let batch: Vec<_> = (0..CHANNEL_BLOCKS)
+        .map(|index| vec![index as u8; PCM_BLOCK_BYTES])
+        .collect();
+    for _ in 0..4 {
+        for block in &batch {
+            sender.try_send(block.clone()).unwrap();
+        }
+        assert!(!receive_pending(&mut receiver, &mut pending));
+    }
+    drop(sender);
+    assert!(receive_pending(&mut receiver, &mut pending));
+    assert_eq!(
+        pending.into_iter().collect::<Vec<_>>(),
+        batch.concat().repeat(4)
+    );
+}
+
 async fn mock_socket() -> (
     SpeechProfile,
     tokio::task::JoinHandle<tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>>,
@@ -229,7 +250,7 @@ async fn live_minimax_streaming_physical_output_and_stop() {
         let job = state
             .begin(if cancel { "live-stop" } else { "live-complete" })
             .unwrap();
-        let token = job.token.clone();
+        let token = job.active.token.clone();
         let observed = Arc::new(Mutex::new(Vec::new()));
         let phases = observed.clone();
         let started = Instant::now();

@@ -17,6 +17,7 @@ type Dependencies = ConstructorParameters<typeof ComposerController>[0] & {
     progress: (event: SpeechProgress) => void,
   ) => Promise<void>;
   discardPrepared: (id: string) => Promise<unknown>;
+  togglePlayback: (requestId: string) => Promise<void>;
 };
 export type QueueAction =
   | { action: 'queuePause' | 'queueResume' }
@@ -168,7 +169,7 @@ export class SendQueue {
       if (!valid()) throw new Error('已取消');
       this.playing = job;
       this.playingGeneration = generation;
-      job.status = 'playing';
+      job.status = 'synthesizing';
       if (translated !== undefined) job.callbacks.translation(translated, job.input.text);
       this.emit();
     };
@@ -263,6 +264,16 @@ export class SendQueue {
     this.paused = false;
     this.emit();
     this.pump();
+  }
+  async togglePlayback(id: string) {
+    const job = this.playing;
+    if (
+      job?.id === id &&
+      this.jobs.includes(job) &&
+      (job.status === 'playing' || job.status === 'playbackPaused')
+    ) {
+      await this.deps.togglePlayback(`${job.id}:${this.playingGeneration}`);
+    }
   }
   async cancel(id: string) {
     const job = this.jobs.find((j) => j.id === id);

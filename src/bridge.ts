@@ -112,6 +112,12 @@ export async function speak(
 export async function stopSpeech(requestId: string) {
   if (desktop) await invoke('stop_speech', { requestId });
 }
+export async function toggleSpeechPlayback(requestId: string) {
+  if (desktop) await invoke('toggle_speech_playback', { requestId });
+}
+export async function configurePlaybackShortcut(shortcut: string) {
+  if (desktop) await invoke('configure_playback_shortcut', { shortcut });
+}
 export async function listCaptureSources(): Promise<CaptureSource[]> {
   return desktop ? invoke('list_capture_sources') : [];
 }

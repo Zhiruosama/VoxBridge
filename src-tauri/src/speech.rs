@@ -7,7 +7,7 @@ use std::{
     collections::VecDeque,
     io::Cursor,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU8, Ordering},
         Arc, Mutex,
     },
     time::{Duration, Instant},
@@ -18,6 +18,8 @@ use tokio_tungstenite::tungstenite::{
 use tokio_util::sync::CancellationToken;
 
 mod options;
+mod playback_control;
+use playback_control::PlaybackControl;
 
 const MAX_AUDIO: usize = 8 * 1024 * 1024;
 const STOPPED: &str = "语音已停止。";
@@ -32,31 +34,34 @@ impl AudioGate {
 
 #[derive(Default)]
 struct Registry {
-    active: Option<(String, CancellationToken)>,
+    active: Option<Arc<ActiveSpeech>>,
     cancelled: VecDeque<String>,
-    monitor: Option<Arc<AtomicBool>>,
     monitor_overrides: VecDeque<(String, bool)>,
 }
 #[derive(Default)]
 pub struct SpeechState(Arc<Mutex<Registry>>);
 
-struct Job {
+struct ActiveSpeech {
     id: String,
     token: CancellationToken,
     monitor: Arc<AtomicBool>,
+    playback: Arc<PlaybackControl>,
+}
+
+struct Job {
+    active: Arc<ActiveSpeech>,
     registry: Arc<Mutex<Registry>>,
 }
 impl Drop for Job {
     fn drop(&mut self) {
-        self.token.cancel();
+        self.active.token.cancel();
         if let Ok(mut registry) = self.registry.lock() {
             if registry
                 .active
                 .as_ref()
-                .is_some_and(|(id, _)| id == &self.id)
+                .is_some_and(|active| active.id == self.active.id)
             {
                 registry.active = None;
-                registry.monitor = None;
             }
         }
     }
@@ -64,8 +69,8 @@ impl Drop for Job {
 impl SpeechState {
     pub fn stop_all(&self) {
         if let Ok(registry) = self.0.lock() {
-            if let Some((_, token)) = &registry.active {
-                token.cancel();
+            if let Some(active) = &registry.active {
+                active.token.cancel();
             }
         }
     }
@@ -96,13 +101,15 @@ impl SpeechState {
         } else {
             enabled
         };
-        let monitor = Arc::new(AtomicBool::new(enabled));
-        registry.monitor = Some(monitor.clone());
-        registry.active = Some((id.into(), token.clone()));
-        Ok(Job {
+        let active = Arc::new(ActiveSpeech {
             id: id.into(),
             token,
-            monitor,
+            monitor: Arc::new(AtomicBool::new(enabled)),
+            playback: Arc::default(),
+        });
+        registry.active = Some(active.clone());
+        Ok(Job {
+            active,
             registry: self.0.clone(),
         })
     }
@@ -111,14 +118,8 @@ impl SpeechState {
             return Err("请求标识无效。".into());
         }
         let mut registry = self.0.lock().map_err(|_| "任务状态不可用。")?;
-        if registry
-            .active
-            .as_ref()
-            .is_some_and(|(active, _)| active == id)
-        {
-            if let Some(monitor) = &registry.monitor {
-                monitor.store(enabled, Ordering::SeqCst);
-            }
+        if let Some(active) = registry.active.as_ref().filter(|active| active.id == id) {
+            active.monitor.store(enabled, Ordering::SeqCst);
         } else {
             registry
                 .monitor_overrides
@@ -135,16 +136,24 @@ impl SpeechState {
             return Err("请求标识无效。".into());
         }
         let mut registry = self.0.lock().map_err(|_| "任务状态不可用。")?;
-        if let Some((active, token)) = &registry.active {
-            if active == &id {
-                token.cancel();
-                return Ok(());
-            }
+        if let Some(active) = registry.active.as_ref().filter(|active| active.id == id) {
+            active.token.cancel();
+            return Ok(());
         }
         if !registry.cancelled.contains(&id) {
             registry.cancelled.push_back(id);
             if registry.cancelled.len() > 64 {
                 registry.cancelled.pop_front();
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn toggle_playback(&self, request_id: Option<&str>) -> Result<(), String> {
+        let registry = self.0.lock().map_err(|_| "任务状态不可用。")?;
+        if let Some(active) = &registry.active {
+            if request_id.is_none_or(|id| id == active.id) && !active.token.is_cancelled() {
+                active.playback.toggle();
             }
         }
         Ok(())
@@ -458,11 +467,11 @@ async fn synthesize_response(
                 .filter(|size| *size <= MAX_AUDIO)
                 .ok_or("语音响应超过 8 MiB 限制，请缩短文字。")?;
             if let Some(sender) = stream {
-                if received > 32000 * 2 * 120 {
+                if received > streaming::MAX_PCM_BYTES {
                     return Err("语音超过 120 秒限制。".into());
                 }
-                // 100 ms blocks plus a bounded receiver apply backpressure to the socket.
-                for block in bytes.chunks(6400) {
+                // Bound queued message sizes independently of the provider's chunks.
+                for block in bytes.chunks(streaming::PCM_BLOCK_BYTES) {
                     sender
                         .send(block.to_vec())
                         .await
@@ -573,6 +582,7 @@ fn playback(
     device_id: String,
     monitor_device: Option<String>,
     monitoring: Arc<AtomicBool>,
+    control: &PlaybackControl,
     token: CancellationToken,
     ready: tokio::sync::oneshot::Sender<Result<(), String>>,
     audio: std::sync::mpsc::Receiver<Vec<u8>>,
@@ -612,12 +622,12 @@ fn playback(
     }
     let sink = Player::connect_new(stream.mixer());
     let mut monitor = monitor::LocalMonitor::new(monitor_device, monitoring, output_id);
-    if monitor.tick(&channel, &request_id) {
+    if monitor.tick(&channel, &request_id, false) {
         monitor.buffered(source.clone(), Duration::ZERO);
     }
     sink.append(source.clone());
-    progress(&channel, &request_id, "playing");
-    let started = Instant::now();
+    let mut session = control.session();
+    session.start(&channel, &request_id);
     loop {
         if token.is_cancelled() {
             sink.stop();
@@ -628,13 +638,14 @@ fn playback(
             token.cancel();
             return Err("播放设备已断开或发生错误。".into());
         }
-        if monitor.tick(&channel, &request_id) {
+        let paused = session.update(&sink, &monitor, &channel, &request_id);
+        if monitor.tick(&channel, &request_id, paused) {
             monitor.buffered(source.clone(), sink.get_pos());
         }
         if sink.empty() && monitor.drained() {
             return Ok(());
         }
-        if started.elapsed() > Duration::from_secs(125) {
+        if session.elapsed() > Duration::from_secs(125) {
             sink.stop();
             return Err("语音播放超时。".into());
         }
@@ -645,6 +656,14 @@ fn playback(
 #[tauri::command]
 pub fn stop_speech(request_id: String, state: tauri::State<'_, SpeechState>) -> Result<(), String> {
     state.cancel(request_id)
+}
+
+#[tauri::command]
+pub fn toggle_speech_playback(
+    request_id: String,
+    state: tauri::State<'_, SpeechState>,
+) -> Result<(), String> {
+    state.toggle_playback(Some(&request_id))
 }
 
 fn speech_outcome(
@@ -747,7 +766,7 @@ async fn execute_inner(
         .clone()
         .try_acquire_owned()
         .map_err(|_| "音频输出正忙，请等待当前播放结束。")?;
-    let device = match crate::platform::wait_for_output(&device, &job.token, || {
+    let device = match crate::platform::wait_for_output(&device, &job.active.token, || {
         progress(&on_progress, &request_id, "waitingDevice")
     })
     .await
@@ -757,7 +776,7 @@ async fn execute_inner(
             progress(
                 &on_progress,
                 &request_id,
-                if job.token.is_cancelled() {
+                if job.active.token.is_cancelled() {
                     "stopped"
                 } else {
                     "failed"
@@ -770,7 +789,7 @@ async fn execute_inner(
         String::new()
     } else {
         tokio::select! { biased;
-            _ = job.token.cancelled() => return Err(STOPPED.into()),
+            _ = job.active.token.cancelled() => return Err(STOPPED.into()),
             result = crate::credentials::read_async(&profile.id) => result?,
         }
     };
@@ -790,8 +809,9 @@ async fn execute_inner(
     }
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let (audio_tx, audio_rx) = std::sync::mpsc::sync_channel(1);
-    let token = job.token.clone();
-    let monitoring = job.monitor.clone();
+    let token = job.active.token.clone();
+    let monitoring = job.active.monitor.clone();
+    let control = job.active.playback.clone();
     let channel = on_progress.clone();
     let id = request_id.clone();
     let worker = tauri::async_runtime::spawn_blocking(move || {
@@ -800,6 +820,7 @@ async fn execute_inner(
             device,
             monitor_device,
             monitoring,
+            &control,
             token,
             ready_tx,
             audio_rx,
@@ -814,9 +835,9 @@ async fn execute_inner(
         progress(&on_progress, &request_id, "synthesizing");
         let bytes = match prepared_audio {
             Some(bytes) => bytes,
-            None => synthesize_cancellable(&profile, url, &text, &key, &job.token).await?,
+            None => synthesize_cancellable(&profile, url, &text, &key, &job.active.token).await?,
         };
-        if job.token.is_cancelled() {
+        if job.active.token.is_cancelled() {
             return Err(STOPPED.into());
         }
         progress(&on_progress, &request_id, "decoding");
@@ -828,7 +849,7 @@ async fn execute_inner(
     .await;
     drop(audio_tx);
     if result.is_err() {
-        job.token.cancel();
+        job.active.token.cancel();
     }
     let played = worker
         .await

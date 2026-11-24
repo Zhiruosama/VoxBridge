@@ -71,6 +71,9 @@ pub enum VoiceRequest {
     Finish,
     Cancel,
     Stop,
+    TogglePlayback {
+        id: String,
+    },
     Discard,
     Send {
         text: String,
@@ -135,6 +138,7 @@ fn validate(state: &VoiceSnapshot) -> Result<(), String> {
                 | "synthesizing"
                 | "decoding"
                 | "playing"
+                | "playbackPaused"
                 | "stopping"
         )
         || state.target_language.chars().count() > 32
@@ -153,7 +157,8 @@ fn validate_request(label: &str, request: &VoiceRequest) -> Result<(), String> {
         return Err("此操作仅限字幕窗。".into());
     }
     match request {
-        VoiceRequest::QueueCancel { id }
+        VoiceRequest::TogglePlayback { id }
+        | VoiceRequest::QueueCancel { id }
         | VoiceRequest::QueueRetry { id }
         | VoiceRequest::QueueEdit { id, .. }
             if id.is_empty() || id.len() > 128 =>

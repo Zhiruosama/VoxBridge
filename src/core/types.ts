@@ -22,6 +22,7 @@ export interface SpeechProgress {
     | 'synthesizing'
     | 'decoding'
     | 'playing'
+    | 'playbackPaused'
     | 'completed'
     | 'stopped'
     | 'failed';
@@ -79,6 +80,7 @@ export interface OverlaySnapshot extends SubtitleAppearance {
 export interface ComposerSettings {
   asrLanguage?: string;
   contextualSpeech?: boolean;
+  playbackShortcut?: string;
   voiceInputMode?: 'dictate' | 'send';
   enterAction: 'speak' | 'translate' | 'newline';
   output: 'source' | 'translation';
@@ -256,6 +258,7 @@ export interface OverlayVoiceState {
     | 'synthesizing'
     | 'decoding'
     | 'playing'
+    | 'playbackPaused'
     | 'stopping';
   level: number;
   mode: 'send' | 'dictate';
@@ -269,6 +272,7 @@ export interface OverlayVoiceState {
 }
 export type OverlayVoiceRequest =
   | { action: 'start' | 'finish' | 'cancel' | 'stop' | 'discard' }
+  | { action: 'togglePlayback'; id: string }
   | { action: 'send'; text: string; requestId?: string }
   | { action: 'subtitleContent'; bilingual: boolean }
   | { action: 'speed'; speed: number }
