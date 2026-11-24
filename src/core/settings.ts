@@ -161,6 +161,11 @@ function parseComposerSettings(value: unknown): ComposerSettings {
   return {
     asrLanguage: parseAsrLanguage(input.asrLanguage),
     ...(input.contextualSpeech === true ? { contextualSpeech: true } : {}),
+    ...(typeof input.playbackShortcut === 'string' &&
+    input.playbackShortcut.trim() &&
+    input.playbackShortcut.length <= 80
+      ? { playbackShortcut: input.playbackShortcut.trim() }
+      : {}),
     voiceInputMode: input.voiceInputMode === 'send' ? 'send' : 'dictate',
     enterAction: ['speak', 'translate', 'newline'].includes(input.enterAction as string)
       ? (input.enterAction as ComposerSettings['enterAction'])

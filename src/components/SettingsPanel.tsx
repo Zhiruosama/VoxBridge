@@ -81,7 +81,7 @@ export default function SettingsPanel({
   savedSettings: Settings;
   onDraftChange: Dispatch<SetStateAction<Settings>>;
   onAutomaticUpdatesChange: (enabled: boolean) => void;
-  onSave: (settings: Settings) => void;
+  onSave: (settings: Settings) => Promise<void>;
   notify: (message: string) => void;
   onDiagnostics: () => void;
   onRefreshApplications: () => Promise<void>;
@@ -210,7 +210,7 @@ export default function SettingsPanel({
       if (mode === 'clear') await removeCredential(profile.id);
       else {
         await setCredential(profile.id, secret);
-        onSave(draft);
+        await onSave(draft);
       }
       setSecret('');
       await refreshKeyState();
@@ -244,7 +244,7 @@ export default function SettingsPanel({
       await removeCredential(profile.id);
       setSecret('');
       setDeletingProfile(null);
-      onSave(next);
+      await onSave(next);
       notify('配置及已保存的密钥已删除。');
     } catch (error) {
       notify(String(error));
@@ -254,20 +254,22 @@ export default function SettingsPanel({
   }
 
   async function saveCurrent() {
-    if (secret.trim()) {
-      setBusy(true);
-      setKeyError('');
-      try {
+    const savingKey = Boolean(secret.trim());
+    setBusy(true);
+    setKeyError('');
+    try {
+      if (savingKey) {
         await setCredential(profile.id, secret);
         setSecret('');
         await refreshKeyState();
-        onSave(draft);
-      } catch (error) {
-        setKeyError(String(error));
-      } finally {
-        setBusy(false);
       }
-    } else onSave(draft);
+      await onSave(draft);
+    } catch (error) {
+      if (savingKey) setKeyError(String(error));
+      else notify(String(error));
+    } finally {
+      setBusy(false);
+    }
   }
   const dirty = JSON.stringify(draft) !== JSON.stringify(savedSettings) || Boolean(secret.trim());
   return (
@@ -573,6 +575,24 @@ export default function SettingsPanel({
                       },
                     })
                   }
+                />
+              </SettingRow>
+              <SettingRow
+                title={t('语音暂停快捷键')}
+                description={t('其他应用在前台时也可暂停或继续语音。留空关闭快捷键。')}
+              >
+                <input
+                  aria-label={t('语音暂停快捷键')}
+                  placeholder="CommandOrControl+Shift+Space"
+                  maxLength={80}
+                  spellCheck={false}
+                  value={draft.composer.playbackShortcut ?? ''}
+                  onChange={(event) => {
+                    const composer = { ...draft.composer };
+                    if (event.target.value) composer.playbackShortcut = event.target.value;
+                    else delete composer.playbackShortcut;
+                    setDraft({ ...draft, composer });
+                  }}
                 />
               </SettingRow>
               <SettingRow title={t('语音内容')}>

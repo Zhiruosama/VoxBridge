@@ -10,6 +10,7 @@ export type ComposerPhase =
   | 'synthesizing'
   | 'decoding'
   | 'playing'
+  | 'playbackPaused'
   | 'stopping';
 export function composerLanguages(settings: Settings, _listening: boolean) {
   return { source: settings.sourceLanguage, target: settings.targetLanguage };
@@ -202,7 +203,11 @@ export class ComposerController {
               callbacks.notice?.('本地试听不可用，语音发送继续。');
               return;
             }
-            if (['waitingDevice', 'synthesizing', 'decoding', 'playing'].includes(event.phase))
+            if (
+              ['waitingDevice', 'synthesizing', 'decoding', 'playing', 'playbackPaused'].includes(
+                event.phase,
+              )
+            )
               callbacks.phase(event.phase as ComposerPhase);
           },
         );

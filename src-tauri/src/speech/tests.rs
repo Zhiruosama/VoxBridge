@@ -97,11 +97,11 @@ fn registry_handles_early_cancel_busy_and_stale_stop() {
     let old = state.begin("old").unwrap();
     assert!(state.begin("new").is_err());
     state.cancel("old".into()).unwrap();
-    assert!(old.token.is_cancelled());
+    assert!(old.active.token.is_cancelled());
     drop(old);
     let new = state.begin("new").unwrap();
     state.cancel("old".into()).unwrap();
-    assert!(!new.token.is_cancelled());
+    assert!(!new.active.token.is_cancelled());
     drop(new);
     for n in 0..100 {
         state.cancel(format!("missing-{n}")).unwrap();
@@ -155,7 +155,7 @@ fn final_outcome_preserves_cancellation_and_real_failure_priority() {
 async fn cancel_after_synthesis_while_waiting_for_playback_reports_stopped() {
     let state = SpeechState::default();
     let job = state.begin("playing").unwrap();
-    let token = job.token.clone();
+    let token = job.active.token.clone();
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let worker = tokio::spawn(async move {
         ready_tx.send(()).unwrap();
@@ -163,7 +163,7 @@ async fn cancel_after_synthesis_while_waiting_for_playback_reports_stopped() {
         Err(STOPPED.to_string())
     });
     ready_rx.await.unwrap();
-    assert!(!job.token.is_cancelled());
+    assert!(!job.active.token.is_cancelled());
     state.cancel("playing".into()).unwrap();
     assert_eq!(
         speech_outcome(Ok(()), worker.await.unwrap()),
@@ -392,20 +392,20 @@ fn monitoring_is_live_request_scoped_and_early_overrides_are_bounded() {
     let state = SpeechState::default();
     state.set_monitoring("first", false).unwrap();
     let first = state.begin_monitor("first", true).unwrap();
-    assert!(!first.monitor.load(Ordering::SeqCst));
+    assert!(!first.active.monitor.load(Ordering::SeqCst));
     state.set_monitoring("first", true).unwrap();
-    assert!(first.monitor.load(Ordering::SeqCst));
-    assert!(!first.token.is_cancelled());
+    assert!(first.active.monitor.load(Ordering::SeqCst));
+    assert!(!first.active.token.is_cancelled());
     drop(first);
     let next = state.begin_monitor("next", false).unwrap();
     state.set_monitoring("first", true).unwrap();
-    assert!(!next.monitor.load(Ordering::SeqCst));
+    assert!(!next.active.monitor.load(Ordering::SeqCst));
     for n in 0..100 {
         state.set_monitoring(&format!("missing-{n}"), true).unwrap();
     }
     assert_eq!(state.0.lock().unwrap().monitor_overrides.len(), 64);
     state.stop_all();
-    assert!(next.token.is_cancelled());
+    assert!(next.active.token.is_cancelled());
 }
 
 #[test]

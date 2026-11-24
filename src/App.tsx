@@ -21,6 +21,8 @@ import {
   prepareSpeech,
   playPreparedSpeech,
   discardPreparedSpeech,
+  toggleSpeechPlayback,
+  configurePlaybackShortcut,
   setMainCloseBehavior,
 } from './bridge';
 import SpeechSpeedPicker from './components/SpeechSpeedPicker';
@@ -44,6 +46,8 @@ import {
   Mic,
   Volume2,
   PanelLeftClose,
+  Pause,
+  Play,
   Settings2,
   Square,
   X,
@@ -205,6 +209,10 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
   const dismissNotice = useCallback(() => {
     setNotice((current) => ({ ...current, message: '' }));
   }, []);
+  useEffect(() => {
+    const shortcut = initial.settings.composer.playbackShortcut;
+    if (shortcut) void configurePlaybackShortcut(shortcut).catch((error) => notify(String(error)));
+  }, [initial, notify]);
   const conversation = useRef(new SpeechConversation());
   const [session, setSession] = useState<Session>({ id: null, segments: [] });
   const [captureSources, setCaptureSources] = useState<CaptureSource[]>([]);
@@ -257,6 +265,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
       }),
   );
   const [queueView, setQueueView] = useState<QueueView>({ paused: false, items: [] });
+  const activeSpeech = queueView.items.find((item) => item.active);
   const [unsavedKey, setUnsavedKey] = useState(false);
   const updateBlocked = useRef<boolean | string>(true);
   const automaticUpdateBlocked = useRef<false | string>(false);
@@ -291,6 +300,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
         prepare: prepareSpeech,
         playPrepared: playPreparedSpeech,
         discardPrepared: discardPreparedSpeech,
+        togglePlayback: toggleSpeechPlayback,
       }),
   );
   useEffect(
@@ -307,6 +317,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
               'synthesizing',
               'decoding',
               'playing',
+              'playbackPaused',
               'stopping',
             ].includes(active.status)
             ? (active.status as ComposerPhase)
@@ -327,6 +338,9 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     else if (action.action === 'queueCancel') void sendQueue.cancel(action.id);
     else if (action.action === 'queueRetry') void sendQueue.retry(action.id, settings);
     else if (action.action === 'queueEdit') void sendQueue.edit(action.id, action.text);
+  }
+  function togglePlayback(id: string) {
+    void sendQueue.togglePlayback(id).catch(() => notify('切换语音播放失败，请重试。'));
   }
   const [overlayDraft, setOverlayDraft] = useState(updateDrafts?.overlay ?? '');
   const [overlaySubmission, setOverlaySubmission] =
@@ -525,6 +539,10 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     }
     if (request.action === 'stop') {
       void stopComposer();
+      return;
+    }
+    if (request.action === 'togglePlayback') {
+      togglePlayback(request.id);
       return;
     }
     if (page !== 'workspace') {
@@ -782,6 +800,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
       setSavedSettings(next);
       recordDiagnostic({ operation: 'frontend', kind: 'state', phase: 'settings_saved' });
       if (!silent) notify('已保存');
+      return true;
     } catch (e) {
       recordDiagnostic({
         operation: 'frontend',
@@ -790,7 +809,18 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
         reason: 'configuration',
       });
       notify(t('保存失败：{0}', String(e)));
+      return false;
     }
+  }
+  async function savePanelSettings(next: Settings) {
+    const previous = savedSettings.composer.playbackShortcut ?? '';
+    const shortcut = next.composer.playbackShortcut?.trim() ?? '';
+    if (shortcut !== previous) await configurePlaybackShortcut(shortcut);
+    const composer = { ...next.composer };
+    if (shortcut) composer.playbackShortcut = shortcut;
+    else delete composer.playbackShortcut;
+    if (!persist({ ...next, composer }) && shortcut !== previous)
+      await configurePlaybackShortcut(previous);
   }
   function persistAutomaticUpdates(enabled: boolean) {
     try {
@@ -826,6 +856,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     const contextSnapshot = conversation.current.snapshot();
     const sourceRevision = draftRevisionRef.current;
     let clearedRevision: number | null = null;
+    let speechStarted = false;
     const restoreSubmittedDraft = () => {
       if (
         mountedRef.current &&
@@ -870,7 +901,8 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
             }
           },
           phase: (phase) => {
-            if (phase === 'playing' && action === 'speak' && route === 'send') {
+            if (!speechStarted && phase === 'playing' && action === 'speak' && route === 'send') {
+              speechStarted = true;
               const spokenSource =
                 sendQueue.snapshot().items.find((item) => item.id === id)?.text ?? source;
               conversation.current.remember(id, 'self', spokenSource);
@@ -1310,7 +1342,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
                 savedSettings={savedSettings}
                 onDraftChange={setSettings}
                 onAutomaticUpdatesChange={persistAutomaticUpdates}
-                onSave={persist}
+                onSave={savePanelSettings}
                 notify={notify}
                 onDiagnostics={() => setPage('diagnostics')}
                 onRefreshApplications={refreshCaptureSources}
@@ -1640,7 +1672,11 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
                         <>
                           <span
                             role="status"
-                            className={queueView.items.length ? 'sr-only' : 'composer-phase'}
+                            className={
+                              queueView.items.length && composerPhase !== 'playbackPaused'
+                                ? 'sr-only'
+                                : 'composer-phase'
+                            }
                           >
                             {t(
                               {
@@ -1650,11 +1686,35 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
                                 synthesizing: '合成中…',
                                 decoding: '准备播放…',
                                 playing: '输出中…',
+                                playbackPaused: '已暂停',
                                 stopping: '停止中…',
                                 idle: '',
                               }[composerPhase],
                             )}
                           </span>
+                          {activeSpeech &&
+                            (composerPhase === 'playing' || composerPhase === 'playbackPaused') && (
+                              <button
+                                className="icon-button"
+                                aria-label={t(
+                                  composerPhase === 'playbackPaused'
+                                    ? '继续当前语音'
+                                    : '暂停当前语音',
+                                )}
+                                title={t(
+                                  composerPhase === 'playbackPaused'
+                                    ? '继续当前语音'
+                                    : '暂停当前语音',
+                                )}
+                                onClick={() => togglePlayback(activeSpeech.id)}
+                              >
+                                {composerPhase === 'playbackPaused' ? (
+                                  <Play size={13} />
+                                ) : (
+                                  <Pause size={13} />
+                                )}
+                              </button>
+                            )}
                           <button
                             className="icon-button"
                             aria-label={t('停止当前操作')}

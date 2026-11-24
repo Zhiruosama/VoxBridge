@@ -71,6 +71,7 @@ async fn live_workspace_voice_audition_and_latency() {
                 device,
                 None,
                 Arc::new(AtomicBool::new(false)),
+                &PlaybackControl::default(),
                 play_token,
                 ready_tx,
                 play_rx,

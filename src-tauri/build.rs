@@ -68,6 +68,8 @@ fn main() {
             "play_prepared_speech",
             "discard_prepared_speech",
             "stop_speech",
+            "toggle_speech_playback",
+            "configure_playback_shortcut",
             "set_speech_monitoring",
             "open_virtual_mic_installer",
             "virtual_mic_status",

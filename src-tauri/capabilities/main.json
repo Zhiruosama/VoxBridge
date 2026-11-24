@@ -43,6 +43,8 @@
     "allow-start-listening",
     "allow-speak",
     "allow-stop-speech",
+    "allow-toggle-speech-playback",
+    "allow-configure-playback-shortcut",
     "allow-set-speech-monitoring",
     "allow-open-virtual-mic-installer",
     "allow-publish-overlay",
