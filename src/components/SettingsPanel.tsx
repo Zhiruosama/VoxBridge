@@ -109,7 +109,18 @@ export default function SettingsPanel({
   const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     if (!focusSection?.id) return;
-    const heading = document.getElementById(focusSection.id);
+    const [anchor, row] = focusSection.id.split('/');
+    const sectionHeading = document.getElementById(anchor);
+    const heading =
+      (row &&
+        Array.from(
+          sectionHeading?.closest('section')?.querySelectorAll<HTMLElement>('.preference-row h3') ??
+            [],
+        )
+          .find((item) => item.textContent === t(row))
+          ?.closest<HTMLElement>('.preference-row')) ||
+      sectionHeading;
+    if (heading) heading.tabIndex = -1;
     heading?.scrollIntoView({ block: 'start' });
     heading?.focus({ preventScroll: true });
   }, [focusSection]);

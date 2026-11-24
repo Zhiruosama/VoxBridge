@@ -32,6 +32,8 @@ import { useReadingFollow } from './hooks/useReadingFollow';
 import VoiceActivity from './components/VoiceActivity';
 import SpeechPicker from './components/SpeechPicker';
 import {
+  Search,
+  ArrowLeft,
   ArrowDown,
   ArrowRight,
   AudioLines,
@@ -46,6 +48,7 @@ import {
   Square,
   X,
 } from 'lucide-react';
+import SettingsSearchResults from './components/SettingsSearchResults';
 import SettingsPanel, { type SettingsSection } from './components/SettingsPanel';
 import { appUpdates } from './app-updates';
 import Diagnostics from './components/Diagnostics';
@@ -182,6 +185,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
         count: initial.settings.profiles.filter((profile) => !validateProfile(profile)).length,
       });
   }, [initial]);
+  const [settingsQuery, setSettingsQuery] = useState('');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
   const [settingsFocus, setSettingsFocus] = useState<{ id: string; version: number } | null>(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
@@ -374,7 +378,12 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     page === 'workspace',
   );
   const follow = reading.follow;
-  const [sidebar, setSidebar] = useState(true);
+  const workspacePage = page === 'workspace' || page === 'text';
+  const [workspaceSidebar, setWorkspaceSidebar] = useState(true);
+  const [settingsSidebar, setSettingsSidebar] = useState(true);
+  const sidebar = workspacePage ? workspaceSidebar : settingsSidebar;
+  const setSidebar = workspacePage ? setWorkspaceSidebar : setSettingsSidebar;
+  const previousWorkspace = useRef<'workspace' | 'text'>('workspace');
   const sidebarLayout = useSidebarLayout();
 
   const translationProfile = profileFor(settings, 'translation');
@@ -1028,7 +1037,7 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     }
   }
 
-  function openSettings(section: SettingsSection = 'general', anchor = '') {
+  function openSettings(section: SettingsSection = 'general', anchor = '', keepQuery = false) {
     if (voiceRef.current) {
       notify('请先结束或取消录音。');
       return false;
@@ -1043,6 +1052,11 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
       notify('正在停止监听，结束后可进入设置。');
       return false;
     }
+    if (page === 'workspace' || page === 'text') {
+      previousWorkspace.current = page;
+      setSettingsSidebar(true);
+    }
+    if (!keepQuery) setSettingsQuery('');
     setSettingsSection(section);
     setSettingsFocus((current) => ({ id: anchor, version: (current?.version ?? 0) + 1 }));
     setPage('settings');
@@ -1091,28 +1105,34 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           <AudioLines size={19} strokeWidth={1.5} />
           <span>VoxBridge</span>
         </div>
-        <nav aria-label={t('主导航')}>
-          <button
-            aria-current={page === 'workspace' ? 'page' : undefined}
-            onClick={() => setPage('workspace')}
-            disabled={settingsBusy}
-          >
-            <MessageSquare size={15} />
-            {t('字幕')}
-          </button>
-          <button
-            aria-current={page === 'text' ? 'page' : undefined}
-            onClick={() => setPage('text')}
-            disabled={settingsBusy}
-          >
-            <Languages size={15} />
-            {t('文本翻译')}
-          </button>
-        </nav>
-        {page === 'workspace' || page === 'text' ? (
+        {workspacePage && (
+          <nav aria-label={t('主导航')}>
+            <button
+              aria-label={t('字幕')}
+              title={t('字幕')}
+              aria-current={page === 'workspace' ? 'page' : undefined}
+              onClick={() => setPage('workspace')}
+              disabled={settingsBusy}
+            >
+              <MessageSquare size={15} />
+              {t('字幕')}
+            </button>
+            <button
+              aria-label={t('文本翻译')}
+              title={t('文本翻译')}
+              aria-current={page === 'text' ? 'page' : undefined}
+              onClick={() => setPage('text')}
+              disabled={settingsBusy}
+            >
+              <Languages size={15} />
+              {t('文本翻译')}
+            </button>
+          </nav>
+        )}
+        {workspacePage ? (
           <div className="sidebar-bottom">
             <nav aria-label={t('设置导航')}>
-              <button onClick={() => openSettings()}>
+              <button aria-label={t('设置')} title={t('设置')} onClick={() => openSettings()}>
                 <Settings2 size={15} />
                 {t('设置')}
               </button>
@@ -1120,44 +1140,80 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
           </div>
         ) : (
           <nav className="preferences-nav" aria-label={t('设置分类')}>
-            <span className="nav-group-label">{t('偏好设置')}</span>
-            <button
-              disabled={settingsBusy}
-              aria-current={
-                page === 'settings' && settingsSection === 'general' ? 'page' : undefined
-              }
-              onClick={() => openSettings('general')}
-            >
-              <Settings2 size={15} />
-              {t('常规')}
+            <button disabled={settingsBusy} onClick={() => setPage(previousWorkspace.current)}>
+              <ArrowLeft size={15} aria-hidden="true" />
+              {t('返回工作台')}
             </button>
-            <span className="nav-group-label">{t('模型服务')}</span>
-            {(
-              [
-                { id: 'translation', label: '文字翻译', Icon: Languages },
-                { id: 'asr', label: '语音识别', Icon: Mic },
-                { id: 'tts', label: '语音合成', Icon: Volume2 },
-              ] as const
-            ).map(({ id, label, Icon }) => (
-              <button
-                key={id}
+            <label className="settings-search">
+              <Search size={15} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label={t('搜索设置')}
+                placeholder={t('搜索设置')}
+                value={settingsQuery}
                 disabled={settingsBusy}
-                aria-current={page === 'settings' && settingsSection === id ? 'page' : undefined}
-                onClick={() => openSettings(id)}
-              >
-                <Icon size={15} />
-                {t(label)}
-              </button>
-            ))}
-            <span className="nav-group-label">{t('工具')}</span>
-            <button
-              disabled={settingsBusy}
-              aria-current={page === 'diagnostics' ? 'page' : undefined}
-              onClick={() => setPage('diagnostics')}
-            >
-              <AudioLines size={15} />
-              {t('音频与诊断')}
-            </button>
+                onChange={(e) => setSettingsQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setSettingsQuery('');
+                }}
+              />
+            </label>
+            {settingsQuery.trim() ? (
+              <SettingsSearchResults
+                query={settingsQuery}
+                desktop={desktop}
+                disabled={settingsBusy}
+                onOpen={(section, anchor) => openSettings(section, anchor, true)}
+                onDiagnostics={() => setPage('diagnostics')}
+              />
+            ) : (
+              <>
+                {' '}
+                <span className="nav-group-label">{t('偏好设置')}</span>
+                <button
+                  disabled={settingsBusy}
+                  aria-current={
+                    page === 'settings' && settingsSection === 'general' ? 'page' : undefined
+                  }
+                  onClick={() => openSettings('general')}
+                >
+                  <Settings2 size={15} />
+                  {t('常规')}
+                </button>
+                <span className="nav-group-label">{t('模型服务')}</span>
+                {(
+                  [
+                    { id: 'translation', label: '文字翻译', Icon: Languages },
+                    { id: 'asr', label: '语音识别', Icon: Mic },
+                    { id: 'tts', label: '语音合成', Icon: Volume2 },
+                  ] as const
+                ).map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    disabled={settingsBusy}
+                    aria-current={
+                      page === 'settings' && settingsSection === id ? 'page' : undefined
+                    }
+                    onClick={() => openSettings(id)}
+                  >
+                    <Icon size={15} />
+                    {t(label)}
+                  </button>
+                ))}
+                <span className="nav-group-label">{t('工具')}</span>
+                <button
+                  disabled={settingsBusy}
+                  aria-current={page === 'diagnostics' ? 'page' : undefined}
+                  onClick={() => {
+                    setSettingsQuery('');
+                    setPage('diagnostics');
+                  }}
+                >
+                  <AudioLines size={15} />
+                  {t('音频与诊断')}
+                </button>
+              </>
+            )}
           </nav>
         )}
       </aside>
@@ -1243,23 +1299,25 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
             />
           )}
           {page === 'settings' && (
-            <SettingsPanel
-              platform={runtime?.platform}
-              section={settingsSection}
-              focusSection={settingsFocus}
-              onBusyChange={setSettingsBusy}
-              onUnsavedKeyChange={setUnsavedKey}
-              settings={settings}
-              savedSettings={savedSettings}
-              onDraftChange={setSettings}
-              onAutomaticUpdatesChange={persistAutomaticUpdates}
-              onSave={persist}
-              notify={notify}
-              onDiagnostics={() => setPage('diagnostics')}
-              onRefreshApplications={refreshCaptureSources}
-              refreshingApplications={refreshingSources}
-              captureSupported={runtime?.nativeCapture === true}
-            />
+            <>
+              <SettingsPanel
+                platform={runtime?.platform}
+                section={settingsSection}
+                focusSection={settingsFocus}
+                onBusyChange={setSettingsBusy}
+                onUnsavedKeyChange={setUnsavedKey}
+                settings={settings}
+                savedSettings={savedSettings}
+                onDraftChange={setSettings}
+                onAutomaticUpdatesChange={persistAutomaticUpdates}
+                onSave={persist}
+                notify={notify}
+                onDiagnostics={() => setPage('diagnostics')}
+                onRefreshApplications={refreshCaptureSources}
+                refreshingApplications={refreshingSources}
+                captureSupported={runtime?.nativeCapture === true}
+              />
+            </>
           )}
           {page === 'diagnostics' && (
             <Diagnostics runtime={runtime} notify={notify} settings={settings} onSave={persist} />

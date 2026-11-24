@@ -31,6 +31,7 @@
 - [开发与打包](development.md)：环境搭建、启动、测试、构建与发布。
 - [架构总览](02-architecture.md)：模块边界、音频路由、配置和凭据。
 - [内部流程](internal-flows.md)：字幕修订、发送队列、文本翻译、取消与恢复。
+- [工作台侧栏与设置搜索原型](settings-navigation-prototype.md)记录侧栏两种宽度、设置页布局和搜索结果。
 - [Windows 开发入口](windows-development-todo.md)：实现状态和待验证项目。
 
 ## 发布与历史资料

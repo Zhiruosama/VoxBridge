@@ -626,7 +626,7 @@ nav button[aria-current='page'] {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px 12px;
+  padding: 6px 16px 12px;
 }
 .speech-picker {
   position: relative;
@@ -2077,10 +2077,12 @@ input:not([type='range']):focus {
 }
 .composer-preferences .model-button,
 .composer-preferences .speech-picker {
-  flex: 1 1 140px;
+  flex: 0 1 auto;
   min-width: 40px;
 }
 .composer-preferences .model-button {
+  justify-content: flex-start;
+  padding-inline-start: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3334,4 +3336,68 @@ input[type='range']:focus-visible::-moz-range-thumb {
   .update-progress > span {
     transition: none;
   }
+}
+
+.preferences-nav {
+  margin-top: 0;
+}
+.settings-search {
+  display: flex;
+  flex-direction: row;
+  height: max(38px, calc(1.6 * 14px + 16px));
+  align-items: center;
+  gap: 7px;
+  margin: 4px 0 0;
+  padding-inline: 10px;
+  background: var(--raised);
+  color: var(--muted);
+  border: 0;
+  border-radius: 11px;
+}
+.settings-search svg {
+  flex: none;
+}
+.settings-search:focus-within {
+  color: var(--text);
+}
+
+.preferences-page :is(.preference-row, h2)[tabindex='-1']:focus {
+  outline: none;
+}
+.settings-search input {
+  appearance: none;
+  min-width: 0;
+  width: 100%;
+  padding: 7px 0;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+}
+.settings-search input[type='search']:focus {
+  outline: none;
+  box-shadow: none;
+}
+.settings-results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+}
+.settings-results button {
+  text-align: start;
+  white-space: nowrap;
+}
+.settings-results button[aria-current='location'] {
+  color: var(--text);
+  background: var(--raised);
+}
+.settings-results button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-results p {
+  margin: 8px 10px;
+  color: var(--muted);
+  font-size: 13px;
 }
