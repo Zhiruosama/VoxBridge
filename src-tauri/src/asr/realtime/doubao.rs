@@ -32,7 +32,7 @@ struct Recognition {
 
 #[derive(Deserialize)]
 struct Utterance {
-    text: String,
+    text: Option<String>,
     start_time: Option<u64>,
     end_time: Option<u64>,
     definite: bool,
@@ -126,7 +126,9 @@ impl Results {
         // With incremental results the service repeats the active utterance and
         // occasionally sends its definitive version alongside the next preview.
         for utterance in result.utterances {
-            let text = utterance.text.trim();
+            let Some(text) = utterance.text.as_deref().map(str::trim) else {
+                continue;
+            };
             if text.is_empty() || (!utterance.definite && self.partial == text) {
                 continue;
             }

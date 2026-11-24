@@ -179,7 +179,14 @@ fn split_finals_keep_both_speakers_even_with_overlapping_timestamps() {
         )
         .unwrap();
     results
-        .accept(response(vec![first.clone(), second.clone()]), &mut emit)
+        .accept(
+            response(vec![
+                json!({"start_time":850,"end_time":1000,"definite":true}),
+                first.clone(),
+                second.clone(),
+            ]),
+            &mut emit,
+        )
         .unwrap();
     results
         .accept(response(vec![first, second]), &mut emit)
