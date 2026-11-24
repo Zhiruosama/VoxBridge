@@ -305,7 +305,6 @@
   "自建提示词预设": "My presets",
   "自定义提示词": "Custom prompt",
   "保存为预设": "Save as preset",
-  "管理自建预设": "Manage my presets",
   "删除提示词预设 {0}": "Delete prompt preset {0}",
   "提示词同时用于实时字幕和输入文字的翻译。目标语言由语言设置决定，留空使用默认提示词。": "The prompt applies to live captions and typed text. Your language settings control the target language. Leave the prompt blank to use the default.",
   "IG / Discord 聊天（默认）": "IG / Discord chat (default)",

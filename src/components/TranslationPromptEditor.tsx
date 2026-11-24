@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
 import {
   builtinTranslationPromptPresets,
   customTranslationPromptPresetLimit,
@@ -41,6 +40,10 @@ export default function TranslationPromptEditor({
       label: preset.name,
       group: t('自建提示词预设'),
       translate: false,
+      remove: {
+        label: t('删除提示词预设 {0}', preset.name),
+        action: () => onDeletePreset(preset.id),
+      },
     })),
   ];
 
@@ -141,25 +144,6 @@ export default function TranslationPromptEditor({
               '提示词同时用于实时字幕和输入文字的翻译。目标语言由语言设置决定，留空使用默认提示词。',
             )}
           </p>
-          {presets.length > 0 && (
-            <details className="translation-prompt-library">
-              <summary>{t('管理自建预设')}</summary>
-              <ul>
-                {presets.map((preset) => (
-                  <li key={preset.id}>
-                    <span>{preset.name}</span>
-                    <button
-                      className="icon-button"
-                      aria-label={t('删除提示词预设 {0}', preset.name)}
-                      onClick={() => onDeletePreset(preset.id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
         </div>
       </div>
     </section>
