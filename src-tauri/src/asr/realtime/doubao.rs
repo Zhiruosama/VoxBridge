@@ -4,6 +4,7 @@ use std::io::{Read, Write};
 use tokio::time::Instant;
 
 const PCM_PACKET: usize = 3_200; // 100 ms of mono PCM16 at 16 kHz
+const KEEPALIVE: Duration = Duration::from_secs(15);
 const BAD_FRAME: &str = "豆包实时识别返回了无效的数据帧。";
 
 fn encode(kind: u8, sequence: i32, payload: &[u8]) -> Result<Message, String> {
@@ -185,8 +186,13 @@ pub(super) async fn recognize(
                 initial["request"]["output_zh_variant"] = json!("traditional");
             }
             write(&mut socket, encode(1, 1, initial.to_string().as_bytes())?).await?;
-            let (ack, finished) = tokio::time::timeout(Duration::from_secs(15), receive_frame(&mut socket))
-                .await.map_err(|_| "实时 ASR 启动超时。")??;
+            let (ack, finished) = tokio::time::timeout(Duration::from_secs(15), async {
+                loop {
+                    if let Some(frame) = receive_frame(&mut socket).await? {
+                        return Ok::<_, String>(frame);
+                    }
+                }
+            }).await.map_err(|_| "实时 ASR 启动超时。")??;
             if finished {
                 return Err("豆包实时 ASR 任务未就绪。".into());
             }
@@ -198,12 +204,14 @@ pub(super) async fn recognize(
             let mut sequence = 2;
             let mut finish_deadline = None;
             let mut last_received = Instant::now();
+            let mut ping = tokio::time::interval_at(last_received + KEEPALIVE, KEEPALIVE);
             loop {
                 let deadline = finish_deadline.unwrap_or(last_received + Duration::from_secs(45));
                 tokio::select! { biased;
                     result = receive_frame(&mut socket) => {
-                        let (response, finished) = result?;
+                        let frame = result?;
                         last_received = Instant::now();
+                        let Some((response, finished)) = frame else { continue };
                         results.accept(response, &mut emit)?;
                         if finished {
                             return if finish_deadline.is_some() {
@@ -235,6 +243,9 @@ pub(super) async fn recognize(
                             finish_deadline = Some(Instant::now() + Duration::from_secs(10));
                         }
                     },
+                    _ = ping.tick(), if finish_deadline.is_none() => {
+                        write(&mut socket, Message::Ping(Vec::new().into())).await?;
+                    }
                     _ = tokio::time::sleep_until(deadline) => return Err("实时 ASR 响应超时，请重新监听。".into()),
                 }
             }
@@ -242,14 +253,15 @@ pub(super) async fn recognize(
     }
 }
 
-async fn receive_frame(socket: &mut Socket) -> Result<(Response, bool), String> {
-    loop {
-        match socket.next().await {
-            Some(Ok(Message::Binary(bytes))) => return decode(&bytes),
-            Some(Ok(Message::Ping(bytes))) => write(socket, Message::Pong(bytes)).await?,
-            Some(Ok(Message::Pong(_))) => {}
-            _ => return Err("实时 ASR 连接已断开，请重新开始监听。".into()),
+async fn receive_frame(socket: &mut Socket) -> Result<Option<(Response, bool)>, String> {
+    match socket.next().await {
+        Some(Ok(Message::Binary(bytes))) => decode(&bytes).map(Some),
+        Some(Ok(Message::Ping(bytes))) => {
+            write(socket, Message::Pong(bytes)).await?;
+            Ok(None)
         }
+        Some(Ok(Message::Pong(_))) => Ok(None),
+        _ => Err("实时 ASR 连接已断开，请重新开始监听。".into()),
     }
 }
 
