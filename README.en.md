@@ -1,58 +1,47 @@
-# VoxBridge
+<p align="center"><img src="src-tauri/icons/128x128.png" width="72" height="72" alt=""></p>
+<h1 align="center">VoxBridge</h1>
 
-[简体中文](README.md) · **English** · [日本語](README.ja.md) · [Русский](README.ru.md)
+<p align="center">
+  <strong>Desktop translation for voice calls on macOS and Windows.</strong><br>
+  Read bilingual captions, translate copied text, and reply in another language by typing or recording your voice.
+</p>
 
-[Download](https://github.com/Zhiruosama/VoxBridge/releases) · [Get started (中文)](docs/guides/getting-started.md) · [Documentation (中文)](docs/README.md) · [Report an issue](https://github.com/Zhiruosama/VoxBridge/issues)
+<p align="center">
+  <a href="https://github.com/Zhiruosama/VoxBridge/releases"><strong>Download the beta</strong></a> ·
+  <a href="docs/guides/getting-started.md">Setup guide (中文)</a> ·
+  <a href="docs/README.md">Documentation (中文)</a>
+</p>
 
-VoxBridge is a translation app for macOS and Windows. Read bilingual captions from another app's audio, translate typed text, or turn your text and recordings into speech for Discord and other voice chat apps through a virtual microphone.
+<p align="center"><a href="README.md">简体中文</a> · <strong>English</strong> · <a href="README.ja.md">日本語</a> · <a href="README.ru.md">Русский</a></p>
 
-![VoxBridge workspace](docs/assets/workspace-overview.png)
+![VoxBridge workspace showing sample English captions with Chinese translations](docs/assets/workspace-overview.png)
 
-_Interface example with sample captions._
+## Installation
 
-## What you can do
+Open **Assets** under a beta release on [GitHub Releases](https://github.com/Zhiruosama/VoxBridge/releases) and match the filename ending to your computer.
 
-- **Text translation:** type or watch copied text, translate manually or automatically, and view results in a small floating window.
-- **Live captions:** choose an app and read its original and translated speech.
-- **Speak through text or recording:** review your input, generate speech and independently control local monitoring.
-- **Floating window:** read captions above other windows, type or record without returning to the main window.
-- **Voice and appearance settings:** choose services, models, voices and speed; adjust caption colors, size and panel appearance.
-
-## Install
-
-Choose an installer from [Releases](https://github.com/Zhiruosama/VoxBridge/releases). No development tools are required.
-
-| Computer | File | Installation |
+| Platform | Filename ending | Installation |
 | --- | --- | --- |
-| Apple Silicon Mac, macOS 14.2+ | `aarch64.dmg` | Open and drag VoxBridge into Applications |
-| Windows 11, Intel / AMD | `x64-setup.exe` | Run the installer |
-| Windows ARM64 | `arm64-setup.exe` | Experimental; audio hardware validation is pending |
+| Apple Silicon Mac · macOS 14.2 or later | `aarch64.dmg` | Open the disk image and drag VoxBridge into Applications |
+| Windows 11 · Intel / AMD | `x64-setup.exe` | Run the installer |
+| Windows ARM64 · experimental | `arm64-setup.exe` | Run the installer. Audio hardware validation is pending |
 
-The Mac app is not Developer ID-signed or notarized, and Windows installers are not Authenticode-signed. Follow the [installation guide (中文)](docs/guides/getting-started.md) and consult the release notes for each build's validation scope.
+The macOS build lacks Developer ID signing and notarization. Windows installers lack Authenticode signing. The [installation guide (中文)](docs/guides/getting-started.md) covers first-launch prompts. Each release lists the platforms tested.
 
-## Start using it
+## First use
 
-1. Configure your model services and save your own API keys. **Text-only translation needs only a translation service.**
-2. Choose **Text translation** to type, or **Captions** to select an app and start listening.
-3. To send generated speech into a chat app, configure speech synthesis and a virtual microphone. Local monitoring is a separate control.
+In Settings, choose a model and save your own API key for each service you plan to use.
 
-Saved keys persist across restarts. Cloud providers may charge for requests and receive the text or audio you submit. Installers do not include API keys, service credit or private cloned voices.
+- **Follow a call.** Set up speech recognition and translation. In **Captions**, select Discord or your browser and start listening while the app is playing audio. Open the floating captions to read the original and translation over the call window. [Caption guide (中文)](docs/guides/listening.md)
+- **Reply in another language.** Set up translation and speech synthesis. Choose a language and voice at the bottom of the captions window, then type your reply. Preview it in your headphones or send it to the call through a virtual microphone. To dictate a reply, add speech recognition and review the transcript before sending. [Voice setup (中文)](docs/guides/voice-output.md)
+- **Translate a passage.** Text translation needs only a translation service. Choose a target language, paste your text and press Enter. To follow along as you read, enable clipboard monitoring and automatic translation, then open the translation window. [Text translation guide (中文)](docs/guides/text-translation.md)
 
-## Find the right guide
+Cloud providers receive the text or audio you submit and may charge for requests. You supply your own keys and service credit. [Model and API key settings (中文)](docs/guides/services.md)
 
-| Task | Guide (中文) |
-| --- | --- |
-| First installation and setup | [Get started](docs/guides/getting-started.md) |
-| Configure models, keys and voices | [Services](docs/guides/services.md) |
-| Translate text | [Text translation](docs/guides/text-translation.md) |
-| Read live captions | [Listening and floating captions](docs/guides/listening.md) |
-| Send speech into Discord | [Voice input and virtual microphone](docs/guides/voice-output.md) |
-| Fix audio, permissions or service errors | [Troubleshooting](docs/guides/troubleshooting.md) |
+## Help and development
 
-Development, architecture and historical records are organized in the [documentation center (中文)](docs/README.md).
+[Troubleshooting (中文)](docs/guides/troubleshooting.md) · [Report an issue](https://github.com/Zhiruosama/VoxBridge/issues) · [Development and packaging (中文)](docs/development.md) · [Architecture (中文)](docs/02-architecture.md)
 
 ## License
 
-VoxBridge's own code is licensed under [PolyForm Noncommercial](LICENSE), permitting noncommercial use, modification and distribution under its terms. Commercial use requires separate permission. This is a source-available project, not an open-source license permitting commercial use.
-
-Third-party components retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+VoxBridge is source-available. Its own code may be used, modified and distributed for noncommercial purposes under the [PolyForm Noncommercial license](LICENSE). Commercial use requires separate permission. Third-party components retain their own licenses. [Third-party notices](THIRD_PARTY_NOTICES.md)
