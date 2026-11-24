@@ -13,12 +13,14 @@ export function assignParagraph(
   id: string,
   source: string,
   group: string,
+  speaker?: number,
 ): ParagraphIdentity {
   const characters = Array.from(source).length;
   const limit = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(source) ? 120 : 360;
   const join =
     previous?.final &&
     previous.recognitionGroup === group &&
+    previous.speaker === speaker &&
     previous.paragraphId &&
     (previous.paragraphSize ?? 1) < 3 &&
     (previous.paragraphCharacters ?? 0) + characters <= limit;
@@ -33,6 +35,7 @@ export function assignParagraph(
 export interface CaptionMember {
   segmentId: string;
   paragraphId?: string;
+  speaker?: number;
   color?: string;
   final: boolean;
   source: string;
@@ -53,6 +56,7 @@ export function captionGroups<T extends CaptionMember>(lines: readonly T[], layo
       line.final &&
       !line.segmentId.startsWith('expression:') &&
       previous?.id === id &&
+      previous.members[0].speaker === line.speaker &&
       previous.members.every(
         (member) => member.final && !member.segmentId.startsWith('expression:'),
       )
@@ -80,6 +84,7 @@ export function workspaceCaptions(
   return segments.map((segment) => ({
     segmentId: segment.id,
     paragraphId: segment.paragraphId,
+    speaker: segment.speaker,
     final: segment.final,
     color: colors[segment.id.startsWith('expression:') ? 'expression' : 'recognition'],
     source: segment.source,

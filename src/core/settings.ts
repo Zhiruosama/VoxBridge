@@ -1,4 +1,9 @@
-import { doubaoRealtimeUrl, doubaoResourceIds, isRealtimeAsr } from './asr-protocols';
+import {
+  doubaoRealtimeUrl,
+  doubaoResourceIds,
+  isRealtimeAsr,
+  supportsSpeakerLabels,
+} from './asr-protocols';
 import { parseTextOverlayAppearance, textOverlayAppearanceDefaults } from './text-overlay';
 import { parseAsrLanguage, automaticAsrLanguage } from './asr-language';
 import { textPanelOpacity } from './text-translation-layout';
@@ -227,6 +232,10 @@ export function parseSettings(value: unknown): Settings {
       baseUrl: p.baseUrl as string,
       modelId: p.modelId as string,
       voice: p.voice as string,
+      ...(p.speakerLabels === true &&
+      supportsSpeakerLabels({ stage, adapter, modelId: p.modelId as string })
+        ? { speakerLabels: true }
+        : {}),
       ...(stage === 'tts' ? { speed: (p.speed as number | undefined) ?? 1 } : {}),
       ...(stage === 'tts' && p.speechOptions !== undefined
         ? { speechOptions: parseSpeechOptions(p.speechOptions) }

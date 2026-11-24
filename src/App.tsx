@@ -659,7 +659,8 @@ export default function App({ bootstrapError = '' }: { bootstrapError?: string }
     if (!listenEpochRef.current.accept(event)) return;
     if (event.type === 'transcript') {
       if (event.final) conversation.current.remember(event.segmentId, 'remote', event.text);
-      setSession((state) => applyTranscript(state, event));
+      const speaker = event.final ? listenEpochRef.current.speaker(event.speakerId) : undefined;
+      setSession((state) => applyTranscript(state, event, speaker));
     } else if (event.type === 'translation') {
       setSession((state) =>
         applyTranslation(

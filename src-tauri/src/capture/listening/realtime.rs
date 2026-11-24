@@ -288,6 +288,7 @@ async fn process_stream(
                             text: sentence.text.clone(),
                             r#final: sentence.final_text,
                             correction,
+                            speaker_id: sentence.speaker_id.clone(),
                             start_ms: request.offset_ms.saturating_add(sentence.start_ms),
                         },
                     )?;

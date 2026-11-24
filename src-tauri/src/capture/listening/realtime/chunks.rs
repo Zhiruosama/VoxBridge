@@ -123,6 +123,7 @@ impl Chunks {
                     text: String::new(),
                     final_text: false,
                     start_ms: self.last_start_ms,
+                    speaker_id: None,
                 });
             }
             let cut = cut_at(

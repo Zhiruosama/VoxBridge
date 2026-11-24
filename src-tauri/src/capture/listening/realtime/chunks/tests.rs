@@ -6,6 +6,7 @@ fn input(revision: u32, text: &str, final_text: bool) -> Sentence {
         text: text.into(),
         final_text,
         start_ms: 0,
+        speaker_id: None,
     }
 }
 
@@ -269,6 +270,7 @@ fn clean_eof_commits_only_provider_final_tail_once() {
         text: "Fifteen million".into(),
         final_text: true,
         start_ms: 0,
+        speaker_id: None,
     };
     chunks.push(source, 100);
     let final_tail = chunks.finish();
@@ -284,6 +286,7 @@ fn clean_eof_commits_only_provider_final_tail_once() {
             text: "unfinished hypothesis".into(),
             final_text: false,
             start_ms: 0,
+            speaker_id: None,
         },
         100,
     );

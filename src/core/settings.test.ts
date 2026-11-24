@@ -60,6 +60,24 @@ describe('settings recovery', () => {
 });
 
 describe('provider profiles', () => {
+  it('persists speaker labels only on the supported Doubao streaming resources', () => {
+    const settings = structuredClone(defaults);
+    const profile = {
+      id: 'test-doubao',
+      name: '豆包',
+      stage: 'asr' as const,
+      adapter: 'doubao_realtime_asr' as const,
+      baseUrl: doubaoRealtimeUrl,
+      modelId: doubaoResourceIds[0],
+      voice: '',
+      speakerLabels: true,
+    };
+    settings.profiles.push(profile);
+    expect(parseSettings(settings).profiles.at(-1)?.speakerLabels).toBe(true);
+    profile.modelId = 'volc.bigasr.sauc.duration';
+    expect(parseSettings(settings).profiles.at(-1)?.speakerLabels).toBeUndefined();
+  });
+
   it('reuses the active saved Doubao test profile and its credential ID', () => {
     const settings = structuredClone(defaults);
     const profile = {

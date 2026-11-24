@@ -55,6 +55,8 @@
 
 实时接口自动识别中文和英语，句末的二遍识别结果会用于字幕翻译。可在字幕页、麦克风录音或「音频与诊断」的短 WAV 验证中试用。已使用官方地址与资源 ID 保存过「未配置协议」条目的用户可以继续使用该条目及其密钥。[火山引擎实时接口说明](https://docs.volcengine.com/docs/doubao-voice/bidirectional-streaming-automatic-speech-recognition-websocket?lang=zh)
 
+使用豆包实时识别 2.0 时，可以在「语音识别 → 区分说话人」开启字幕标签。保存后重新开始监听，工作台和悬浮窗会在定稿字幕上显示会话内的说话人编号。多人同时说话时，模型仍可能漏听或分错人。
+
 ### OpenAI 语音识别
 
 在「语音识别 → 新增配置」选择「OpenAI 语音识别」，保存自己的 API Key。地址填写 `https://api.openai.com/v1`，接口类型选择「OpenAI 兼容语音识别」。模型可选 `whisper-1`、`gpt-4o-transcribe`、`gpt-4o-mini-transcribe`、`gpt-4o-transcribe-diarize`，也可以手动输入兼容模型 ID。

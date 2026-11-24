@@ -37,6 +37,7 @@ pub(crate) struct Sentence {
     pub text: String,
     pub final_text: bool,
     pub start_ms: u64,
+    pub speaker_id: Option<String>,
 }
 
 #[derive(Default)]
@@ -90,6 +91,7 @@ impl Results {
             text: text.into(),
             final_text,
             start_ms,
+            speaker_id: None,
         };
         if final_text {
             self.last_final = id;

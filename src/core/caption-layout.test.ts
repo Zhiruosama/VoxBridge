@@ -54,6 +54,51 @@ describe('caption display projection', () => {
     expect(state.segments.at(-1)?.paragraphId).toBe('partial');
   });
 
+  it('replaces a combined preview with distinct speaker captions in both windows', () => {
+    const preview = add({ id: 'session', segments: [] }, 'a', 'Really? Yes.', 0, false);
+    const first = applyTranscript(
+      preview,
+      {
+        sessionId: 'session',
+        segmentId: 'a',
+        revision: 2,
+        text: 'Really?',
+        final: true,
+      },
+      1,
+    );
+    let state = applyTranscript(
+      first,
+      {
+        sessionId: 'session',
+        segmentId: 'b',
+        revision: 1,
+        text: 'Yes.',
+        final: true,
+      },
+      2,
+    );
+    state = applyTranslation(state, 'session', 'b', 1, '对。');
+    state = applyTranslation(state, 'session', 'a', 2, '真的吗？');
+    const workspace = lines(state);
+    const overlay = overlaySnapshot(state, 'running', defaults.subtitle, 1).lines;
+    for (const [scope, members] of [
+      ['workspace', workspace],
+      ['overlay', overlay],
+    ] as const) {
+      expect(captionGroups(members, 'paragraph')).toHaveLength(2);
+      expect(members.map(({ speaker, translation }) => [speaker, translation])).toEqual([
+        [1, '真的吗？'],
+        [2, '对。'],
+      ]);
+      const html = renderToStaticMarkup(
+        createElement(CaptionFeed, { lines: members, scope, layout: 'paragraph' }),
+      );
+      expect(html).toContain('说话人 1');
+      expect(html).toContain('说话人 2');
+    }
+  });
+
   it('keeps paragraph identities and pending slots when translations arrive out of order', () => {
     let state = three();
     const identities = state.segments.map((s) => s.paragraphId);

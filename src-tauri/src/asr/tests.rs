@@ -8,6 +8,7 @@ fn profile(base_url: String) -> AsrProfile {
         adapter: "qwen_chat_asr".into(),
         base_url,
         model_id: "test-model".into(),
+        speaker_labels: false,
     }
 }
 
@@ -15,6 +16,7 @@ fn openai_profile(base_url: String, model: &str) -> AsrProfile {
     AsrProfile {
         adapter: "openai_audio_transcriptions".into(),
         model_id: model.into(),
+        speaker_labels: false,
         ..profile(base_url)
     }
 }

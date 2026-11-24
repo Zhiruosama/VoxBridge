@@ -34,6 +34,7 @@ export interface ProviderProfile {
   baseUrl: string;
   modelId: string;
   voice: string;
+  speakerLabels?: boolean;
   speed?: number;
   speechOptions?: import('./speech-options').SpeechOptions;
   modelPresets?: ProfilePreset[];
@@ -64,6 +65,7 @@ export interface OverlaySnapshot extends SubtitleAppearance {
   lines: {
     segmentId: string;
     paragraphId?: string;
+    speaker?: number;
     color?: string;
     revision: number;
     final: boolean;
@@ -103,6 +105,7 @@ export interface Settings {
   listening: { sourceLanguage: string; targetLanguage: string };
 }
 export interface Segment {
+  speaker?: number;
   paragraphId?: string;
   paragraphSize?: number;
   paragraphCharacters?: number;
@@ -117,6 +120,7 @@ export interface Segment {
   time: string;
 }
 export interface TranscriptEvent {
+  speakerId?: string;
   correction?: boolean;
   generation?: number;
   sessionId: string;

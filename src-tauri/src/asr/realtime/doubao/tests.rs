@@ -63,6 +63,7 @@ async fn sends_audio_and_emits_only_new_previews_and_sentence_finals() {
         let request = serde_json::from_str::<Value>(&start).unwrap();
         assert_eq!(request["request"]["enable_nonstream"], true);
         assert_eq!(request["request"]["result_type"], "single");
+        assert!(request["request"]["enable_speaker_info"].is_null());
         socket
             .send(server_frame(json!({"result":{}}), 1))
             .await
@@ -109,6 +110,7 @@ async fn sends_audio_and_emits_only_new_previews_and_sentence_finals() {
         adapter: "doubao_realtime_asr".into(),
         base_url: format!("ws://{address}"),
         model_id: "volc.seedasr.sauc.duration".into(),
+        speaker_labels: false,
     };
     let (send, audio) = mpsc::channel(8);
     let (ready, wait) = oneshot::channel();
@@ -147,6 +149,47 @@ async fn sends_audio_and_emits_only_new_previews_and_sentence_finals() {
             (1, 1, false, "It's fifteen.".into()),
             (1, 2, true, "It's fifty.".into()),
             (2, 1, true, "走吧。".into()),
+        ]
+    );
+}
+
+#[test]
+fn split_finals_keep_both_speakers_even_with_overlapping_timestamps() {
+    let mut results = Results {
+        speaker_labels: true,
+        ..Results::default()
+    };
+    let first = json!({"text":"你只爱看玄幻小说吗？","start_time":0,"end_time":1300,"definite":true,"additions":{"speaker_id":"1"}});
+    let second = json!({"text":"对。","start_time":1150,"end_time":1300,"definite":true,"additions":{"speaker_id":"2"}});
+    let response = |rows| serde_json::from_value(json!({"result":{"utterances":rows}})).unwrap();
+    let mut captions = Vec::new();
+    let mut emit = |sentence: Sentence| {
+        captions.push((
+            sentence.id,
+            sentence.revision,
+            sentence.final_text,
+            sentence.speaker_id,
+        ));
+        Ok(())
+    };
+    results
+        .accept(
+            response(vec![json!({"text":"你只爱看","definite":false})]),
+            &mut emit,
+        )
+        .unwrap();
+    results
+        .accept(response(vec![first.clone(), second.clone()]), &mut emit)
+        .unwrap();
+    results
+        .accept(response(vec![first, second]), &mut emit)
+        .unwrap();
+    assert_eq!(
+        captions,
+        vec![
+            (1, 1, false, None),
+            (1, 2, true, Some("1".into())),
+            (2, 1, true, Some("2".into()))
         ]
     );
 }

@@ -23,11 +23,22 @@ pub struct AsrProfile {
     adapter: String,
     base_url: String,
     pub model_id: String,
+    #[serde(default)]
+    pub(crate) speaker_labels: bool,
 }
 
 impl AsrProfile {
     pub(crate) fn is_realtime(&self) -> bool {
         self.adapter == "qwen_dashscope_asr" || self.is_doubao()
+    }
+
+    fn uses_speaker_labels(&self) -> bool {
+        self.speaker_labels
+            && self.is_doubao()
+            && matches!(
+                self.model_id.trim(),
+                "volc.seedasr.sauc.duration" | "volc.seedasr.sauc.concurrent"
+            )
     }
 
     pub(crate) fn is_doubao(&self) -> bool {
@@ -337,7 +348,7 @@ pub fn stop_asr(request_id: String, state: tauri::State<'_, AsrState>) -> Result
 
 #[tauri::command]
 pub async fn transcribe_wav(
-    profile: AsrProfile,
+    mut profile: AsrProfile,
     audio: Vec<u8>,
     request_id: String,
     language: Option<String>,
@@ -351,6 +362,7 @@ pub async fn transcribe_wav(
         result = crate::credentials::read_async(&profile.id) => result?,
     };
     if profile.is_doubao() {
+        profile.speaker_labels = false;
         return recognize_wav_stream(
             &profile,
             wav_pcm(&audio)?,

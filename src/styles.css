@@ -548,6 +548,17 @@ nav button[aria-current='page'] {
   font-size: 10px;
   margin-bottom: 8px;
 }
+.caption-speaker {
+  font-weight: 600;
+  color: var(--muted);
+}
+.overlay-caption > .caption-speaker {
+  display: block;
+  margin-bottom: 3px;
+  color: inherit;
+  font-size: 0.72em;
+  opacity: 0.8;
+}
 .source-text {
   color: var(--caption-source, var(--muted));
   font-size: var(--caption-source-font-size, 14px);

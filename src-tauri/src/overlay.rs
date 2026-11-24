@@ -13,6 +13,8 @@ pub struct OverlayLine {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     paragraph_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    speaker: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     color: Option<String>,
     revision: u32,
     r#final: bool,
@@ -141,6 +143,9 @@ fn validate(snapshot: &OverlaySnapshot) -> Result<(), String> {
                 || line.segment_id.is_empty()
                 || line.segment_id.len() > 256
                 || line.revision == 0
+                || line
+                    .speaker
+                    .is_some_and(|speaker| speaker == 0 || !line.r#final)
                 || !matches!(
                     line.translation_state.as_str(),
                     "pending" | "ready" | "failed"
@@ -485,6 +490,7 @@ mod tests {
         invalid.lines = (0..4)
             .map(|id| OverlayLine {
                 paragraph_id: None,
+                speaker: None,
                 segment_id: format!("s-{id}"),
                 color: None,
                 revision: 1,
@@ -504,6 +510,7 @@ mod tests {
         value.lines = (0..160)
             .map(|id| OverlayLine {
                 paragraph_id: None,
+                speaker: None,
                 segment_id: format!("caption-{id}"),
                 color: None,
                 revision: 1,
@@ -538,6 +545,7 @@ mod tests {
         value.text_color = "#12Ab34".into();
         value.lines.push(OverlayLine {
             paragraph_id: None,
+            speaker: None,
             segment_id: "expression:test".into(),
             color: Some("#80deea".into()),
             revision: 1,

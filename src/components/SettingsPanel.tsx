@@ -1,4 +1,4 @@
-import { doubaoRealtimeUrl } from '../core/asr-protocols';
+import { doubaoRealtimeUrl, supportsSpeakerLabels } from '../core/asr-protocols';
 import { asrLanguages, asrLanguageHint } from '../core/asr-language';
 import ServiceCheck from './ServiceCheck';
 import BilingualToggle from './BilingualToggle';
@@ -1177,6 +1177,23 @@ export default function SettingsPanel({
                   </span>
                 )}
               </SettingRow>
+              {supportsSpeakerLabels(profile) && (
+                <SettingRow
+                  title="区分说话人"
+                  description="字幕定稿后标注说话人。保存后，下次开始监听时生效。"
+                >
+                  <button
+                    type="button"
+                    role="switch"
+                    className="preference-toggle"
+                    aria-label={t('区分说话人')}
+                    aria-checked={profile.speakerLabels === true}
+                    onClick={() => update({ speakerLabels: !profile.speakerLabels })}
+                  >
+                    {t(profile.speakerLabels ? '开启' : '关闭')}
+                  </button>
+                </SettingRow>
+              )}
               {stage === 'tts' && (
                 <SettingRow title={t('语速')}>
                   <SpeechSpeed value={profile.speed} onChange={(speed) => update({ speed })} />

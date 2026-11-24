@@ -2,7 +2,7 @@ import { assignParagraph } from './caption-layout';
 import type { Session, TranscriptEvent } from './types';
 
 /** Only explicit provider-final corrections can revise a published caption. */
-export function applyTranscript(state: Session, event: TranscriptEvent): Session {
+export function applyTranscript(state: Session, event: TranscriptEvent, speaker?: number): Session {
   if (!state.id || state.id !== event.sessionId) return state;
   const existing = state.segments.find((segment) => segment.id === event.segmentId);
   const correction = !!existing?.final && event.correction === true && event.final;
@@ -20,6 +20,7 @@ export function applyTranscript(state: Session, event: TranscriptEvent): Session
         event.segmentId,
         event.text,
         `${event.sessionId}:${event.generation ?? 0}`,
+        speaker,
       )
     : {};
   const segment = {
@@ -36,6 +37,7 @@ export function applyTranscript(state: Session, event: TranscriptEvent): Session
     revision: event.revision,
     source: event.text,
     final: event.final,
+    speaker,
     ...(!correction && existing && event.text.startsWith(existing.source)
       ? { translation: existing.translation, translationRevision: existing.translationRevision }
       : {}),

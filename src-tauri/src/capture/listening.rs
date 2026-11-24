@@ -115,6 +115,8 @@ pub enum ListeningEvent {
         r#final: bool,
         correction: bool,
         start_ms: u64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        speaker_id: Option<String>,
     },
     TranslationError {
         session_id: String,
@@ -198,6 +200,7 @@ impl SegmentProcessor<'_> {
             r#final: true,
             correction: false,
             start_ms: self.offset_ms.saturating_add(segment.start_ms),
+            speaker_id: None,
         })?;
         let context = history.before(segment.sequence).resolve();
         history.record(segment.sequence, &recognized.text);
@@ -401,12 +404,14 @@ mod tests {
             r#final: true,
             correction: false,
             start_ms: 100,
+            speaker_id: Some("2".into()),
         };
         let value = serde_json::to_value(event).unwrap();
         assert_eq!(value["type"], "transcript");
         assert_eq!(value["sessionId"], "s");
         assert_eq!(value["final"], true);
         assert_eq!(value["startMs"], 100);
+        assert_eq!(value["speakerId"], "2");
         let progress = serde_json::to_value(ListeningEvent::Progress {
             session_id: "s".into(),
             generation: 0,

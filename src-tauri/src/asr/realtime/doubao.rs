@@ -1,6 +1,9 @@
 use super::*;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
-use std::io::{Read, Write};
+use std::{
+    collections::VecDeque,
+    io::{Read, Write},
+};
 use tokio::time::Instant;
 
 const PCM_PACKET: usize = 3_200; // 100 ms of mono PCM16 at 16 kHz
@@ -30,9 +33,16 @@ struct Recognition {
 #[derive(Deserialize)]
 struct Utterance {
     text: String,
-    start_time: u64,
-    end_time: u64,
+    start_time: Option<u64>,
+    end_time: Option<u64>,
     definite: bool,
+    #[serde(default)]
+    additions: Option<SpeakerInfo>,
+}
+
+#[derive(Default, Deserialize)]
+struct SpeakerInfo {
+    speaker_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -96,10 +106,12 @@ fn decode(frame: &[u8]) -> Result<(Response, bool), String> {
 
 #[derive(Default)]
 struct Results {
+    speaker_labels: bool,
     finalized_end: u64,
     id: u64,
     revision: u32,
     partial: String,
+    recent_finals: VecDeque<(u64, u64, Option<String>)>,
 }
 
 impl Results {
@@ -115,15 +127,44 @@ impl Results {
         // occasionally sends its definitive version alongside the next preview.
         for utterance in result.utterances {
             let text = utterance.text.trim();
-            if text.is_empty()
-                || utterance.end_time <= self.finalized_end
-                || utterance.end_time < utterance.start_time
-                || (!utterance.definite && self.partial == text)
+            if text.is_empty() || (!utterance.definite && self.partial == text) {
+                continue;
+            }
+            // Some previews arrive before word alignment is available.
+            let start = utterance.start_time.unwrap_or(self.finalized_end);
+            let end = utterance.end_time;
+            if end.is_some_and(|end| end < start)
+                || (end.is_some_and(|end| end <= self.finalized_end)
+                    && !(self.speaker_labels && utterance.definite))
             {
                 continue;
             }
             if text.chars().count() > 6_000 {
                 return Err("实时 ASR 文本超过长度限制。".into());
+            }
+            let speaker_id = if self.speaker_labels && utterance.definite {
+                utterance
+                    .additions
+                    .and_then(|info| info.speaker_id)
+                    .filter(|id| {
+                        !id.is_empty()
+                            && id.len() <= 64
+                            && id.bytes().all(|byte| {
+                                byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
+                            })
+                    })
+            } else {
+                None
+            };
+            if self.speaker_labels && utterance.definite {
+                let identity = (start, end.unwrap_or(start), speaker_id.clone());
+                if self.recent_finals.contains(&identity) {
+                    continue;
+                }
+                self.recent_finals.push_back(identity);
+                if self.recent_finals.len() > 32 {
+                    self.recent_finals.pop_front();
+                }
             }
             self.revision += 1;
             emit(Sentence {
@@ -131,10 +172,11 @@ impl Results {
                 revision: self.revision,
                 text: text.into(),
                 final_text: utterance.definite,
-                start_ms: utterance.start_time,
+                start_ms: start,
+                speaker_id,
             })?;
             if utterance.definite {
-                self.finalized_end = utterance.end_time;
+                self.finalized_end = self.finalized_end.max(end.unwrap_or(start));
                 self.id += 1;
                 self.revision = 0;
                 self.partial.clear();
@@ -182,6 +224,10 @@ pub(super) async fn recognize(
                     "show_utterances": true, "result_type": "single"
                 }
             });
+            let speaker_labels = profile.uses_speaker_labels();
+            if speaker_labels {
+                initial["request"]["enable_speaker_info"] = json!(true);
+            }
             if language == "繁体中文" {
                 initial["request"]["output_zh_variant"] = json!("traditional");
             }
@@ -196,7 +242,7 @@ pub(super) async fn recognize(
             if finished {
                 return Err("豆包实时 ASR 任务未就绪。".into());
             }
-            let mut results = Results::default();
+            let mut results = Results { speaker_labels, ..Results::default() };
             results.accept(ack, &mut emit)?;
             ready.send(()).map_err(|_| "实时 ASR 采集任务已结束。")?;
 
