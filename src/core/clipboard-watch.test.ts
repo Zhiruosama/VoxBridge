@@ -57,17 +57,20 @@ describe('explicit clipboard watching', () => {
     await tick();
     expect(f.onText.mock.calls).toEqual([['External text'], ['Our translation']]);
   });
-  it('rejects oversized text without truncating it into a paid request, and supports 2000 Unicode characters', async () => {
+  it('supports 10,000 Unicode characters and preserves edits near the end of a long copy', async () => {
     const f = fixture();
     f.watcher.start();
     await tick(0);
-    f.copy('😀'.repeat(2001));
+    f.copy('😀'.repeat(10_001));
     await tick(1000);
     expect(f.onText).not.toHaveBeenCalled();
-    expect(f.onStatus.mock.calls.at(-1)?.[0]).toContain('2000');
-    f.copy('😀'.repeat(2000));
+    expect(f.onStatus.mock.calls.at(-1)?.[0]).toContain('10000');
+    const prefix = '😀'.repeat(9_999);
+    f.copy(prefix + '🙂');
     await tick();
-    expect(f.onText.mock.calls[0][0]).toHaveLength(4000);
+    f.copy(prefix + '😃');
+    await tick();
+    expect(f.onText.mock.calls).toEqual([[prefix + '🙂'], [prefix + '😃']]);
   });
   it('never overlaps slow reads and discards a late read after stop', async () => {
     const f = fixture();

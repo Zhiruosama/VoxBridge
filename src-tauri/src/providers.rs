@@ -243,7 +243,35 @@ pub fn cancel_translation(
     Ok(())
 }
 
+const SHORT_TRANSLATION_LIMIT: usize = 2_000;
+const TEXT_TRANSLATION_LIMIT: usize = 10_000;
+const TRANSLATION_TIMEOUT: Duration = Duration::from_secs(15);
+const LONG_TEXT_TIMEOUT: Duration = Duration::from_secs(120);
+pub(crate) const TRANSLATION_RESPONSE_LIMIT: usize = 1_048_576;
+
+fn manual_translation_timeout(
+    text: &str,
+    model: &str,
+    text_tool: bool,
+) -> Result<Duration, String> {
+    let limit = if text_tool {
+        TEXT_TRANSLATION_LIMIT
+    } else {
+        SHORT_TRANSLATION_LIMIT
+    };
+    let length = text.chars().take(limit + 1).count();
+    if text.trim().is_empty() || length > limit || model.trim().is_empty() {
+        return Err(format!("请输入有效文本（最多 {limit} 字符）和模型 ID。"));
+    }
+    Ok(if length > SHORT_TRANSLATION_LIMIT {
+        LONG_TEXT_TIMEOUT
+    } else {
+        TRANSLATION_TIMEOUT
+    })
+}
+
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn translate(
     profile: TranslationProfile,
     text: String,
@@ -251,14 +279,17 @@ pub async fn translate(
     target: String,
     request_id: String,
     speech_context: Option<Vec<prosody::ConversationTurn>>,
+    text_tool: Option<bool>,
     requests: tauri::State<'_, Requests>,
 ) -> Result<String, String> {
     if profile.stage != "translation" || profile.adapter != "openai_chat_completions" {
         return Err("此配置不支持文字翻译。".into());
     }
-    if text.trim().is_empty() || text.chars().count() > 2000 || profile.model_id.trim().is_empty() {
-        return Err("请输入有效文本（最多 2000 字符）和模型 ID。".into());
-    }
+    let timeout = manual_translation_timeout(
+        &text,
+        &profile.model_id,
+        text_tool == Some(true) && speech_context.is_none(),
+    )?;
     if request_id.is_empty() || request_id.len() > 128 || source.len() > 100 || target.len() > 100 {
         return Err("请求参数无效。".into());
     }
@@ -277,7 +308,7 @@ pub async fn translate(
         _ = token.cancelled() => Err("翻译已停止。".into()),
         result = async {
             let secret = crate::credentials::read_async(&profile.id).await?;
-            request_translation_mode(url, secret, &profile.model_id, &text, &source, &target, profile.thinking, &TranslationContext::default(), profile.translation_prompt.as_deref(), speech_context.as_deref()).await
+            request_translation_mode(url, secret, &profile.model_id, &text, &source, &target, profile.thinking, &TranslationContext::default(), profile.translation_prompt.as_deref(), speech_context.as_deref(), timeout).await
         } => result,
     };
     requests
@@ -298,7 +329,6 @@ fn translation_client() -> Result<&'static reqwest::Client, String> {
             reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(10))
-                .timeout(Duration::from_secs(15))
                 .pool_idle_timeout(Duration::from_secs(60))
                 .pool_max_idle_per_host(3)
                 .build()
@@ -361,7 +391,17 @@ async fn request_translation_with_context(
     prompt: Option<&str>,
 ) -> Result<String, String> {
     request_translation_mode(
-        url, secret, model, text, source, target, thinking, context, prompt, None,
+        url,
+        secret,
+        model,
+        text,
+        source,
+        target,
+        thinking,
+        context,
+        prompt,
+        None,
+        TRANSLATION_TIMEOUT,
     )
     .await
 }
@@ -378,6 +418,7 @@ async fn request_translation_mode(
     context: &TranslationContext,
     prompt: Option<&str>,
     speech_context: Option<&[prosody::ConversationTurn]>,
+    timeout: Duration,
 ) -> Result<String, String> {
     let style = translation_style(prompt)?;
     let style = if target == "粤语" {
@@ -419,6 +460,7 @@ async fn request_translation_mode(
         let response = client
             .post(url.clone())
             .bearer_auth(&secret)
+            .timeout(timeout)
             .json(&payload)
             .send()
             .await
@@ -442,8 +484,14 @@ async fn request_translation_mode(
         // Bound response size without logging potentially sensitive server content.
         let mut response = response;
         let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|_| "翻译响应中断。")? {
-            if bytes.len() + chunk.len() > 1_048_576 {
+        while let Some(chunk) = response.chunk().await.map_err(|error| {
+            if error.is_timeout() {
+                "翻译超时，请重试或更换服务。"
+            } else {
+                "翻译响应中断。"
+            }
+        })? {
+            if bytes.len() + chunk.len() > TRANSLATION_RESPONSE_LIMIT {
                 return Err("翻译响应超过大小限制。".into());
             }
             bytes.extend_from_slice(&chunk);

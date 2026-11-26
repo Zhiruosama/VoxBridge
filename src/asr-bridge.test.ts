@@ -63,8 +63,16 @@ it('uses the selected prompt for both listening subtitles and typed translation'
     expect.objectContaining({ request: expect.objectContaining({ translationProfile: profile }) }),
   );
   await translate(profile, '左逆', '简体中文', '英语', 'typed');
+  expect(diagnosticInvoke).toHaveBeenLastCalledWith('translate', {
+    profile,
+    text: '左逆',
+    source: '简体中文',
+    target: '英语',
+    requestId: 'typed',
+  });
+  await translate(profile, '左逆', '简体中文', '英语', 'text', 'text-tool');
   expect(diagnosticInvoke).toHaveBeenLastCalledWith(
     'translate',
-    expect.objectContaining({ profile, text: '左逆', target: '英语' }),
+    expect.objectContaining({ profile, textTool: true }),
   );
 });

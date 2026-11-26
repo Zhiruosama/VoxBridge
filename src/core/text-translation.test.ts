@@ -36,6 +36,7 @@ describe('independent text translation', () => {
       '自动识别',
       '日语',
       expect.any(String),
+      'text-tool',
     );
     expect(controller.getSnapshot()).toMatchObject({
       input: '你好\n朋友',
@@ -109,18 +110,26 @@ describe('independent text translation', () => {
   it('rejects blank, oversized and unconfigured input before any request', async () => {
     const { controller, dependencies, profile } = fixture();
     await controller.submit(profile);
-    controller.update({ input: '字'.repeat(2001) });
+    const oversized = '字'.repeat(10_001);
+    controller.update({ input: oversized });
     await controller.submit(profile);
+    expect(controller.getSnapshot()).toMatchObject({
+      input: oversized,
+      error: '每次最多翻译 10000 个字符。',
+    });
     controller.update({ input: '你好' });
+    expect(controller.getSnapshot().error).toBe('');
     await controller.submit({ ...profile, modelId: '' });
     expect(dependencies.translate).not.toHaveBeenCalled();
     expect(controller.getSnapshot().error).toBeTruthy();
   });
   it('counts Unicode characters, supports the boundary and bypasses explicit same language', async () => {
     const { controller, dependencies, profile } = fixture();
-    controller.update({ input: '😀'.repeat(2000) });
+    const input = '😀'.repeat(10_000);
+    controller.update({ input });
     await controller.submit(profile);
     expect(dependencies.translate).toHaveBeenCalledTimes(1);
+    expect(dependencies.translate.mock.calls[0][1]).toBe(input);
     controller.update({ input: 'Hello', source: '英语' });
     await controller.submit(profile);
     expect(dependencies.translate).toHaveBeenCalledTimes(1);

@@ -9,7 +9,11 @@ import {
   showTextOverlay,
 } from '../bridge';
 import { ClipboardWatcher } from '../core/clipboard-watch';
-import type { TextTranslationController } from '../core/text-translation';
+import {
+  exceedsTextTranslationLimit,
+  textTranslationLimitError,
+  type TextTranslationController,
+} from '../core/text-translation';
 import type { TextOverlayAction } from '../core/text-overlay';
 import type { Settings } from '../core/types';
 import { profileFor } from '../core/settings';
@@ -141,17 +145,23 @@ export function useTextTools(
   }, [watcher]);
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const version = useRef(Date.now());
-  const canTranslate = !!state.input.trim() && [...state.input].length <= 2000 && !state.busy;
+  const text = state.input.trim();
+  const canTranslate = !!text && !exceedsTextTranslationLimit(text) && !state.busy;
   useEffect(() => {
     if (!desktop) return;
     void publishTextOverlay({
       version: ++version.current,
       appearance: settings.textOverlay,
       uiLanguage: settings.uiLanguage,
-      result: [...state.result].slice(0, 12000).join(''),
+      result: state.result,
       target: state.resultTarget || state.target,
       busy: state.busy,
-      error: state.error ? recoveryHint(state.error).slice(0, 400) : '',
+      error:
+        state.error === textTranslationLimitError
+          ? state.error
+          : state.error
+            ? recoveryHint(state.error).slice(0, 400)
+            : '',
       canTranslate,
       watching,
       automatic,

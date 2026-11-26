@@ -67,6 +67,40 @@ fn raw_sequence(
     (url, server)
 }
 
+#[tokio::test]
+async fn long_text_tool_sends_and_receives_the_full_text() {
+    let text = "你好，朋友。".repeat(1_666) + "再见朋友";
+    assert_eq!(text.chars().count(), 10_000);
+    let timeout = manual_translation_timeout(&text, "test", true).unwrap();
+    assert_eq!(timeout, LONG_TEXT_TIMEOUT);
+    assert!(manual_translation_timeout(&text, "test", false).is_err());
+    assert!(manual_translation_timeout(&format!("{text}字"), "test", true).is_err());
+    assert_eq!(
+        manual_translation_timeout(&"字".repeat(2_000), "test", false),
+        Ok(TRANSLATION_TIMEOUT)
+    );
+    let expected = "Hello, my friend. ".repeat(1_666) + "Goodbye, my friend.";
+    let reply =
+        serde_json::json!({"choices":[{"finish_reason":"stop","message":{"content":expected}}]});
+    let (url, server) = raw_sequence(vec![reply.to_string()]);
+    let result = request_translation_mode(
+        url,
+        "fixture".into(),
+        "test",
+        &text,
+        "简体中文",
+        "英语",
+        None,
+        &TranslationContext::default(),
+        None,
+        None,
+        timeout,
+    )
+    .await;
+    assert_eq!(result.unwrap(), expected);
+    assert_eq!(server.join().unwrap()[0]["messages"][1]["content"], text);
+}
+
 const FRAGMENT_REPLY: &str = "I'm not familiar with the word \"usion\" — it doesn't appear to be a standard English word. Could you clarify what you mean? If it's a typo, I can help you figure out the intended word.";
 
 #[tokio::test]

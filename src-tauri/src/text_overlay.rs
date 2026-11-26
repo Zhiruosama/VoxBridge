@@ -1,3 +1,4 @@
+use crate::providers::TRANSLATION_RESPONSE_LIMIT;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -64,7 +65,7 @@ fn validate(snapshot: &TextSnapshot) -> Result<(), String> {
         || snapshot.version == 0
         || snapshot.version > 9_007_199_254_740_991
         || !matches!(snapshot.ui_language.as_str(), "zh-CN" | "en" | "ru")
-        || snapshot.result.chars().count() > 12000
+        || snapshot.result.len() > TRANSLATION_RESPONSE_LIMIT
         || snapshot.target.chars().count() > 32
         || snapshot.error.chars().count() > 400
     {
@@ -129,7 +130,7 @@ fn validate_action(label: &str, action: &TextAction) -> Result<(), String> {
         return Err("此操作仅限文本浮窗。".into());
     }
     if let TextAction::Copy { text } = action {
-        if text.is_empty() || text.chars().count() > 12000 {
+        if text.is_empty() || text.len() > TRANSLATION_RESPONSE_LIMIT {
             return Err("复制内容无效。".into());
         }
     }
@@ -164,8 +165,12 @@ mod tests {
         s.appearance.text_color = "#zzzzzz".into();
         assert!(validate(&s).is_err());
         s.appearance = TextAppearance::default();
-        s.result = "界".repeat(12001);
+        s.result = "界".repeat(20_000);
+        assert!(validate(&s).is_ok());
+        assert!(validate_action("text-overlay", &TextAction::Copy { text: s.result }).is_ok());
+        s.result = "界".repeat(TRANSLATION_RESPONSE_LIMIT / 3 + 1);
         assert!(validate(&s).is_err());
+        assert!(validate_action("text-overlay", &TextAction::Copy { text: s.result }).is_err());
         for action in [
             TextAction::Translate,
             TextAction::Pause,

@@ -56,9 +56,17 @@ export async function translate(
   source: string,
   target: string,
   requestId: string,
+  mode?: 'text-tool',
 ): Promise<string> {
   if (!desktop) throw new Error('真实翻译需要桌面版，密钥和请求由本机后端处理。');
-  return invoke('translate', { profile, text, source, target, requestId });
+  return invoke('translate', {
+    profile,
+    text,
+    source,
+    target,
+    requestId,
+    ...(mode === 'text-tool' ? { textTool: true } : {}),
+  });
 }
 export async function translateSpeech(
   profile: ProviderProfile,

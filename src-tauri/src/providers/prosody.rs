@@ -142,6 +142,7 @@ mod transport_tests {
             &super::super::TranslationContext::default(),
             None,
             Some(&history),
+            super::super::TRANSLATION_TIMEOUT,
         )
         .await
         .unwrap()

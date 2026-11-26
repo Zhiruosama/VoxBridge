@@ -1,3 +1,5 @@
+import { exceedsTextTranslationLimit, textTranslationLimit } from './text-translation';
+
 /** Session-only polling. No clipboard content is persisted or logged. */
 export class ClipboardWatcher {
   private generation = 0;
@@ -13,7 +15,7 @@ export class ClipboardWatcher {
     },
   ) {}
   private key(text: string) {
-    return `${text.length}:${text.slice(0, 4001)}`;
+    return `${text.length}:${text.slice(0, textTranslationLimit * 2)}`;
   }
   ignoreCopy(text: string) {
     this.own.add(this.key(text));
@@ -45,9 +47,11 @@ export class ClipboardWatcher {
       const owned = this.own.delete(key);
       if (changed) this.oversized = false;
       if (!baseline && changed && !owned && text.trim()) {
-        if ([...text].length > 2000) {
+        if (exceedsTextTranslationLimit(text)) {
           this.oversized = true;
-          this.dependencies.onStatus('剪贴板文字超过 2000 字，请手动精简后翻译。');
+          this.dependencies.onStatus(
+            `剪贴板文字超过 ${textTranslationLimit} 字符，请手动精简后翻译。`,
+          );
         } else {
           this.dependencies.onStatus('');
           this.dependencies.onText(text);

@@ -3,7 +3,11 @@ import { recoveryHint } from '../core/operation-feedback';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { textSplitRatio, textSplitStorageKey } from '../core/text-translation-layout';
 import { ArrowRight, Check, Copy, LoaderCircle, Settings2, X } from 'lucide-react';
-import { textTranslationSubmitKey, type TextTranslationController } from '../core/text-translation';
+import {
+  textTranslationLimitError,
+  textTranslationSubmitKey,
+  type TextTranslationController,
+} from '../core/text-translation';
 import { profileFor } from '../core/settings';
 import { usesBuiltinProfileName } from '../core/provider-presets';
 import type { Settings } from '../core/types';
@@ -83,6 +87,7 @@ export default function TextTranslation({
   const profile = profileFor(settings, 'translation');
   const options = languages.map((label) => ({ label, value: label }));
   const submit = tools.translate;
+  const inputTooLong = state.error === textTranslationLimitError;
   return (
     <section
       className="text-translation"
@@ -178,9 +183,7 @@ export default function TextTranslation({
             }}
           />
           <div className="text-translation-footer">
-            <span className={[...state.input].length > 2000 ? 'error' : ''}>
-              {[...state.input].length} / 2000
-            </span>
+            <span>{[...state.input].length}</span>
             <div>
               <button
                 className="subtle"
@@ -286,19 +289,23 @@ export default function TextTranslation({
           </div>
           {state.error && (
             <div className="text-translation-error" role="alert">
-              <p>{t(recoveryHint(state.error))}</p>
-              <div className="recovery-actions">
-                {state.canRetry && (
-                  <button disabled={state.busy} onClick={() => void controller.retry(profile)}>
-                    {t('重试上一条')}
-                  </button>
-                )}
-                <button onClick={onSettings}>{t('翻译设置')}</button>
-              </div>
-              <details>
-                <summary>{t('错误详情')}</summary>
-                <p>{t(state.error)}</p>
-              </details>
+              <p>{t(inputTooLong ? state.error : recoveryHint(state.error))}</p>
+              {!inputTooLong && (
+                <>
+                  <div className="recovery-actions">
+                    {state.canRetry && (
+                      <button disabled={state.busy} onClick={() => void controller.retry(profile)}>
+                        {t('重试上一条')}
+                      </button>
+                    )}
+                    <button onClick={onSettings}>{t('翻译设置')}</button>
+                  </div>
+                  <details>
+                    <summary>{t('错误详情')}</summary>
+                    <p>{t(state.error)}</p>
+                  </details>
+                </>
+              )}
             </div>
           )}
           <div className="text-translation-footer" role="status">

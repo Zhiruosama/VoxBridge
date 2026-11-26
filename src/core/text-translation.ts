@@ -5,6 +5,15 @@ import type { ProviderProfile } from './types';
 import { validateProfile } from './settings';
 
 type Dependencies = Pick<typeof import('../bridge'), 'translate' | 'cancelTranslation'>;
+export const textTranslationLimit = 10_000;
+export const textTranslationLimitError = `每次最多翻译 ${textTranslationLimit} 个字符。`;
+
+export function exceedsTextTranslationLimit(text: string): boolean {
+  if (text.length <= textTranslationLimit) return false;
+  if (text.length > textTranslationLimit * 2) return true;
+  return [...text].length > textTranslationLimit;
+}
+
 export interface TextTranslationState {
   input: string;
   source: string;
@@ -50,7 +59,13 @@ export class TextTranslationController {
     };
   };
   update(patch: Partial<Pick<TextTranslationState, 'input' | 'source' | 'target'>>) {
-    if (patch.input !== undefined && !patch.input.trim() && !this.state.busy) {
+    const text = patch.input?.trim();
+    if (
+      text !== undefined &&
+      !this.state.busy &&
+      (!text ||
+        (this.state.error === textTranslationLimitError && !exceedsTextTranslationLimit(text)))
+    ) {
       this.failed = null;
       this.set({ ...patch, error: '', canRetry: false });
     } else this.set(patch);
@@ -91,12 +106,11 @@ export class TextTranslationController {
       this.set({ error: '', canRetry: false });
       return;
     }
-    const invalid =
-      [...text].length > 2000
-        ? '每次最多翻译 2000 个字符。'
-        : profile.stage !== 'translation'
-          ? '请选择文字翻译服务。'
-          : validateProfile(profile);
+    const invalid = exceedsTextTranslationLimit(text)
+      ? textTranslationLimitError
+      : profile.stage !== 'translation'
+        ? '请选择文字翻译服务。'
+        : validateProfile(profile);
     if (invalid) {
       this.set({ error: invalid });
       return;
@@ -111,7 +125,14 @@ export class TextTranslationController {
         source === target
           ? text
           : await task.run(() =>
-              this.dependencies.translate(structuredClone(profile), text, source, target, request),
+              this.dependencies.translate(
+                structuredClone(profile),
+                text,
+                source,
+                target,
+                request,
+                'text-tool',
+              ),
             );
       if (this.request !== request) return;
       if (!result.trim()) throw new Error('翻译服务未返回有效译文，请重试或更换模型。');
